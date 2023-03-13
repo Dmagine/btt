@@ -325,7 +325,8 @@ class ATDDTuner(Tuner):
                         self.final_params.update({key: self.sug_params[key]})
                         self.good_rectify_flag_list.append(True)
                         if_rectify_flag = True
-            if if_rectify_flag is True:
+            if if_rectify_flag is True and self.final_params not in self.id_parameters_dict_dict.values():
+                # e.g. bn_layer期望为True但是相当于没改！
                 return
 
         for key in self.sug_params:
