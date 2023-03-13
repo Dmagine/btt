@@ -375,6 +375,8 @@ class ATDDTuner(Tuner):
                 if d <= self.duration_list[i]:
                     p = self.probability_list[i - 1] if i != 0 else self.base_p
                     break
+            if p is None:
+                p = 1
         if self.rectify_probability is None or p != self.rectify_probability:
             s = " ".join(["update rectify probability:", str(p), "execDuration:", str(d), "maxDuration:", str(md)])
             logger.info(s)
