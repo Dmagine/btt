@@ -450,7 +450,7 @@ class ATDDTuner(Tuner):
             self.data_cond = result_dict["data_cond"]
             self.weight_cond = result_dict["weight_cond"]
             self.lr_cond = result_dict["lr_cond"]
-            logger.info(" ".join(["update optimal:", result_dict["trial_id"], result_dict["default"]]))
+            logger.info(" ".join(["update optimal:", result_dict["trial_id"], str(result_dict["default"])]))
             logger.info(" ".join(["symptom: (at dd wd)",
                                   str(self.at_symptom), str(self.dd_symptom), str(self.wd_symptom)]))
             logger.info(" ".join(["condition (d w l):",
