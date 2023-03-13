@@ -1,0 +1,82 @@
+{
+  "bn_layer": {
+    "_type": "choice",
+    "_value": [
+      true,
+      false
+    ]
+  },
+  "act_func": {
+    "_type": "choice",
+    "_value": [
+      "relu",
+      "leaky_relu",
+      "relu6"
+    ]
+  },
+  "grad_clip": {
+    "_type": "choice",
+    "_value": [
+      true,
+      false
+    ]
+  },
+  "init": {
+    "_type": "choice",
+    "_value": [
+      "no",
+      "kaiming",
+      "xavier"
+    ]
+  },
+  "opt": {
+    "_type": "choice",
+    "_value": [
+      "sgd",
+      "adam",
+      "adadelta"
+    ]
+  },
+  "batch_size": {
+    "_type": "randint",
+    "_value": [
+      50,
+      500
+    ]
+  },
+  "lr": {
+    "_type": "loguniform",
+    "_value": [
+      0.00001,
+      100000
+    ]
+  },
+  "gamma": {
+    "_type": "uniform",
+    "_value": [
+      0,
+      1
+    ]
+  },
+  "weight_decay": {
+    "_type": "uniform",
+    "_value": [
+      0,
+      1
+    ]
+  },
+  "hidden_size": {
+    "_type": "randint",
+    "_value": [
+      50,
+      100
+    ]
+  },
+  "num_layers": {
+    "_type": "randint",
+    "_value": [
+      1,
+      5
+    ]
+  }
+}

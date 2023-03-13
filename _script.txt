@@ -1,0 +1,6 @@
+nnictl stop --port 8080
+nnictl create --config ./atdd_double_inspector_tuner.yaml --port 8080
+
+
+nnictl stop --port 8081
+nnictl view ebdkrf7v --port 8081
