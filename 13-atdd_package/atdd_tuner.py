@@ -56,7 +56,7 @@ class ATDDTuner(Tuner):
 
         # self.id_symptom_dict = {}
         # self.id_metric_dict = {}
-        self.id_parameters_dict_dict = {}
+        self.id_parameters_dict_dict = {} # key: parameter_id !!!
 
         # self.optimal_parameter_dict = None
         # self.optimal_parameter_metric = None
@@ -393,7 +393,8 @@ class ATDDTuner(Tuner):
             pass  # 不修复
         else:
             s = " ".join([str(self.at_symptom), str(self.dd_symptom), str(self.wd_symptom)])
-            logger.info(" ".join(["optimal trial_id:", self.optimal_dict["result_dict"]["trial_id"]]))
+            # logger.info(" ".join(["optimal trial_id:", self.optimal_dict["result_dict"]["trial_id"]]))
+            logger.info(" ".join(["optimal trial_id:", self.optimal_dict["trial_id"]]))
             logger.info(" ".join(["rectify symptom: at dd wd :", s]))
             # logger.info(" ".join(["pre param:", str(self.old_params)]))
             # logger.info(" ".join(["sug param:", str(self.sug_params)]))
@@ -420,14 +421,7 @@ class ATDDTuner(Tuner):
         self.id_parameters_dict_dict[parameter_id] = params
         return params
 
-    def update_optimal(self, parameter_id, result_dict):
-        # if self.optimal_parameter_metric is None:
-        #     self._update_optimal_metric(parameter_id, metric_value, symptom)
-        # else:
-        #     if self.optimize_mode is OptimizeMode.Maximize and metric_value > self.optimal_parameter_metric:
-        #         self._update_optimal_metric(parameter_id, metric_value, symptom)
-        #     if self.optimize_mode is OptimizeMode.Minimize and metric_value < self.optimal_parameter_metric:
-        #         self._update_optimal_metric(parameter_id, metric_value, symptom)
+    def update_optimal(self, parameter_id, trial_id, result_dict):
         update_flag = False
         if self.optimal_dict is None:
             update_flag = True
@@ -441,6 +435,7 @@ class ATDDTuner(Tuner):
 
         if update_flag is True:
             d = {}
+            d.update({"trial_id": trial_id})
             d.update({"result_dict": result_dict})
             d.update({"parameters_dict": self.id_parameters_dict_dict[parameter_id]})
             self.optimal_dict = d
@@ -451,18 +446,19 @@ class ATDDTuner(Tuner):
             self.data_cond = result_dict["data_cond"]
             self.weight_cond = result_dict["weight_cond"]
             self.lr_cond = result_dict["lr_cond"]
-            logger.info(" ".join(["update optimal:", result_dict["trial_id"], str(result_dict["default"])]))
+            logger.info(" ".join(["update optimal:", trial_id, str(result_dict["default"])]))
             logger.info(" ".join(["symptom: (at dd wd)",
                                   str(self.at_symptom), str(self.dd_symptom), str(self.wd_symptom)]))
             logger.info(" ".join(["condition (d w l):",
                                   str(self.data_cond), str(self.weight_cond), str(self.lr_cond)]))
 
     def receive_trial_result(self, parameter_id, parameters, value: Union[dict, float], **kwargs):
-        logger.info("send final_result_dict: %s: %s" % (value["trial_id"], value["step_counter"]))
+        trial_id = kwargs["trial_job_id"]
+        logger.info("send final_result_dict: %s: %s" % (trial_id, value["step_counter"]))
         logger.info("stop_signal: (assess inspect) %s: %s %s" % \
-                    (value["trial_id"], value["assessor_stop"], value["inspector_stop"]))
-        logger.debug("final_result_dict: %s: %s" % (value["trial_id"], str(value)))
-        self.update_optimal(parameter_id, value)
+                    (trial_id, value["assessor_stop"], value["inspector_stop"]))
+        logger.debug("final_result_dict: %s: %s" % (trial_id, str(value)))
+        self.update_optimal(parameter_id, trial_id, value)
 
         reward = extract_scalar_reward(value)
         # restore the paramsters contains '_index'

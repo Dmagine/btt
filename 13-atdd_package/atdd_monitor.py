@@ -70,7 +70,7 @@ class ATDDMonitor:
         pass
 
     def get_intermediate_default_metric_value(self):
-        if if_enable(["val"]) and "val" in self.intermediate_default:
+        if if_enable(["val"]) and "val" in self.intermediate_default: # e.g. "val_acc"
             if if_enable(["acc"]) and "acc" in self.intermediate_default:
                 return self.val_acc_list[-1]
             if if_enable(["reward"]) and "reward" in self.intermediate_default:
@@ -124,9 +124,16 @@ class ATDDMonitor:
         d.update({"val_acc": self.val_acc_list[-1] if if_enable(["acc", "val"]) else None})
         d.update({"val_loss": self.val_loss_list[-1] if if_enable(["loss", "val"]) else None})
         d.update({"val_reward": self.val_reward_list[-1] if if_enable(["reward", "val"]) else None})
+        d.update({"step_counter": self.step_counter})
+        return d
+
+    def get_additional_v_result(self):
+        d = {}
         d.update({"param_has_inf": self.param_has_inf})
         d.update({"param_grad_zero_rate": self.param_grad_zero_rate})
-        d.update({"step_counter": self.step_counter})
+        d.update({"data_cond": self.data_cond})
+        d.update({"weight_cond": self.weight_cond})
+        d.update({"lr_cond": self.lr_cond})
         return d
 
     def get_basic_l_result(self):
@@ -144,7 +151,6 @@ class ATDDMonitor:
 
         d = {}
         d.update({"param_grad_abs_ave_list": self.param_grad_abs_ave_list})
-        d.update({"param_grad_zero_rate": self.param_grad_zero_rate})
         d.update({"module_name_flow_2dlist": self.module_name_flow_2dlist})
         d.update({"module_name_list": self.module_name_list})
         return d
@@ -156,7 +162,6 @@ class ATDDMonitor:
 
         d = {}
         d.update({"param_has_inf": self.param_has_inf})
-        # d.update({"poor_weight_list": self.poor_weight_list}) # param_val_var_list
         d.update({"param_val_var_list": self.param_val_var_list})
         d.update({"param_grad_zero_rate": self.param_grad_zero_rate})
         d.update({"param_grad_abs_ave_list": self.param_grad_abs_ave_list})
@@ -166,10 +171,10 @@ class ATDDMonitor:
 
     def get_result_4_tuner(self):
         d = {}
-        d.update({"trial_id": nni.get_trial_id()})
         d.update({"data_cond": self.data_cond})
         d.update({"weight_cond": self.weight_cond})
         d.update({"lr_cond": self.lr_cond})
+        # d.update({"trial_id": nni.get_trial_id()})
         return d
 
     def get_test_result(self):
@@ -182,6 +187,7 @@ class ATDDMonitor:
     def get_intermediate_dict(self):
         d = {"default": self.get_intermediate_default_metric_value()}
         d.update(self.get_basic_v_result())
+        d.update(self.get_additional_v_result())
         d.update(self.get_result_4_inspector())
         d.update(self.get_result_4_assessor())
         d.update(self.get_basic_l_result())
@@ -199,21 +205,12 @@ class ATDDMonitor:
         d.update(self.get_basic_v_result())
         d.update(self.get_test_result())
         # d.update(self.get_result_4_inspector())
-        d.update(self.get_result_4_assessor())
         # d.update(self.get_basic_l_result())
-        d.update(self.get_result_4_tuner())  # wusuowei
+        d.update(self.get_result_4_tuner())
 
         return d
 
     def init_cond(self, opt, data_loader_list, lr):
-        # if if_enable(["model"]):
-        #     for (module_name, module) in model.named_modules():
-        #         if type(module) in [nn.Conv2d, nn.Linear, nn.RNN, nn.LSTM]:
-        #             for (param_name, param) in module.named_parameters():
-        #                 if "weight" in param_name:
-        #                     if torch.sum(param > 1) + torch.sum(param < -1):
-        #                         # self.improper_weight_init = True
-        #                         self.weight_cond = False
         if if_enable(["opt"]):
             self.weight_cond = True
             for group in opt.param_groups:

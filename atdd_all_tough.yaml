@@ -42,7 +42,7 @@ advisor:
           k: 1
           base_probability: 0.1
           max_probability: 0.95
-          start_duration_float: 0.75
+          start_duration_float: 0.9 ####
           end_duration_float: 1.0
           same_retry_maximum: 10
           retained_parameter_list: [ "bn_layer", "act_func", "grad_clip", "init", "opt", "batch_size", "lr", "epoch" ]

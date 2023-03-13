@@ -48,8 +48,10 @@ class ATDDAssessor(Assessor):
 
         self.messenger = None
         # top
+        self.tmp_trial_id = None
         self.result_dict = None
         self.step_acc_loss_list_dict = None
+
         return
 
     def complete_config_by_default(self):
@@ -188,13 +190,13 @@ class ATDDAssessor(Assessor):
             self.step_acc_loss_list_dict[self.cur_step]["acc_list"].append(acc_list[-1])
             d = self.step_acc_loss_list_dict
             if acc_list[-1] > np.percentile(d[self.cur_step]["acc_list"], 95):
-                logger.info(" ".join(["top acc performance:", self.result_dict["trial_id"], str(acc_list[-1])]))
+                logger.info(" ".join(["top acc performance:", self.tmp_trial_id, str(acc_list[-1])]))
                 return True
         if loss_list is not None and len(loss_list) > 0:
             self.step_acc_loss_list_dict[self.cur_step]["loss_list"].append(loss_list[-1])
             d = self.step_acc_loss_list_dict
             if loss_list[-1] < np.percentile(d[self.cur_step]["loss_list"], 5):
-                logger.info(" ".join(["top loss performance:", self.result_dict["trial_id"], str(loss_list[-1])]))
+                logger.info(" ".join(["top loss performance:", self.tmp_trial_id, str(loss_list[-1])]))
                 return True
         return False
 
@@ -205,6 +207,7 @@ class ATDDAssessor(Assessor):
         Returns AssessResult.Good or AssessResult.Bad.
         """
         # log
+        self.tmp_trial_id = trial_id
         self.messenger = ATDDMessenger(trial_id)
         self.result_dict = dict(result_dict_list[-1])
         logger.info("send intermediate_result_dict: %s: %s" % (trial_id, self.result_dict["step_counter"]))
