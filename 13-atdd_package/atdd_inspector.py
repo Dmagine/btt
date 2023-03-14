@@ -107,8 +107,8 @@ class ATDDInspector:
         if self.step_counter < self.start_step:
             logger.info(" ".join(["step_counter:", str(self.step_counter), "lt", "start_step", str(self.start_step)]))
             return self.get_none_symptom_dict()
-        if self.top_performance():
-            return self.get_none_symptom_dict()
+        # if self.top_performance():
+        #     return self.get_none_symptom_dict()
 
         self.judge_symptom()
         d = self.get_default_symptom_dict()
@@ -177,11 +177,11 @@ class ATDDInspector:
 
     def top_performance(self):
         if self.acc_list is not None:
-            if self.last_acc > np.percentile(self.acc_list, 95):
+            if self.last_acc >= np.percentile(self.acc_list, 100):  # [1,2,3]100 ->3 !!!!!!!
                 logger.info(" ".join(["top acc performance:", nni.get_trial_id(), str(self.last_acc)]))
                 return True
         if self.loss_list is not None and len(self.loss_list) > 0:
-            if self.loss_list[-1] < np.percentile(self.loss_list, 5):
+            if self.loss_list[-1] <= np.percentile(self.loss_list, 0):
                 logger.info(" ".join(["top loss performance:", nni.get_trial_id(), str(self.loss_list[-1])]))
                 return True
         return False
@@ -252,7 +252,7 @@ class ATDDInspector:
         if not self.if_enable(["loss"]):
             return False
         if self.step_counter > self.window_size:
-            if loss_list[-1] >= get_ave(loss_list[-self.window_size - 1:-1]):
+            if loss_list[-1] >= get_ave(loss_list[-self.window_size:]): ###
                 return True
         return False
 
@@ -263,7 +263,7 @@ class ATDDInspector:
         if not self.if_enable(["acc"]):
             return False
         if self.step_counter > self.window_size:
-            if self.last_acc <= get_ave(self.acc_list[-self.window_size - 1:-1]):
+            if self.last_acc <= get_ave(self.acc_list[-self.window_size:]): ###
                 return True
         return False
 

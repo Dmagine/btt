@@ -189,13 +189,13 @@ class ATDDAssessor(Assessor):
         if acc_list is not None and len(acc_list) > 0:
             self.step_acc_loss_list_dict[self.cur_step]["acc_list"].append(acc_list[-1])
             d = self.step_acc_loss_list_dict
-            if acc_list[-1] > np.percentile(d[self.cur_step]["acc_list"], 95):
+            if acc_list[-1] >= np.percentile(d[self.cur_step]["acc_list"], 100):
                 logger.info(" ".join(["top acc performance:", self.tmp_trial_id, str(acc_list[-1])]))
                 return True
         if loss_list is not None and len(loss_list) > 0:
             self.step_acc_loss_list_dict[self.cur_step]["loss_list"].append(loss_list[-1])
             d = self.step_acc_loss_list_dict
-            if loss_list[-1] < np.percentile(d[self.cur_step]["loss_list"], 5):
+            if loss_list[-1] <= np.percentile(d[self.cur_step]["loss_list"], 0):
                 logger.info(" ".join(["top loss performance:", self.tmp_trial_id, str(loss_list[-1])]))
                 return True
         return False
@@ -218,8 +218,8 @@ class ATDDAssessor(Assessor):
         if cur_step not in self.cmp_step_list:
             return self.send_msg()
 
-        if self.top_performance():
-            return self.send_msg()
+        # if self.top_performance():
+        #     return self.send_msg()
 
         # calculate this trial
         metric_score_dict = {}  # metric name -> metric value window ave

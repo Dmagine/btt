@@ -1,19 +1,4 @@
-experiment_name: "atdd-inspector-tuner"
-searchSpaceFile: search_space.json
-
-
-trial_concurrency: 4
-maxExperimentDuration: 1h
-trial_command: python3.8 atdd_model.py
-trial_code_directory: .
-training_service:
-  platform: local
-
-
-advisor:
-  codeDirectory: 13-atdd_package
-  className: atdd_advisor.ATDDAdvisor
-  classArgs:
+classArgs:
     shared:
       model_num: 1
       enable_dict:
@@ -25,6 +10,13 @@ advisor:
         epoch: true
         val: true
         test: true
+        data: true
+        lr: true
+    monitor:
+      classArgs:
+        report:
+          intermediate_default: val_acc
+          final_default: val_acc
     tuner:
       classArgs:
         basic:
@@ -33,26 +25,39 @@ advisor:
           rule_name_list: ["at","dd","wd"]
         rectify:
           k: 1
-          base_probability: 0.9 # 0.1
+          base_probability: 0.1
           max_probability: 0.95
-          start_duration_float: 0.75
+          start_duration_float: 0.9 ####
           end_duration_float: 1.0
           same_retry_maximum: 10
           retained_parameter_list: [ "bn_layer", "act_func", "grad_clip", "init", "opt", "batch_size", "lr", "epoch" ]
         parallel:
           parallel_optimize: false
           constant_liar_type: min
-    monitor:
+    assessor:
       classArgs:
-        report:
-          intermediate_default: val_acc
-          final_default: val_acc
+        basic:
+          max_epoch: 20
+          maximize_metric_name_list: [ "val_acc", "sc_metric" ]
+          minimize_metric_name_list: [ "val_loss", "veg_metric","dr_metric","ol_metric" ] ##############
+        compare:
+          k: 1
+          max_percentile: 90
+          start_step_float: 0.0
+          end_step_float: 0.5
+          metric_demarcation_num: 5
+          comparable_trial_minimum: 2
+        diagnose:
+          beta1: 0.001
+          beta3: 70
+          zeta: 0.03
+          window_size_float: 0.25
     inspector:
       classArgs:
         basic:
           max_epoch: 20
           start_step_float: 0.15
-          rule_name_list: ["at","dd","wd"]
+          rule_name_list: ["at","dd","wd"] ###################
         diagnose:
           alpha1: 0 # ...
           alpha2: 0 # ...
@@ -71,9 +76,3 @@ advisor:
           dd_threshold_VG: 1.e-7
           # wd dd
           window_size_float: 0.25
-
-
-
-
-
-
