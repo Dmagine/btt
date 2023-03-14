@@ -1,6 +1,6 @@
 import os
-from collections import namedtuple
 
+import yaml
 from nni.common.serializer import dump, load
 from nni.runtime.env_vars import _load_env_vars, _trial_env_var_names, _dispatcher_env_var_names
 
@@ -19,7 +19,7 @@ class ATDDMessenger:
         self.platform_trials_dir = None
         # self.step_counter = 0
 
-    def get_file_path(self, key, idx=None):
+    def get_file_path(self, key):
         file_path = None
         # file_path = None
         # if key in self.trial_info_path_dict.keys():
@@ -67,21 +67,23 @@ class ATDDMessenger:
             if not os.path.exists(self.platform_trials_dir):
                 os.makedirs(self.platform_trials_dir)
             file_path = os.path.join(self.platform_trials_dir, info_file_name_dict[key])
+        if key == "default_config":
+            file_path = "default_tough.yaml"
         return file_path
 
-    def write_info(self, info_dict, key, idx=None):
+    def write_json_info(self, info_dict, key):
         dumped_info = dump(info_dict)
         data = (dumped_info + '\n').encode('utf8')
         assert len(data) < 1000000, 'Info too long'
 
-        file_path = self.get_file_path(key, idx)
+        file_path = self.get_file_path(key)
         file_obj = open(file_path, 'wb')
         file_obj.write(data)
         file_obj.flush()
         file_obj.close()
 
-    def read_info(self, key, idx=None):
-        file_path = self.get_file_path(key, idx)
+    def read_json_info(self, key):
+        file_path = self.get_file_path(key)
         if os.path.isfile(file_path) and os.path.getsize(file_path) > 0:
             file_obj = open(file_path, 'r')
             info_dict = load(fp=file_obj)
@@ -89,29 +91,41 @@ class ATDDMessenger:
             return info_dict
         return None
 
+    def read_yaml_info(self, key):
+        file_path = self.get_file_path(key)
+        if os.path.isfile(file_path) and os.path.getsize(file_path) > 0:
+            file_obj = open(file_path, 'r')
+            info_dict = yaml.load(file_obj, Loader=yaml.FullLoader)
+            file_obj.close()
+            return info_dict
+        return None
+
     def write_assessor_info(self, d):
-        self.write_info(d, key='assessor')
+        self.write_json_info(d, key='assessor')
 
     def read_assessor_info(self):
-        return self.read_info(key='assessor')
+        return self.read_json_info(key='assessor')
 
     def write_monitor_info(self, d):
-        self.write_info(d, key='monitor')
+        self.write_json_info(d, key='monitor')
 
     def read_monitor_info(self):
-        return self.read_info(key='monitor')
+        return self.read_json_info(key='monitor')
 
     def write_inspector_info(self, d):
-        self.write_info(d, key='inspector')
+        self.write_json_info(d, key='inspector')
 
     def read_inspector_info(self):  # for tuner
-        return self.read_info(key='inspector')
+        return self.read_json_info(key='inspector')
 
     def write_advisor_config(self, d):
-        self.write_info(d, key='advisor_config')
+        self.write_json_info(d, key='advisor_config')
 
     def read_advisor_config(self):  # for tuner
-        return self.read_info(key='advisor_config')
+        return self.read_json_info(key='advisor_config')
+
+    # def read_default_config_info(self):
+    #     return self.read_yaml_info(key='default_config')
 
 
 def get_nni_context():

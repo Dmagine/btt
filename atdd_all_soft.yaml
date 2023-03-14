@@ -16,6 +16,7 @@ advisor:
   classArgs:
     shared:
       model_num: 1
+      max_epoch: 20 ###
       enable_dict:
         acc: true
         loss: true
@@ -47,7 +48,7 @@ advisor:
     assessor:
       classArgs:
         basic:
-          max_epoch: 20
+#          max_epoch: 20
           maximize_metric_name_list: [ "sc_metric" ]
           minimize_metric_name_list: [ "val_loss" ]
         compare:
@@ -70,7 +71,7 @@ advisor:
     inspector:
       classArgs:
         basic:
-          max_epoch: 20
+#          max_epoch: 20
           start_step_float: 0.15
           rule_name_list: [ "at","dd" ]
         diagnose:

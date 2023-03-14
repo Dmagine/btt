@@ -20,8 +20,8 @@ class ATDDInspector:
         self.complete_config_by_default()
 
         self.model_num = self.shared["model_num"]
+        self.max_epoch = self.shared["max_epoch"]
         self.enable_dict = self.shared["enable_dict"]
-        self.max_epoch = self.basic["max_epoch"]
         self.start_step_float = self.basic["start_step_float"]
         self.rule_name_list = self.basic["rule_name_list"]
         self.dp = diagnose_params(**diagnose)

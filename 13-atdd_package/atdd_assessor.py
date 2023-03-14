@@ -20,8 +20,8 @@ class ATDDAssessor(Assessor):
         self.complete_config_by_default()
 
         self.model_num = self.shared["model_num"]
+        self.max_epoch = self.shared["max_epoch"]
         self.enable_dict = self.shared["enable_dict"]
-        self.max_epoch = self.basic["max_epoch"]
         self.maximize_metric_name_list = self.basic["maximize_metric_name_list"]
         self.minimize_metric_name_list = self.basic["minimize_metric_name_list"]
         self.k = self.compare["k"]

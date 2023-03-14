@@ -18,7 +18,7 @@ from nni.utils import MetricType
 # from atdd_tuner import ATDDTuner
 # from atdd_assessor import ATDDAssessor
 from atdd_messenger import ATDDMessenger
-from atdd_utils import set_seed
+from atdd_utils import set_seed, default_json
 
 _logger = logging.getLogger(__name__)
 # _logger.setLevel(logging.DEBUG)
@@ -73,69 +73,102 @@ def _pack_parameter(parameter_id, params, customized=False, trial_job_id=None, p
     return dump(ret)
 
 
+def is_default(s):
+    return s == "default"
+
+
 class ATDDAdvisor(MsgDispatcherBase):
-    def __init__(self, shared=None, tuner=None, assessor=None, monitor=None, inspector=None, seed=None):  # config dict
+    def __init__(self, seed=None, **kwargs):  # keys: shared,tuner,assessor,monitor,inspector
         super().__init__(os.environ['NNI_TUNER_COMMAND_CHANNEL'])  # ws://localhost:{port}/tuner
         # super().__init__("ws://localhost:8080/tuner")
-        # from .runtime.log import _init_logger
-        # _init_logger()
-        # os.putenv("SDK_PROCESS","dispatcher")
         _logger.info("advisor hello")
         set_seed(seed, "advisor", _logger)
-        self.shared_config = shared
-        self.tuner_config = tuner
-        self.assessor_config = assessor
-        self.monitor_config = monitor
-        self.inspector_config = inspector
+        self.component_name_list = ["monitor", "tuner", "assessor", "inspector"]
+        self.config_dict = kwargs
         self.complete_config_by_default()
         self.share_config()  # 适配 _create_algo 手动加入shared
-        self.advisor_config = None
-        self.model_num = None
-        self.init_advisor_config()
-        ATDDMessenger().write_advisor_config(self.advisor_config)
+        #######
+        # self.shared_config = self.config_dict["shared"]
+        self.tuner_config = self.config_dict["tuner"]
+        self.assessor_config = self.config_dict["assessor"]
+        # self.monitor_config = self.config_dict["monitor"]
+        # self.inspector_config = self.config_dict["inspector"]
 
-        self.tuner = _create_algo(tuner, 'tuner')
-        self.assessor = _create_algo(assessor, 'assessor') if assessor is not None else None
+        # self.model_num = None
+        # self.init_advisor_config()
+        ATDDMessenger().write_advisor_config(self.config_dict)
 
-    def if_atdd_tuner(self):
-        if "name" not in self.tuner_config.keys():
-            return True
-        return False
+        self.tuner = _create_algo(self.config_dict["tuner"], 'tuner')
+        self.assessor = _create_algo(self.config_dict["assessor"], 'assessor') \
+            if "assessor" in self.config_dict else None
 
-    def if_atdd_assessor(self):
-        if "name" not in self.assessor_config.keys():
+    def if_atdd_component_in_config(self, name):
+        if name in self.config_dict and "name" not in self.config_dict[name]:
             return True
         return False
 
     def complete_config_by_default(self):
-        if self.tuner_config is not None and self.if_atdd_tuner():
-            self.tuner_config.update({"codeDirectory": "./"})
-            self.tuner_config.update({"className": "atdd_tuner.ATDDTuner"})
-        if self.assessor_config is not None and self.if_atdd_assessor():
-            self.assessor_config.update({"codeDirectory": "./"})
-            self.assessor_config.update({"className": "atdd_assessor.ATDDAssessor"})
+        _logger.info(" ".join(["cur dir:", os.path.abspath("./")]))
+        # default = ATDDMessenger().read_default_config_info()
+        default = default_json
+        # shared
+        shared_d = default["shared"]
+        if "shared" in self.config_dict:
+            if is_default(self.config_dict["shared"]):
+                self.config_dict["shared"] = shared_d.copy()
+            else:
+                for k, v in shared_d.items():  # model_num
+                    if k not in self.config_dict["shared"] or is_default(self.config_dict["shared"][k]):
+                        self.config_dict["shared"][k] = v
+                    if type(v) is dict or k == "enable_list":  # enable_list
+                        for kk, vv in shared_d[k].items():
+                            if kk not in self.config_dict["shared"][k] or is_default(self.config_dict["shared"][k][kk]):
+                                self.config_dict["shared"][k][kk] = vv
+
+        for name in self.component_name_list:
+            if name in self.config_dict:
+                if is_default(self.config_dict[name]):
+                    self.config_dict[name] = default[name].copy()
+                ca = "classArgs"
+                dca = default[name][ca]  # default class args dict
+                if ca not in self.config_dict[name]:
+                    self.config_dict[name][ca] = {}
+                for k, v in dca.items():
+                    if k not in self.config_dict[name][ca] or is_default(self.config_dict[name][ca][k]):
+                        self.config_dict[name][ca][k] = v
+                    if type(v) is dict:
+                        for kk, vv in dca[k].items():
+                            if kk not in self.config_dict[name][ca][k] or is_default(self.config_dict[name][ca][k][kk]):
+                                self.config_dict[name][ca][k][kk] = vv
+
+        if self.if_atdd_component_in_config("tuner"):
+            self.config_dict["tuner"].update({"codeDirectory": "./"})
+            self.config_dict["tuner"].update({"className": "atdd_tuner.ATDDTuner"})
+        if self.if_atdd_component_in_config("assessor"):
+            self.config_dict["assessor"].update({"codeDirectory": "./"})
+            self.config_dict["assessor"].update({"className": "atdd_assessor.ATDDAssessor"})
 
     def share_config(self):
-        if self.tuner_config is not None and self.if_atdd_tuner():
-            self.tuner_config["classArgs"].update({"shared": self.shared_config})
-        if self.assessor_config is not None and self.if_atdd_assessor():
-            self.assessor_config["classArgs"].update({"shared": self.shared_config})
-        if self.monitor_config is not None:
-            self.monitor_config["classArgs"].update({"shared": self.shared_config})
-        if self.inspector_config is not None:
-            self.inspector_config["classArgs"].update({"shared": self.shared_config})
+        shared = self.config_dict["shared"]
+        for name in self.component_name_list:
+            if name in self.config_dict:
+                if name in ["tuner", "assessor"]:
+                    if self.if_atdd_component_in_config(name):
+                        self.config_dict[name]["classArgs"].update({"shared": shared})
+                else:
+                    self.config_dict[name]["classArgs"].update({"shared": shared})
 
-    def init_advisor_config(self):
-        if self.shared_config is not None:
-            self.model_num = self.shared_config["model_num"]
-        # default ...
-        d = {}
-        d.update({"shared": self.shared_config})
-        d.update({"tuner": self.tuner_config})
-        d.update({"assessor": self.assessor_config})
-        d.update({"monitor": self.monitor_config})
-        d.update({"inspector": self.inspector_config})
-        self.advisor_config = d
+    # def init_advisor_config(self):
+    #     if self.shared_config is not None:
+    #         self.model_num = self.shared_config["model_num"]
+    #     # default ...
+    #     d = {}
+    #     d.update({"shared": self.shared_config})
+    #     d.update({"tuner": self.tuner_config})
+    #     d.update({"assessor": self.assessor_config})
+    #     d.update({"monitor": self.monitor_config})
+    #     d.update({"inspector": self.inspector_config})
+    #     self.advisor_config = d
 
     def load_checkpoint(self):
         self.tuner.load_checkpoint()

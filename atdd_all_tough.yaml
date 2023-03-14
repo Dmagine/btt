@@ -16,6 +16,7 @@ advisor:
   classArgs:
     shared:
       model_num: 1
+      max_epoch: 20 ###
       enable_dict:
         acc: true
         loss: true
