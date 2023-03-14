@@ -1,0 +1,41 @@
+experiment_name: "atdd_ideal"
+searchSpaceFile: search_space.json
+
+
+trial_concurrency: 4
+maxExperimentDuration: 1h
+trial_command: python3.8 atdd_model.py
+trial_code_directory: .
+training_service:
+  platform: local
+
+
+advisor:
+  codeDirectory: 13-atdd_package
+  className: atdd_advisor.ATDDAdvisor
+  classArgs:
+    shared:
+      model_num: 1
+      max_epoch: 20
+      enable_dict:
+        acc: true
+        loss: true
+        reward: false
+    monitor:
+      classArgs:
+        report:
+          intermediate_default: val_acc
+          final_default: val_acc
+    tuner:
+      classArgs:
+        basic:
+          optimize_mode: maximize
+          algorithm_name: random
+    assessor: default
+    inspector: default
+
+
+
+
+
+
