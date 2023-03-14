@@ -61,7 +61,7 @@ advisor:
           max_percentile: 90
           start_step_float: 0.0
           end_step_float: 0.5
-          metric_demarcation_num: 5
+          metric_demarcation_num: 10 ####
           comparable_trial_minimum: 2
         diagnose:
           beta1: 0.001

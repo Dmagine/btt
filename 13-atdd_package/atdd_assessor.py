@@ -272,7 +272,8 @@ class ATDDAssessor(Assessor):
         for metric_name, d in out_dict.items():
             if d["flag"] is False:
                 weak_metric_msg_dict.update({"cmp_" + metric_name: "weak"})
-        if (self.metric_num > self.metric_demarcation_num and len(weak_metric_msg_dict) >= self.metric_demarcation_num) \
+        if (self.metric_num > self.metric_demarcation_num and len(weak_metric_msg_dict) >=
+            self.metric_num - self.metric_demarcation_num) \
                 or (self.metric_num <= self.metric_demarcation_num and len(weak_metric_msg_dict) != 0):
             logger.info(" ".join(["early stop weak:", trial_id, str(cur_step)]))
             logger.debug(" ".join(["Early Stopped:", trial_id, str(cur_step),
