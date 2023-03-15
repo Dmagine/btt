@@ -18,7 +18,7 @@ from nni.utils import MetricType
 # from atdd_tuner import ATDDTuner
 # from atdd_assessor import ATDDAssessor
 from atdd_messenger import ATDDMessenger
-from atdd_utils import set_seed, default_json
+from atdd_utils import set_seed
 
 _logger = logging.getLogger(__name__)
 # _logger.setLevel(logging.DEBUG)
@@ -110,7 +110,7 @@ class ATDDAdvisor(MsgDispatcherBase):
     def complete_config_by_default(self):
         _logger.info(" ".join(["cur dir:", os.path.abspath("./")]))
         default = ATDDMessenger().read_default_config_info()
-        default = default_json
+        # default = default_json
         # shared
         shared_d = default["shared"]
         if "shared" in self.config_dict:
