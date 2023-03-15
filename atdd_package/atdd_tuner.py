@@ -384,7 +384,7 @@ class ATDDTuner(Tuner):
         self.rectify_probability = p
 
     def generate_parameters(self, parameter_id, **kwargs):
-        logger.info(" ".join(["begin gen params:", "parameter_id:", parameter_id]))  ###
+        logger.info(" ".join(["begin gen params:", "parameter_id:", str(parameter_id)]))  ###
         self.update_rectify_probability()
         # logger.info(" ".join(["rectify_probability:", str(self.rectify_probability), "\n"]))
         total_params = self._get_suggestion(random_search=False, self_rval=self.rval)
