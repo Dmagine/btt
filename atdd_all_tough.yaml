@@ -11,7 +11,7 @@ training_service:
 
 
 advisor:
-  codeDirectory: 13-atdd_package
+  codeDirectory: atdd_package
   className: atdd_advisor.ATDDAdvisor
   classArgs:
     shared:

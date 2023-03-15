@@ -12,7 +12,7 @@ from torchvision import datasets, transforms
 
 import tensorboard
 
-sys.path.append("13-atdd_package")
+sys.path.append("atdd_package")
 from atdd_manager import ATDDManager
 
 # log_dir = os.path.join(os.environ["NNI_OUTPUT_DIR"], 'tensorboard')

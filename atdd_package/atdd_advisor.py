@@ -109,7 +109,7 @@ class ATDDAdvisor(MsgDispatcherBase):
 
     def complete_config_by_default(self):
         _logger.info(" ".join(["cur dir:", os.path.abspath("./")]))
-        # default = ATDDMessenger().read_default_config_info()
+        default = ATDDMessenger().read_default_config_info()
         default = default_json
         # shared
         shared_d = default["shared"]
@@ -158,18 +158,6 @@ class ATDDAdvisor(MsgDispatcherBase):
                 else:
                     self.config_dict[name]["classArgs"].update({"shared": shared})
 
-    # def init_advisor_config(self):
-    #     if self.shared_config is not None:
-    #         self.model_num = self.shared_config["model_num"]
-    #     # default ...
-    #     d = {}
-    #     d.update({"shared": self.shared_config})
-    #     d.update({"tuner": self.tuner_config})
-    #     d.update({"assessor": self.assessor_config})
-    #     d.update({"monitor": self.monitor_config})
-    #     d.update({"inspector": self.inspector_config})
-    #     self.advisor_config = d
-
     def load_checkpoint(self):
         self.tuner.load_checkpoint()
         if self.assessor is not None:
@@ -194,6 +182,7 @@ class ATDDAdvisor(MsgDispatcherBase):
     def handle_request_trial_jobs(self, data):
         # data: number or trial jobs
         ids = [_create_parameter_id() for _ in range(data)]
+        # _logger.info(" ".join(["data:", data]))
         _logger.debug("requesting for generating params of %s", ids)
         params_list = self.tuner.generate_multiple_parameters(ids, st_callback=self.send_trial_callback)
 

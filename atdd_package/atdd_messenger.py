@@ -1,4 +1,5 @@
 import os
+import sys
 
 import yaml
 from nni.common.serializer import dump, load
@@ -11,6 +12,7 @@ info_file_name_dict = {
     'advisor_config': 'advisor_config_info',
     'other': 'other_info'
 }
+
 
 class ATDDMessenger:
     def __init__(self, trial_id=None):
@@ -68,7 +70,13 @@ class ATDDMessenger:
                 os.makedirs(self.platform_trials_dir)
             file_path = os.path.join(self.platform_trials_dir, info_file_name_dict[key])
         if key == "default_config":
-            file_path = "default_tough.yaml"
+            # print("sys.path:", sys.path)
+            d = "./"
+            for p in sys.path:
+                if "atdd_package" in p:
+                    d = p
+                    break
+            file_path = os.path.join(d, "atdd_default_all_soft.yaml")  # .../atdd_package/default_soft.yaml
         return file_path
 
     def write_json_info(self, info_dict, key):
@@ -124,8 +132,8 @@ class ATDDMessenger:
     def read_advisor_config(self):  # for tuner
         return self.read_json_info(key='advisor_config')
 
-    # def read_default_config_info(self):
-    #     return self.read_yaml_info(key='default_config')
+    def read_default_config_info(self):
+        return self.read_yaml_info(key='default_config')
 
 
 def get_nni_context():
