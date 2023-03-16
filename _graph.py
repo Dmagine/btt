@@ -29,8 +29,8 @@ def plot():
     print(num_list)
     print(len(num_list))
 
-    color_list = ['blue', 'blue', 'blue','red', 'red','red']
-    time_list = ["0.25h","0.5h", "1h", "2h", "3h", "4h"]
+    color_list = ['blue', 'blue', 'blue', 'red', 'red', 'red']
+    time_list = ["0.25h", "0.5h", "1h", "2h", "3h", "4h"]
     total_num = len(color_list) * len(time_list)
     print(total_num)
     plt.figure(figsize=(16, 8))
@@ -42,9 +42,38 @@ def plot():
         plt.plot(x, y, color=color_list[i], marker='o')
     plt.show()
 
-def p():
+
+def bar():
+    import numpy as np
+    import matplotlib.pyplot as plt
+    tmpp_file_path = "_graph_in.txt"
+    f = open(tmpp_file_path)
+    s = f.read().strip()
+    f.close()
+
+    num_list = [float(x.strip()) for x in s.split("\n")]
+    print(num_list)
+    print(len(num_list))
+
+    big = ["random", "tpe", "anneal"]
+    small = ["base", "atdd"]
+    total_num = len(big) * len(small)
+    base_lst = []
+    atdd_lst = []
+    fig = plt.figure(figsize=(6, 3))
+    ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])
+    for i in range(len(big)):
+        base_lst.append(num_list[len(small) * i])
+        atdd_lst.append(num_list[len(small) * i + 1])
+    X = np.arange(3)
+    ax.bar(X + 0.00, base_lst, color='b', width=0.3)
+    ax.bar(X + 0.3, atdd_lst, color='r', width=0.3)
+
+    plt.show()
+
     pass
 
 
 if __name__ == '__main__':
-    plot()
+    # plot()
+    bar()
