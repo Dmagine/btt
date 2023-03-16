@@ -198,7 +198,7 @@ class ATDDInspector:
         return symptom_flag
 
     def _if_wd_symptom(self, li, expect: str):
-        if len(li) >= self.window_size + 1:
+        if len(li) >= self.window_size: ###
             s = self.window_size
             mean_now = get_ave(li[-s:])
             var_now = float(torch.var(torch.tensor(li[-s:])))
@@ -236,7 +236,7 @@ class ATDDInspector:
     def if_dd_uw(self):
         if not self.if_enable(["model"]):
             return False
-        if self.step_counter > self.window_size:
+        if self.step_counter >= self.window_size:
             poor_weight_list = []
             for i in range(len(self.param_val_var_list)):
                 if self.param_val_var_list[i] < self.dp.dd_min_threshold \
@@ -251,7 +251,7 @@ class ATDDInspector:
     def _if_dd_lnd(self, loss_list):
         if not self.if_enable(["loss"]):
             return False
-        if self.step_counter > self.window_size:
+        if self.step_counter >= self.window_size: ###
             if loss_list[-1] >= get_ave(loss_list[-self.window_size:]): ###
                 return True
         return False
@@ -262,7 +262,7 @@ class ATDDInspector:
     def if_dd_ani(self):
         if not self.if_enable(["acc"]):
             return False
-        if self.step_counter > self.window_size:
+        if self.step_counter >= self.window_size:
             if self.last_acc <= get_ave(self.acc_list[-self.window_size:]): ###
                 return True
         return False

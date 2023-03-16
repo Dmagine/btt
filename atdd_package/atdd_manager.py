@@ -15,22 +15,34 @@ class ATDDManager:
         set_seed(seed, "manager", logger)
 
         self.advisor_config = ATDDMessenger().read_advisor_config()
-        self.shared_config = self.advisor_config["shared"]
-        self.monitor_config = self.advisor_config["monitor"]["classArgs"] \
-            if self.advisor_config["monitor"] is not None else None
-        self.inspector_config = self.advisor_config["inspector"]["classArgs"] \
-            if self.advisor_config["inspector"] is not None else None
-        self.assessor_config = self.advisor_config["assessor"]["classArgs"] \
-            if self.advisor_config["assessor"] is not None else None
-        self.model_num = self.advisor_config["shared"]["model_num"] \
-            if self.advisor_config["shared"] is not None else None
+        self.shared_config = None
+        self.monitor_config = None
+        self.inspector_config = None
+        self.assessor_config = None
+        self.init_configs()
+
         self.monitor = ATDDMonitor(**self.monitor_config) if self.monitor_config is not None else None
         self.inspector = ATDDInspector(**self.inspector_config) if self.inspector_config is not None else None
+        self.model_num = self.advisor_config["shared"]["model_num"] \
+            if self.shared_config is not None else None
+
         self.raw_mode = False if self.shared_config is not None else True
         # self.raw_dict = None ...
 
         self.assessor_stop = False
         self.inspector_stop = False
+
+    def init_configs(self):
+        if self.advisor_config is None:
+            return
+        self.shared_config = self.advisor_config["shared"] \
+            if "shared" in self.advisor_config else None
+        self.monitor_config = self.advisor_config["monitor"]["classArgs"] \
+            if "monitor" in self.advisor_config else None
+        self.inspector_config = self.advisor_config["inspector"]["classArgs"] \
+            if "inspector" in self.advisor_config else None
+        self.assessor_config = self.advisor_config["assessor"]["classArgs"] \
+            if "assessor" in self.advisor_config else None
 
     def get_raw_dict(self, result_dict):
         if type(result_dict):

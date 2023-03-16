@@ -4,7 +4,7 @@ import os
 def cal():
     import numpy as np
 
-    tmpp_file_path = "./tmpp.txt"
+    tmpp_file_path = "_calc_in.txt"
     f = open(tmpp_file_path)
     s = f.read().strip()
     f.close()
@@ -13,7 +13,7 @@ def cal():
     print(num_list)
     print(len(num_list))
 
-    tmppp_file_path = "./tmppp.txt"
+    tmppp_file_path = "_calc_out.txt"
     os.system("echo >" + tmppp_file_path)
     s_list = []
     for i in range(3):

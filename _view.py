@@ -5,7 +5,7 @@ import time
 
 def view_lastn_list(lst=None):
     dir_path = "./script_log/"
-    tmp_file_path = "./tmp.txt"
+    tmp_file_path = "_view_tmp.txt"
 
     lst = [1,2,3,4,5]
     lst.reverse()
