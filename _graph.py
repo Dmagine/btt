@@ -76,4 +76,5 @@ def bar():
 
 if __name__ == '__main__':
     # plot()
-    bar()
+    # bar()
+    pie()

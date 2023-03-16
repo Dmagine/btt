@@ -1,6 +1,5 @@
 import logging
 
-import nni
 import torch
 from torch import nn
 
@@ -40,7 +39,7 @@ class ATDDMonitor:
         self.module_name_list = []
         self.module_name_flow_2dlist = []
         self.param_grad_abs_ave_list = []
-        self.param_val_var_list = []
+        self.param_val_var_list = []  # 先 mean 再 var
         self.param_grad_var_list = []
 
         self.test_acc = None
@@ -70,7 +69,7 @@ class ATDDMonitor:
         pass
 
     def get_intermediate_default_metric_value(self):
-        if if_enable(["val"]) and "val" in self.intermediate_default: # e.g. "val_acc"
+        if if_enable(["val"]) and "val" in self.intermediate_default:  # e.g. "val_acc"
             if if_enable(["acc"]) and "acc" in self.intermediate_default:
                 return self.val_acc_list[-1]
             if if_enable(["reward"]) and "reward" in self.intermediate_default:
@@ -223,7 +222,7 @@ class ATDDMonitor:
             for dataloader in data_loader_list:
                 for x, y in dataloader:
                     if x_range is None:
-                        x_range, y_range = [0, 0],[0, 0]
+                        x_range, y_range = [0, 0], [0, 0]
                         x_range[0] = float(torch.min(x))
                         x_range[1] = float(torch.max(x))
                         y_range[0] = float(torch.min(y))
@@ -266,7 +265,8 @@ class ATDDMonitor:
                 for (param_name, param) in module.named_parameters():
                     if "weight" == param_name or ("weight" in param_name and "hh" in param_name):  # for lstm
                         self.param_grad_abs_ave_2dlist[layer_index].append(float(torch.mean(torch.abs(param.grad))))
-                        self.param_val_var_2dlist[layer_index].append(float(torch.var(torch.flatten(param))))
+                        # self.param_val_var_2dlist[layer_index].append(float(torch.var(torch.flatten(param))))
+                        self.param_val_var_2dlist[layer_index].append(float(torch.mean(torch.flatten(param))))
                         self.param_grad_var_2dlist[layer_index].append(float(torch.var(torch.flatten(param.grad))))
                         layer_index += 1
                         self.param_grad_nelement_total += param.grad.nelement()
@@ -288,15 +288,16 @@ class ATDDMonitor:
         def get_ave(lst):
             return sum(lst) / len(lst)
 
+        def get_var(lst):
+            import numpy as np
+            return float(np.var(lst))
+
         if if_enable(["model"]):
             for i in range(self.total_layer_num):
                 self.param_grad_abs_ave_list.append(get_ave(self.param_grad_abs_ave_2dlist[i]))
-                self.param_val_var_list.append(get_ave(self.param_val_var_2dlist[i]))
+                # self.param_val_var_list.append(get_ave(self.param_val_var_2dlist[i]))
+                self.param_val_var_list.append(get_var(self.param_val_var_2dlist[i]))
                 self.param_grad_var_list.append(get_ave(self.param_grad_var_2dlist[i]))
-            # for i in range(len(self.param_val_var_list)):
-            #     if self.param_val_var_list[i] < self.atdd_config.dd_min_threshold \
-            #             or self.param_val_var_list[i] > self.atdd_config.dd_max_threshold:
-            #         self.poor_weight_list.append(True)
             self.param_grad_zero_rate = self.param_grad_nzeroelement_total / self.param_grad_nelement_total
 
     def collect_after_validating(self, acc=None, loss=None, reward=None):
