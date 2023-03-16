@@ -82,7 +82,7 @@ class ATDDTuner(Tuner):
         self.json = None  # search space
         self.total_data = {}  # dict: id -> parameter(_index _value)
         self.rval = None
-        self.rval_rectify = None  # none parallel
+        # self.rval_rectify = None  # none parallel ######?????
         self.supplement_data_num = 0
         self.rectify_probability = None
 
@@ -190,15 +190,15 @@ class ATDDTuner(Tuner):
                                 max_evals=-1,
                                 rstate=rstate,
                                 verbose=0)
-        self.rval_rectify = hp.FMinIter(hp.anneal.suggest,
-                                        domain,
-                                        trials,
-                                        max_evals=-1,
-                                        rstate=rstate,
-                                        verbose=0)
+        # self.rval_rectify = hp.FMinIter(hp.anneal.suggest,
+        #                                 domain,
+        #                                 trials,
+        #                                 max_evals=-1,
+        #                                 rstate=rstate,
+        #                                 verbose=0)
 
         self.rval.catch_eval_exceptions = False
-        self.rval_rectify.catch_eval_exceptions = False
+        # self.rval_rectify.catch_eval_exceptions = False
 
     def expect_different(self, key, default=True):
         if key in self.old_params:
@@ -400,7 +400,8 @@ class ATDDTuner(Tuner):
             good_flag = None
             for i in range(self.same_retry_maximum):
                 # 修复判断 存在 index 格式问题 ！！！！！！！！！！！！
-                total_params = self._get_suggestion(random_search=True, self_rval=self.rval_rectify)
+                ################################################################!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                total_params = self._get_suggestion(random_search=True, self_rval=self.rval) # self.rval
                 self.sug_params = split_index(total_params)
                 good_flag = self.rectify_parameters()
                 if good_flag:
@@ -465,7 +466,8 @@ class ATDDTuner(Tuner):
             raise RuntimeError('Received parameter_id not in total_data.')
         params = self.total_data[parameter_id]
 
-        for self_rval in [self.rval, self.rval_rectify]:
+        # for self_rval in [self.rval, self.rval_rectify]:
+        for self_rval in [self.rval]:
             # code for parallel
             if self.parallel_optimize:
                 constant_liar = kwargs.get('constant_liar', False)

@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 # '''
 
 
-def cal():
+def plot():
     tmpp_file_path = "_graph_in.txt"
     f = open(tmpp_file_path)
     s = f.read().strip()
@@ -42,6 +42,9 @@ def cal():
         plt.plot(x, y, color=color_list[i], marker='o')
     plt.show()
 
+def p():
+    pass
+
 
 if __name__ == '__main__':
-    cal()
+    plot()
