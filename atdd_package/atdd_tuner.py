@@ -56,7 +56,7 @@ class ATDDTuner(Tuner):
 
         # self.id_symptom_dict = {}
         # self.id_metric_dict = {}
-        self.id_parameters_dict_dict = {} # key: parameter_id !!!
+        self.id_parameters_dict_dict = {}  # key: parameter_id !!!
 
         # self.optimal_parameter_dict = None
         # self.optimal_parameter_metric = None
@@ -388,6 +388,9 @@ class ATDDTuner(Tuner):
         self.update_rectify_probability()
         # logger.info(" ".join(["rectify_probability:", str(self.rectify_probability), "\n"]))
         total_params = self._get_suggestion(random_search=False, self_rval=self.rval)
+        if total_params in self.total_data.values():  # duplicate
+            total_params = self._get_suggestion(random_search=True)
+        self.total_data[parameter_id] = total_params
         if self.old_params is None or random.random() > self.rectify_probability:
             pass  # 不修复
         else:
@@ -401,7 +404,7 @@ class ATDDTuner(Tuner):
             for i in range(self.same_retry_maximum):
                 # 修复判断 存在 index 格式问题 ！！！！！！！！！！！！
                 ################################################################!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                total_params = self._get_suggestion(random_search=True, self_rval=self.rval) # self.rval
+                total_params = self._get_suggestion(random_search=True, self_rval=self.rval)  # self.rval
                 self.sug_params = split_index(total_params)
                 good_flag = self.rectify_parameters()
                 if good_flag:

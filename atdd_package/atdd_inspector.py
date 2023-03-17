@@ -139,9 +139,9 @@ class ATDDInspector:
             self.dd_symptom = "ExplodingTensor"
             return True
         ############################ 。。。。。
-        # if self.if_dd_uw():
-        #     self.dd_symptom = "UnchangedWeight"  # or PoorWeight ? DD use no param_grad_var_list
-        #     return True
+        if self.if_dd_uw():
+            self.dd_symptom = "UnchangedWeight"  # or PoorWeight ? DD use no param_grad_var_list
+            return True
 
         # if self.dd_sa_judge():  # unused
         #     self.dd_symptom = "SaturatedActivation"
