@@ -344,7 +344,8 @@ class ATDDTuner(Tuner):
         }
         for key, func in d.items():
             if key in self.rule_name_list:
-                if self.optimal_dict["result_dict"][key + "_symptom"] is not None:
+                if type(self.optimal_dict["result_dict"]) is dict \
+                        and self.optimal_dict["result_dict"][key + "_symptom"] is not None:
                     self.good_rectify_flag_list = []
                     func()
                     if False in self.good_rectify_flag_list:  # 紧
@@ -425,11 +426,11 @@ class ATDDTuner(Tuner):
 
     def update_optimal(self, parameter_id, trial_id, result_dict):
         update_flag = False
-        val = result_dict["default"] if type(result_dict) is dict else result_dict
+        val = extract_scalar_reward(result_dict)
         if self.optimal_dict is None:
             update_flag = True
         else:
-            opt_val = self.optimal_dict["result_dict"]["default"]
+            opt_val = extract_scalar_reward(self.optimal_dict["result_dict"])
             if self.optimize_mode == "maximize" and val > opt_val:
                 update_flag = True
             if self.optimize_mode == "minimize" and val < opt_val:
@@ -442,17 +443,20 @@ class ATDDTuner(Tuner):
             d.update({"parameters_dict": self.id_parameters_dict_dict[parameter_id]})
             self.optimal_dict = d
             self.old_params = self.id_parameters_dict_dict[parameter_id]
-            self.at_symptom = result_dict["at_symptom"] if "at_symptom" in result_dict.keys() else None
-            self.dd_symptom = result_dict["dd_symptom"] if "dd_symptom" in result_dict.keys() else None
-            self.wd_symptom = result_dict["wd_symptom"] if "wd_symptom" in result_dict.keys() else None
-            self.data_cond = result_dict["data_cond"] if "data_cond" in result_dict.keys() else None
-            self.weight_cond = result_dict["weight_cond"] if "weight_cond" in result_dict.keys() else None
-            self.lr_cond = result_dict["lr_cond"] if "lr_cond" in result_dict.keys() else None
             logger.info(" ".join(["update optimal:", trial_id, str(val)]))
-            logger.info(" ".join(["symptom: (at dd wd)",
-                                  str(self.at_symptom), str(self.dd_symptom), str(self.wd_symptom)]))
-            logger.info(" ".join(["condition (d w l):",
-                                  str(self.data_cond), str(self.weight_cond), str(self.lr_cond)]))
+
+            if type(result_dict) is dict:  # raw mode
+                self.at_symptom = result_dict["at_symptom"] if "at_symptom" in result_dict.keys() else None
+                self.dd_symptom = result_dict["dd_symptom"] if "dd_symptom" in result_dict.keys() else None
+                self.wd_symptom = result_dict["wd_symptom"] if "wd_symptom" in result_dict.keys() else None
+                self.data_cond = result_dict["data_cond"] if "data_cond" in result_dict.keys() else None
+                self.weight_cond = result_dict["weight_cond"] if "weight_cond" in result_dict.keys() else None
+                self.lr_cond = result_dict["lr_cond"] if "lr_cond" in result_dict.keys() else None
+
+                logger.info(" ".join(["symptom: (at dd wd)",
+                                      str(self.at_symptom), str(self.dd_symptom), str(self.wd_symptom)]))
+                logger.info(" ".join(["condition (d w l):",
+                                      str(self.data_cond), str(self.weight_cond), str(self.lr_cond)]))
 
     def receive_trial_result(self, parameter_id, parameters, value: Union[dict, float], **kwargs):
         trial_id = kwargs["trial_job_id"]
