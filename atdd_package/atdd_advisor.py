@@ -88,14 +88,7 @@ class ATDDAdvisor(MsgDispatcherBase):
         self.complete_config_by_default()
         self.share_config()  # 适配 _create_algo 手动加入shared
         #######
-        # self.shared_config = self.config_dict["shared"]
-        self.tuner_config = self.config_dict["tuner"]
-        self.assessor_config = self.config_dict["assessor"]
-        # self.monitor_config = self.config_dict["monitor"]
-        # self.inspector_config = self.config_dict["inspector"]
 
-        # self.model_num = None
-        # self.init_advisor_config()
         ATDDMessenger().write_advisor_config(self.config_dict)
 
         self.tuner = _create_algo(self.config_dict["tuner"], 'tuner')

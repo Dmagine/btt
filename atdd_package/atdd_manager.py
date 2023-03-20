@@ -26,7 +26,7 @@ class ATDDManager:
         self.model_num = self.advisor_config["shared"]["model_num"] \
             if self.shared_config is not None else None
 
-        self.raw_mode = False if self.shared_config is not None else True
+        self.raw_mode = False if self.shared_config is not None and self.monitor_config is not None else True  # no inspect/assess maybe tuner
         # self.raw_dict = None ...
 
         self.assessor_stop = False

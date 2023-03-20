@@ -1,10 +1,12 @@
 import os
 
+import yaml
 
-def cal():
+
+def calc():
     import numpy as np
 
-    tmpp_file_path = "_calc_in.txt"
+    tmpp_file_path = "_calc_tmp.txt"
     f = open(tmpp_file_path)
     s = f.read().strip()
     f.close()
@@ -13,7 +15,7 @@ def cal():
     print(num_list)
     print(len(num_list))
 
-    tmppp_file_path = "_calc_out.txt"
+    tmppp_file_path = "_calc_tmp.txt"
     os.system("echo >" + tmppp_file_path)
     s_list = []
     for i in range(3):
@@ -36,4 +38,4 @@ def cal():
 
 
 if __name__ == '__main__':
-    cal()
+    calc()
