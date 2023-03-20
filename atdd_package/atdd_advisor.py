@@ -87,6 +87,7 @@ class ATDDAdvisor(MsgDispatcherBase):
         self.config_dict = kwargs
         self.complete_config_by_default()
         self.share_config()  # 适配 _create_algo 手动加入shared
+        self.reproduce_config()  # tuner reproducer
         #######
 
         ATDDMessenger().write_advisor_config(self.config_dict)
@@ -94,6 +95,12 @@ class ATDDAdvisor(MsgDispatcherBase):
         self.tuner = _create_algo(self.config_dict["tuner"], 'tuner')
         self.assessor = _create_algo(self.config_dict["assessor"], 'assessor') \
             if "assessor" in self.config_dict else None
+
+    def reproduce_config(self):
+        if "tuner" in self.config_dict and "reproduce" in self.config_dict["tuner"]["classArgs"]:
+            self.config_dict["tuner"].update({"codeDirectory": "./"})
+            self.config_dict["tuner"].update({"className": "atdd_reproducer.ATDDReproducer"})
+            self.config_dict["tuner"]["classArgs"] = {"reproduce": self.config_dict["tuner"]["classArgs"]["reproduce"]}
 
     def if_atdd_component_in_config(self, name):
         if name in self.config_dict and "name" not in self.config_dict[name]:
@@ -145,14 +152,15 @@ class ATDDAdvisor(MsgDispatcherBase):
             self.config_dict["assessor"].update({"className": "atdd_assessor.ATDDAssessor"})
 
     def share_config(self):
-        shared = self.config_dict["shared"]
-        for name in self.component_name_list:
-            if name in self.config_dict:
-                if name in ["tuner", "assessor"]:
-                    if self.if_atdd_component_in_config(name):
+        if "shared" in self.config_dict:
+            shared = self.config_dict["shared"]
+            for name in self.component_name_list:
+                if name in self.config_dict:
+                    if name in ["tuner", "assessor"]:
+                        if self.if_atdd_component_in_config(name):
+                            self.config_dict[name]["classArgs"].update({"shared": shared})
+                    else:
                         self.config_dict[name]["classArgs"].update({"shared": shared})
-                else:
-                    self.config_dict[name]["classArgs"].update({"shared": shared})
 
     def load_checkpoint(self):
         self.tuner.load_checkpoint()
@@ -178,15 +186,19 @@ class ATDDAdvisor(MsgDispatcherBase):
     def handle_request_trial_jobs(self, data):
         # data: number or trial jobs
         ids = [_create_parameter_id() for _ in range(data)]
-        # _logger.info(" ".join(["data:", data]))
         _logger.debug("requesting for generating params of %s", ids)
-        params_list = self.tuner.generate_multiple_parameters(ids, st_callback=self.send_trial_callback)
 
-        for i, _ in enumerate(params_list):
-            self.send(CommandType.NewTrialJob, _pack_parameter(ids[i], params_list[i]))
-        # when parameters is None.
-        if len(params_list) < len(ids):
+        info = ATDDMessenger().read_tuner_info()
+        if info is not None and info["reproducer_info"] == "stop":
             self.send(CommandType.NoMoreTrialJobs, _pack_parameter(ids[0], ''))
+        elif info is None or info["reproducer_info"] == "continue":
+            params_list = self.tuner.generate_multiple_parameters(ids, st_callback=self.send_trial_callback)
+
+            for i, _ in enumerate(params_list):
+                self.send(CommandType.NewTrialJob, _pack_parameter(ids[i], params_list[i]))
+            # when parameters is None.
+            if len(params_list) < len(ids):
+                self.send(CommandType.NoMoreTrialJobs, _pack_parameter(ids[0], ''))
 
     def handle_update_search_space(self, data):
         self.tuner.update_search_space(data)

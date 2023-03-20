@@ -10,6 +10,7 @@ info_file_name_dict = {
     'assessor': 'assessor_info',
     'inspector': 'inspector_info',
     'advisor_config': 'advisor_config_info',
+    'tuner': 'tuner_info',
     'other': 'other_info'
 }
 
@@ -70,13 +71,19 @@ class ATDDMessenger:
                 os.makedirs(self.platform_trials_dir)
             file_path = os.path.join(self.platform_trials_dir, info_file_name_dict[key])
         if key == "default_config":
-            # print("sys.path:", sys.path)
             d = "./"
             for p in sys.path:
                 if "atdd_package" in p:
                     d = p
                     break
             file_path = os.path.join(d, "atdd_default_all_soft.yaml")  # .../atdd_package/default_soft.yaml
+        if key == "tuner":
+            dispatcher_env_vars = _load_env_vars(_dispatcher_env_var_names)
+            platform_log_dir = dispatcher_env_vars.NNI_LOG_DIRECTORY
+            self.platform_trials_dir = os.path.join(platform_log_dir, '../trials/')
+            if not os.path.exists(self.platform_trials_dir):
+                os.makedirs(self.platform_trials_dir)
+            file_path = os.path.join(self.platform_trials_dir, info_file_name_dict[key])
         return file_path
 
     def write_json_info(self, info_dict, key):
@@ -134,6 +141,12 @@ class ATDDMessenger:
 
     def read_default_config_info(self):
         return self.read_yaml_info(key='default_config')
+
+    def read_tuner_info(self):
+        return self.read_json_info(key='tuner')
+
+    def write_tuner_info(self, d):
+        self.write_json_info(d, key='tuner')
 
 
 def get_nni_context():

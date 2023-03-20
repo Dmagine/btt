@@ -27,36 +27,30 @@ def conn():
     # d = dict(yaml.load(values[19][0],Loader=yaml.FullLoader))
     # print(d)
 
-    sql = "SELECT * FROM MetricData"
-    cur.execute(sql)
-    values = cur.fetchall()
-    d = yaml.load(eval(values[0][5]), Loader=yaml.FullLoader)
-    print(d["default"])
-
-    sql = "PRAGMA table_info(MetricData)"
-    cur.execute(sql)
-    values = cur.fetchall()
-    print(values)
-
-    # sql = "SELECT * \
-    #         FROM TrialJobEvent"
+    # sql = "SELECT * FROM MetricData"
     # cur.execute(sql)
     # values = cur.fetchall()
-    # d = dict(yaml.load(values[0][3], Loader=yaml.FullLoader))  # waiting [parameters] / succeeded
-    # # print(d["parameters"])
-    # print(values[-70])
+    # d = yaml.load(eval(values[0][5]), Loader=yaml.FullLoader)
+    # print(d["default"])
     #
-    # sql = "PRAGMA table_info(TrialJobEvent)"
+    # sql = "PRAGMA table_info(MetricData)"
     # cur.execute(sql)
     # values = cur.fetchall()
     # print(values)
 
+    # sql = "SELECT * FROM TrialJobEvent"
+    sql = "SELECT data FROM TrialJobEvent WHERE event='WAITING'"
+    cur.execute(sql)
+    values = cur.fetchall()
+    print(values[120][0]) # {"parameter_id": 3, "parameter_source": "algorithm", "parameters": {"bn_layer": false, "act_func": "relu", "grad_clip": false, "init": "xavier", "opt": "adam", "batch_size": 178, "lr": 10443.633034810522, "gamma": 0.46387276784201514, "weight_decay": 0.2528998015083218, "hidden_size": 60, "num_layers": 2}, "parameter_index": 0}
+    d = dict(yaml.load(values[-57][0], Loader=yaml.FullLoader))  # waiting [parameters] / succeeded
+    # print(values[-57])  # 57 waiting
+    print(d["parameters"])
 
-def calc_top():
-
-
-
-    pass
+    # sql = "PRAGMA table_info(TrialJobEvent)"
+    # cur.execute(sql)
+    # values = cur.fetchall()
+    # print(values)
 
 
 if __name__ == '__main__':
