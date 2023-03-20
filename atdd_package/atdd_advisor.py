@@ -120,8 +120,11 @@ class ATDDAdvisor(MsgDispatcherBase):
 
         for name in self.component_name_list:
             if name in self.config_dict:
+                if not self.if_atdd_component_in_config(name):  # nni tuner
+                    continue
                 if is_default(self.config_dict[name]):
                     self.config_dict[name] = default[name].copy()
+                    continue
                 ca = "classArgs"
                 dca = default[name][ca]  # default class args dict
                 if ca not in self.config_dict[name]:

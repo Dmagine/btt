@@ -12,6 +12,13 @@ shared:
     test: true
     data: true
     lr: true
+monitor:
+  classArgs:
+    report:
+      intermediate_default: val_acc
+      final_default: val_acc
+#      intermediate_key_list: []
+#      final_key_list: []
 tuner:
   classArgs:
     basic:
@@ -46,11 +53,6 @@ assessor:
       beta3: 70
       zeta: 0.03
       window_size_float: 0.25
-monitor:
-  classArgs:
-    report:
-      intermediate_default: val_acc
-      final_default: val_acc
 inspector:
   classArgs:
     basic:

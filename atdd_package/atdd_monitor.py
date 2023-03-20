@@ -117,12 +117,18 @@ class ATDDMonitor:
 
     def get_basic_v_result(self):
         d = {}
-        d.update({"acc": self.acc_list[-1] if if_enable(["acc"]) else None})
-        d.update({"loss": self.loss_list[-1] if if_enable(["loss"]) else None})
-        d.update({"reward": self.reward_list[-1] if if_enable(["reward"]) else None})
-        d.update({"val_acc": self.val_acc_list[-1] if if_enable(["acc", "val"]) else None})
-        d.update({"val_loss": self.val_loss_list[-1] if if_enable(["loss", "val"]) else None})
-        d.update({"val_reward": self.val_reward_list[-1] if if_enable(["reward", "val"]) else None})
+        if if_enable(["acc"]):
+            d.update({"acc": self.acc_list[-1]})
+        if if_enable(["loss"]):
+            d.update({"loss": self.loss_list[-1]})
+        if if_enable(["reward"]):
+            d.update({"reward": self.reward_list[-1]})
+        if if_enable(["acc", "val"]):
+            d.update({"val_acc": self.val_acc_list[-1]})
+        if if_enable(["loss", "val"]):
+            d.update({"val_loss": self.val_loss_list[-1]})
+        if if_enable(["reward", "val"]):
+            d.update({"val_reward": self.val_reward_list[-1]})
         d.update({"step_counter": self.step_counter})
         return d
 
@@ -178,9 +184,12 @@ class ATDDMonitor:
 
     def get_test_result(self):
         d = {}
-        d.update({"test_acc": self.test_acc})
-        d.update({"test_loss": self.test_loss})
-        d.update({"test_reward": self.test_reward})
+        if if_enable(["acc","test"]):
+            d.update({"test_acc": self.test_acc})
+        if if_enable(["loss","test"]):
+            d.update({"test_loss": self.test_loss})
+        if if_enable(["reward","test"]):
+            d.update({"test_reward": self.test_reward})
         return d
 
     def get_intermediate_dict(self):
