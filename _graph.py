@@ -141,9 +141,18 @@ def bar2():
 
     pass
 
+def plot_reproduce():
+    old_id = "216t07aj"
+    new_id = "i82b63wc"
+
+
+
+
+
 
 if __name__ == '__main__':
     # plot()
     bar1()
     # bar2()
     # pie()
+    plot_reproduce()

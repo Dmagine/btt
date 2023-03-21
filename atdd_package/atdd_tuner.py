@@ -345,7 +345,7 @@ class ATDDTuner(Tuner):
         for key, func in d.items():
             if key in self.rule_name_list:
                 if type(self.optimal_dict["result_dict"]) is dict \
-                        and self.optimal_dict["result_dict"][key + "_symptom"] is not None:
+                        and self.__getattribute__(key + "_symptom") is not None:
                     self.good_rectify_flag_list = []
                     func()
                     if False in self.good_rectify_flag_list:  # 紧
