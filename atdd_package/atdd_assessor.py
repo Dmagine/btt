@@ -25,6 +25,7 @@ class ATDDAssessor(Assessor):
         self.maximize_metric_name_list = self.basic["maximize_metric_name_list"]
         self.minimize_metric_name_list = self.basic["minimize_metric_name_list"]
         self.k = self.compare["k"]
+        self.b = self.compare["b"]
         self.max_percentile = self.compare["max_percentile"]  # eg. 90
         self.start_step_float = self.compare["start_step_float"]
         self.end_step_float = self.compare["end_step_float"]
@@ -80,7 +81,9 @@ class ATDDAssessor(Assessor):
             if step < start_s or step in step_list:
                 break
             step_list.insert(0, step)
-            percentile_list.insert(0, min(self.max_percentile, 100 * step / max_epoch * self.k))
+            p = 100 * (step / max_epoch * self.k + self.b)
+            p = max(min(100, p), 0)
+            percentile_list.insert(0, min(self.max_percentile, p))
             step = int(np.ceil((step - start_s) / 2))
 
         pre, now = 0, 0

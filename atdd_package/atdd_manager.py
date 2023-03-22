@@ -86,7 +86,7 @@ class ATDDManager:
         if self.monitor_config is not None:
             self.monitor.refresh_before_epoch_start()
 
-    def report_intermediate_result(self, rd=None):
+    def report_intermediate_result(self, rd=None, writer=None):
         d = {}
         if self.monitor_config is not None:
             d1 = self.monitor.get_intermediate_dict()
@@ -103,7 +103,7 @@ class ATDDManager:
         return d
         # manager考虑从assessor和inspector收回信息？？？
 
-    def report_final_result(self, rd=None):
+    def report_final_result(self, rd=None, writer=None):
         d = {}
         if self.monitor_config is not None:
             d1 = self.monitor.get_final_dict()
@@ -123,33 +123,19 @@ class ATDDManager:
         nni.report_final_result(d)  # tuner symptom
         return d
 
-    def if_atdd_inspector_send_stop(self):
-        if self.inspector_config is not None:
-            info_dict = ATDDMessenger().read_inspector_info()
-            if info_dict is None:
-                return False
-            for k, v in info_dict.items():
-                if "_symptom" in k and v is not None:
-                    print("inspector_info_dict ", info_dict)
-                    self.inspector_stop = True
-                    return True
-            return False
-        else:
-            return False
-
-    def if_atdd_assessor_send_stop(self):
-        if self.assessor_config is not None:
-            info_dict = ATDDMessenger().read_assessor_info()
-            if info_dict is None:
-                return False
-            for k, v in info_dict.items():
-                if "cmp_" in k and v is not None:
-                    print("assessor_info_dict ", info_dict)
-                    self.assessor_stop = True
-                    return True
-            return False
-        else:
-            return False
-
     def if_atdd_send_stop(self):
-        return self.if_atdd_inspector_send_stop() or self.if_atdd_assessor_send_stop()
+        flag = False
+        if self.assessor_config is not None:
+            flag_ = ATDDMessenger().if_atdd_assessor_send_stop()
+            if flag_ is True:
+                info_dict = ATDDMessenger().read_assessor_info()
+                logger.info(" ".join(["assessor_info_dict ", str(info_dict)]))
+                flag = True
+        if self.inspector_config is not None:
+            flag_ = ATDDMessenger().if_atdd_inspector_send_stop()
+            if flag_ is True:
+                info_dict = ATDDMessenger().read_inspector_info()
+                logger.info(" ".join(["inspector_info_dict ", str(info_dict)]))
+                flag = True
+        return flag
+

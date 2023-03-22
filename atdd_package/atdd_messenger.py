@@ -59,14 +59,17 @@ class ATDDMessenger:
             file_path = os.path.join(self.trial_nni_dir, info_file_name_dict[key])
         if key == "advisor_config":  # advisor write / monitor read
             # special
-            if get_nni_context() == "platform":
+            ctx = get_nni_context()
+            if ctx == "platform":
                 dispatcher_env_vars = _load_env_vars(_dispatcher_env_var_names)
                 platform_log_dir = dispatcher_env_vars.NNI_LOG_DIRECTORY
                 self.platform_trials_dir = os.path.join(platform_log_dir, '../trials/')
-            else:
+            elif ctx == "trial":
                 trial_env_vars = _load_env_vars(_trial_env_var_names)
                 trial_system_dir = trial_env_vars.NNI_SYS_DIR
                 self.platform_trials_dir = os.path.join(trial_system_dir, '../')
+            else:  # no_nni_manager
+                self.platform_trials_dir = "./"
             if not os.path.exists(self.platform_trials_dir):
                 os.makedirs(self.platform_trials_dir)
             file_path = os.path.join(self.platform_trials_dir, info_file_name_dict[key])
@@ -148,11 +151,29 @@ class ATDDMessenger:
     def write_tuner_info(self, d):
         self.write_json_info(d, key='tuner')
 
+    def if_atdd_inspector_send_stop(self):
+        info_dict = ATDDMessenger().read_inspector_info()
+        if info_dict is None:
+            return False
+        for k, v in info_dict.items():
+            if "_symptom" in k and v is not None:
+                return True
+        return False
+
+    def if_atdd_assessor_send_stop(self):
+        info_dict = self.read_assessor_info()
+        if info_dict is None:
+            return False
+        for k, v in info_dict.items():
+            if "cmp_" in k and v is not None:
+                return True
+        return False
+
 
 def get_nni_context():
     e1, e2 = os.environ.get('NNI_EXP_ID') is None, os.environ.get('NNI_LOG_DIRECTORY') is None
     if e1 is True and e2 is True:
-        return "raw"
+        return "no_nni"
     elif e1 is True and e2 is False:
         return "platform"
     elif e1 is False and e2 is True:

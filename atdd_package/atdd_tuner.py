@@ -37,6 +37,7 @@ class ATDDTuner(Tuner):
         self.optimize_mode = self.basic["optimize_mode"]
         self.rule_name_list = self.basic["rule_name_list"]
         self.k = self.rectify["k"]
+        self.b = self.rectify["b"]
         self.base_p = self.rectify["base_probability"]
         self.max_p = self.rectify["max_probability"]
         self.start_duration_float = self.rectify["start_duration_float"]
@@ -149,7 +150,9 @@ class ATDDTuner(Tuner):
             if dur > self.end_duration_float * max_dur - 60 or dur in d_list:
                 break
             d_list.insert(0, dur)
-            p_list.insert(0, min(self.max_p, dur / max_dur * self.k))
+            p = min(self.max_p, dur / max_dur * self.k + self.b)
+            p = max(min(100, p), 0)
+            p_list.insert(0, p)
             dur = dur + int(np.floor((end_d - dur) / 2))  # not ceil
         d_list.reverse()
         p_list.reverse()

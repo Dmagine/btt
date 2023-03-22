@@ -35,9 +35,9 @@ class ATDDMonitor:
 
         self.param_has_inf = False
         self.param_grad_zero_rate = None
-        self.relu_module_name = None
         self.module_name_list = []
-        self.module_name_flow_2dlist = []
+        self.relu_pre_module_name = None
+        self.module_name_flow_2dlist = None
         self.param_grad_abs_ave_list = []
         self.param_val_var_list = []  # 先 mean 再 var
         self.param_grad_var_list = []
@@ -184,11 +184,11 @@ class ATDDMonitor:
 
     def get_test_result(self):
         d = {}
-        if if_enable(["acc","test"]):
+        if if_enable(["acc", "test"]):
             d.update({"test_acc": self.test_acc})
-        if if_enable(["loss","test"]):
+        if if_enable(["loss", "test"]):
             d.update({"test_loss": self.test_loss})
-        if if_enable(["reward","test"]):
+        if if_enable(["reward", "test"]):
             d.update({"test_reward": self.test_reward})
         return d
 
@@ -261,8 +261,13 @@ class ATDDMonitor:
                         self.param_grad_abs_ave_2dlist.append([])
                         self.param_val_var_2dlist.append([])
                         self.param_grad_var_2dlist.append([])
-        self.relu_module_name = model.relu_module_name
-        self.module_name_flow_2dlist = model.module_name_flow_2dlist
+        logger.debug(" ".join([" ", "module_name_list:", str(self.module_name_list)]))
+
+        ###
+        self.relu_pre_module_name = model.relu_pre_module_name \
+            if hasattr(model, "relu_pre_module_name") else self.module_name_list
+        self.module_name_flow_2dlist = model.module_name_flow_2dlist \
+            if hasattr(model, "module_name_flow_2dlist") else [self.module_name_list]
 
     def collect_in_training(self, model):
         if not if_enable(["model"]):
@@ -280,7 +285,7 @@ class ATDDMonitor:
                         layer_index += 1
                         self.param_grad_nelement_total += param.grad.nelement()
 
-                        if True in [mid_name in module_name for mid_name in self.relu_module_name]:
+                        if True in [mid_name in module_name for mid_name in self.relu_pre_module_name]:
                             self.param_grad_nzeroelement_total += torch.sum(param.grad == 0).item()
                         if True in torch.isinf(param) or True in torch.isinf(param.grad):
                             self.param_has_inf = True

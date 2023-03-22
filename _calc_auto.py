@@ -56,22 +56,25 @@ def calc_auto(lst=None):
 
     s = ""
     os.system("echo > " + tmp_file_path)
+
+    num_lst = []
     for i in range(len(id_lst)):
-        r = calc_top(id_lst[i])
-        print(id_lst[i], r)
+        lst,num = calc_top_acc_num(id_lst[i])
+        print(id_lst[i], lst)
+        num_lst.append(num)
         line_lst = [id_lst[i]]
-        line_lst.extend(r)
+        line_lst.extend(lst)
         line_str = get_line(line_lst)
         s += line_str + "\n"
+    s += get_line(num_lst) + "\n"
+    s += get_line([sum(num_lst)]) + "\n"
     f = open(tmp_file_path, "w")
     f.write(s)
     f.close()
 
 
-def calc_top(exp_id):
+def calc_top_acc_num(exp_id):
     db_path = os.path.join("~/nni-experiments", exp_id, "db/nni.sqlite")
-    # print(db_path)
-
     code_path = "/home/peizhongyi/Pycharm-Projects-cenn/nni_at_assessor"
     os.system(" ".join(["cp", db_path, code_path]))
     db_path = os.path.join(code_path, "nni.sqlite")
@@ -89,11 +92,11 @@ def calc_top(exp_id):
             lst.append(d["default"])
         else:
             lst.append(d)
+    num = len(lst)
     lst.sort()
     lst.reverse()
     lst = lst[0:top_n]
-    return lst
-
+    return lst,num
 
 def get_line(lst):
     s = ""

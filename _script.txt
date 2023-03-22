@@ -1,5 +1,5 @@
 nnictl stop --port 8080
-nnictl create --config ./atdd_reproduce.yaml --port 8080
+nnictl create --config ./atdd_model_fashionlenet5_ideal.yaml --port 8080
 
 
 nnictl stop --port 8081

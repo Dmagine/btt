@@ -138,19 +138,19 @@ class ATDDInspector:
         if self.if_dd_et():
             self.dd_symptom = "ExplodingTensor"
             return True
-        ############################ 。。。。。
-        if self.if_dd_uw():
-            self.dd_symptom = "UnchangedWeight"  # or PoorWeight ? DD use no param_grad_var_list
-            return True
+        ############################ 。。。。。 # 细看 rfi4zmp0 还是合理（10*-5）！但是 unpb3fiz 受其影响（10*-10）
+        # if self.if_dd_uw():
+        #     self.dd_symptom = "UnchangedWeight"  # or PoorWeight ? DD use no param_grad_var_list
+        #     return True
 
         # if self.dd_sa_judge():  # unused
-        #     self.dd_symptom = "SaturatedActivation"
+        #     self.dd_symptom = "SaturatedActivation" # register hook
         #     return True
         # if self.dd_dn_judge():  # unused
         #     self.dd_symptom = "DeadNode"
         #     return True
         # if self.dd_or_judge():  # unused
-        #     self.dd_symptom = "Outofange"
+        #     self.dd_symptom = "Outofrange" # data can't change
         #     return True
 
         if self.if_dd_lnd():
