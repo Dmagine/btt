@@ -98,7 +98,7 @@ class ATDDInspector:
         self.val_reward_list = d["val_reward_list"]
         self.param_has_inf = d["param_has_inf"]
         self.param_grad_zero_rate = d["param_grad_zero_rate"]
-        self.param_val_var_list = d["param_val_var_list"] # 不好说明。。。。。uw废弃
+        self.param_val_var_list = d["param_val_var_list"]  # 不好说明。。。。。uw废弃
         self.param_grad_abs_ave_list = d["param_grad_abs_ave_list"]
         self.module_name_flow_2dlist = d["module_name_flow_2dlist"]
         self.module_name_list = d["module_name_list"]
@@ -199,23 +199,18 @@ class ATDDInspector:
         return symptom_flag
 
     def _if_wd_symptom(self, li, expect: str):
-        if len(li) >= self.window_size:  ###
+        if len(li) >= self.window_size * 2:  # 不然第二段因为数量少导致var必然小
             s = self.window_size
             mean_now = get_ave(li[-s:])
             var_now = float(torch.var(torch.tensor(li[-s:])))
-            if len(li) >= self.window_size * 2:
-                mean_pre = get_ave(li[-s * 2:-s])
-                var_pre = float(torch.var(torch.tensor(li[-s * 2:-s])))
-            else:
-                # 改 -s  s
-                mean_pre = get_ave(li[:s])
-                var_pre = float(torch.var(torch.tensor(li[:s])))
+            mean_pre = get_ave(li[-s * 2:-s])
+            var_pre = float(torch.var(torch.tensor(li[-s * 2:-s])))
 
-            if var_now > var_pre:
+            if var_now > var_pre:  # 首先要求稳定性
                 return True
-            if expect == "inc" and mean_now < mean_pre:
+            if expect == "inc" and mean_now <= mean_pre:
                 return True
-            if expect == "dec" and mean_now > mean_pre:
+            if expect == "dec" and mean_now >= mean_pre:
                 return True
         return False
 
@@ -258,15 +253,24 @@ class ATDDInspector:
         return False
 
     def if_dd_lnd(self):
-        return self._if_dd_lnd(self.loss_list) and self._if_dd_lnd(self.val_loss_list)
+        if self.if_enable(["val"]):
+            return self._if_dd_lnd(self.loss_list) or self._if_dd_lnd(self.val_loss_list)  # 可能没有val_loss_list...
+        else:
+            return self._if_dd_lnd(self.loss_list)
 
-    def if_dd_ani(self):
+    def _if_dd_ani(self, acc_list):
         if not self.if_enable(["acc"]):
             return False
         if self.step_counter >= self.window_size:
-            if self.last_acc <= get_ave(self.acc_list[-self.window_size:]):  ###
+            if acc_list[-1] <= get_ave(acc_list[-self.window_size:]):
                 return True
         return False
+
+    def if_dd_ani(self):
+        if self.if_enable(["val"]):
+            return self._if_dd_ani(self.acc_list) or self._if_dd_ani(self.val_acc_list)  # 加上val 算是检查过拟合
+        else:
+            return self._if_dd_ani(self.acc_list)
 
     def if_dd_vg(self):
         if not self.if_enable(["model"]):
@@ -349,7 +353,7 @@ class ATDDInspector:
         for i in range(min(len(maximum_list), len(minimum_list))):
             if maximum_list[i] - minimum_list[i] >= self.dp.zeta:
                 count += 1
-        return count / len(acc_list)
+        return count / len(acc_list) if len(acc_list) > 0 else 0
 
     def if_ol(self):
         if not self.if_enable(["acc"]):
