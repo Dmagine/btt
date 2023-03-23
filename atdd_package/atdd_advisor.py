@@ -97,7 +97,8 @@ class ATDDAdvisor(MsgDispatcherBase):
             if "assessor" in self.config_dict else None
 
     def reproduce_config(self):
-        if "tuner" in self.config_dict and "reproduce" in self.config_dict["tuner"]["classArgs"]:
+        if "tuner" in self.config_dict and "classArgs" in self.config_dict["tuner"] \
+                and "reproduce" in self.config_dict["tuner"]["classArgs"]:
             self.config_dict["tuner"].update({"codeDirectory": "./"})
             self.config_dict["tuner"].update({"className": "atdd_reproducer.ATDDReproducer"})
             self.config_dict["tuner"]["classArgs"] = {"reproduce": self.config_dict["tuner"]["classArgs"]["reproduce"]}

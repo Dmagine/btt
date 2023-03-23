@@ -55,7 +55,9 @@ assessor:
     diagnose:
       beta1: 0.001
       beta3: 70
+      gamma: 0.7
       zeta: 0.03
+      delta: -0.01  # okkk
       window_size_float: 0.25
 inspector:
   classArgs:

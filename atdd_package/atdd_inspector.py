@@ -98,7 +98,7 @@ class ATDDInspector:
         self.val_reward_list = d["val_reward_list"]
         self.param_has_inf = d["param_has_inf"]
         self.param_grad_zero_rate = d["param_grad_zero_rate"]
-        self.param_val_var_list = d["param_val_var_list"]
+        self.param_val_var_list = d["param_val_var_list"] # 不好说明。。。。。uw废弃
         self.param_grad_abs_ave_list = d["param_grad_abs_ave_list"]
         self.module_name_flow_2dlist = d["module_name_flow_2dlist"]
         self.module_name_list = d["module_name_list"]
@@ -328,7 +328,7 @@ class ATDDInspector:
         if not self.if_enable(["acc", "model"]):
             return False
         symptom_flag = False
-        if self.last_acc <= self.dp.beta3 and self.param_grad_zero_rate >= self.dp.gamma:
+        if self.last_acc <= self.dp.theta and self.param_grad_zero_rate >= self.dp.gamma:
             symptom_flag = True
         self.continuous_dr_count = self.continuous_dr_count + 1 if symptom_flag else 0
         if self.continuous_dr_count > self.dp.alpha3:

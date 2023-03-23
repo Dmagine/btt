@@ -36,43 +36,43 @@ def conn():
     print(values[110][2])  # parameterId 'text'
     print(values[110][4])  # sequence 'integer'
 
-    # param_id_max_step_dict = {}
-    # param_id_metric_list_dict = {}
-    # max_len = 0
-    # for i in range(len(values)):  # final ??? seq include 0
-    #     param_id = values[i][2]
-    #     metric = yaml.load(eval(values[i][5]), Loader=yaml.FullLoader)["default"]
-    #     param_id_max_step_dict[param_id] = values[i][4] if param_id not in param_id_max_step_dict else \
-    #         max(param_id_max_step_dict[param_id], values[i][4])
-    #     if param_id not in param_id_metric_list_dict:
-    #         param_id_metric_list_dict[param_id] = [metric]
-    #     else:
-    #         param_id_metric_list_dict[param_id].append(metric)
-    #         max_len = max(max_len, len(param_id_metric_list_dict[param_id]))
-    # for key in param_id_metric_list_dict.keys():
-    #     param_id_metric_list_dict[key].pop(-1)
-    # max_len -= 1
-    # print(param_id_max_step_dict)
-    # print(param_id_metric_list_dict)
-    # print(max_len)
-    #
-    # plt.figure(figsize=(20, 12))
-    # x = [i for i in range(max_len + 1)]
-    # for key in param_id_max_step_dict.keys():
-    #     y1 = param_id_metric_list_dict[key]
-    #     x1 = x[:param_id_max_step_dict[key] + 1]
-    #
-    #     y2 = param_id_metric_list_dict[key][:param_id_max_step_dict[key]]
-    #     x2 = x[:param_id_max_step_dict[key]]
-    #
-    #     plt.plot(x1, y1, color='b', marker='o')
-    #     plt.plot(x2, y2, color='r', marker='o')
-    # plt.show()
+    param_id_max_step_dict = {}
+    param_id_metric_list_dict = {}
+    max_len = 0
+    for i in range(len(values)):  # final ??? seq include 0
+        param_id = values[i][2]
+        metric = yaml.load(eval(values[i][5]), Loader=yaml.FullLoader)["default"]
+        param_id_max_step_dict[param_id] = values[i][4] if param_id not in param_id_max_step_dict else \
+            max(param_id_max_step_dict[param_id], values[i][4])
+        if param_id not in param_id_metric_list_dict:
+            param_id_metric_list_dict[param_id] = [metric]
+        else:
+            param_id_metric_list_dict[param_id].append(metric)
+            max_len = max(max_len, len(param_id_metric_list_dict[param_id]))
+    for key in param_id_metric_list_dict.keys():
+        param_id_metric_list_dict[key].pop(-1)
+    max_len -= 1
+    print(param_id_max_step_dict)
+    print(param_id_metric_list_dict)
+    print(max_len)
 
-    sql = "PRAGMA table_info(MetricData)"
-    cur.execute(sql)
-    values = cur.fetchall()
-    print(values)
+    plt.figure(figsize=(20, 12))
+    x = [i for i in range(max_len + 1)]
+    for key in param_id_max_step_dict.keys():
+        y1 = param_id_metric_list_dict[key]
+        x1 = x[:param_id_max_step_dict[key] + 1]
+
+        y2 = param_id_metric_list_dict[key][:param_id_max_step_dict[key]]
+        x2 = x[:param_id_max_step_dict[key]]
+
+        plt.plot(x1, y1, color='b', marker='o')
+        plt.plot(x2, y2, color='r', marker='o')
+    plt.show()
+
+    # sql = "PRAGMA table_info(MetricData)"
+    # cur.execute(sql)
+    # values = cur.fetchall()
+    # print(values)
     # [(0, 'timestamp', 'integer', 0, None, 0), (1, 'trialJobId', 'text', 0, None, 0),
     # (2, 'parameterId', 'text', 0, None, 0), (3, 'type', 'text', 0, None, 0),
     # (4, 'sequence', 'integer', 0, None, 0), (5, 'data', 'text', 0, None, 0)]

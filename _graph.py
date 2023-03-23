@@ -2,6 +2,7 @@ import os.path
 import sqlite3
 
 import matplotlib.pyplot as plt
+import numpy as np
 import yaml
 
 
@@ -250,10 +251,117 @@ def plot_reproduce():
     plt.show()
 
 
+def plot_feature():
+    beta1 = 0.001
+    beta3 = 70
+    delta = - 0.01  ##### okkk
+    gamma = 0.7
+    zeta = 0.03  #####
+
+    def get_veg_metric(param_grad_abs_ave_list, module_name_flow_2dlist, module_name_list):
+        # 越小越好
+        if 0 in param_grad_abs_ave_list or 'NaN' in param_grad_abs_ave_list:
+            return np.log10(beta3) - np.log10(beta1)
+        else:
+            mid = (np.log10(beta3) - np.log10(beta1))
+            lst = []
+            for module_name_flow_list in module_name_flow_2dlist:
+                module_idx_flow_list = [module_name_list.index(name) for name in module_name_flow_list]
+                for i in range(len(module_idx_flow_list) - 1):
+                    idx_1 = module_idx_flow_list[i]
+                    idx_2 = module_idx_flow_list[i + 1]
+                    v1, v2 = param_grad_abs_ave_list[idx_1], param_grad_abs_ave_list[idx_2]
+                    val = abs(np.log10(v1 / v2) - mid)
+
+                    max_l = 30
+                    for level in range(max_l):
+                        b = (np.log10(beta3) - mid) / (2**level)
+                        if val > b:
+                            lst.append(i - level)
+                    lst.append(- max_l - 1)
+            return sum(lst) / len(lst)
+
+    def get_ol_metric(acc_list):
+        count = 0
+        maximum_list = []
+        minimum_list = []
+        for i in range(len(acc_list)):
+            if i == 0 or i == len(acc_list) - 1:
+                continue
+            if acc_list[i] - acc_list[i - 1] >= 0 and acc_list[i] - acc_list[i + 1] >= 0:
+                maximum_list.append(acc_list[i])
+            if acc_list[i] - acc_list[i - 1] <= 0 and acc_list[i] - acc_list[i + 1] <= 0:
+                minimum_list.append(acc_list[i])
+        for i in range(min(len(maximum_list), len(minimum_list))):
+            if maximum_list[i] - minimum_list[i] >= zeta:
+                count += 1
+        return count / len(acc_list)
+
+    def get_sc_metric(acc_list):
+        count = 0  # 越多越好
+        if len(acc_list) > 1:
+            for i in range(1, len(acc_list)):  # !!!!! 0- -1
+                if acc_list[i] - acc_list[i - 1] > delta:
+                    count += 1
+            return count / (len(acc_list) - 1)
+        else:
+            return 1
+
+    def get_dr_metric(param_grad_zero_rate):
+        # 越低越好
+        max_l = 7
+        for level in range(max_l):
+            g = gamma / (10 ** level)
+            if param_grad_zero_rate > g:
+                return - level
+        return - max_l - 1
+
+    old_id = "rfi4zmp0"  # local:216t07aj remote:rfi4zmp0
+
+    desk_dir = "/Users/admin/Desktop/"
+
+    # db_path_old = os.path.join(nni_dir, old_id, "db/nni.sqlite")
+    db_path_old = os.path.join(desk_dir, old_id, "nni_old.sqlite")
+    print(db_path_old)
+    db_path_oldd = os.path.join("./", "nni_old.sqlite")
+    os.system(" ".join(["cp", db_path_old, db_path_oldd]))
+    conn_old = sqlite3.connect(db_path_oldd)
+    cur_old = conn_old.cursor()
+
+    sql = "SELECT * FROM MetricData WHERE type='PERIODICAL'"  # WHERE type='FINAL' 'PERIODICAL'
+    cur_old.execute(sql)
+    values = cur_old.fetchall()
+
+    id_x_dict = {}  # default
+    id_y_dict = {}
+    for i in range(len(values)):  # final ??? seq include 0
+        param_id = values[i][2]
+        d = yaml.load(eval(values[i][5]), Loader=yaml.FullLoader)
+        metric_x = d["default"]
+        # print(d.keys())
+        # final # dict_keys(['default', 'acc', 'loss', 'reward', 'val_acc', 'val_loss', 'val_reward', 'step_counter', 'test_acc', 'test_loss', 'test_reward', 'data_cond', 'weight_cond', 'lr_cond', 'continuous_vg_count', 'continuous_eg_count', 'continuous_dr_count', 'at_symptom', 'dd_symptom', 'wd_symptom', 'cmp_val_loss', 'cmp_sc_metric', 'out_dict_str', 'assessor_stop', 'inspector_stop'])
+        # periodical # dict_keys(['default', 'acc', 'loss', 'reward', 'val_acc', 'val_loss', 'val_reward', 'step_counter', 'param_has_inf', 'param_grad_zero_rate', 'data_cond', 'weight_cond', 'lr_cond', 'param_val_var_list', 'param_grad_abs_ave_list', 'module_name_flow_2dlist', 'module_name_list', 'acc_list', 'loss_list', 'reward_list', 'val_acc_list', 'val_loss_list', 'val_reward_list', 'param_grad_var_list', 'continuous_vg_count', 'continuous_eg_count', 'continuous_dr_count', 'at_symptom', 'dd_symptom', 'wd_symptom'])
+        # metric_y = np.log10(d["val_loss"]) if type(d["val_loss"]) is float else 10  # val_loss okkk
+        # metric_y = np.log10(d["param_grad_zero_rate"])  # np.log10(d["param_grad_zero_rate"]) 0.07
+        # metric_y = 1 if d["cmp_sc_metric"] is not None else 0  # np.log10(d["param_grad_zero_rate"]) # cmp_sc_metric
+        metric_y = get_dr_metric(d["param_grad_zero_rate"]) # okkk
+        # metric_y = get_sc_metric(d["acc_list"])  # okkk
+        # metric_y = get_ol_metric(d["acc_list"]) # eee okk
+        # metric_y = get_veg_metric(d["param_grad_abs_ave_list"], d["module_name_flow_2dlist"], d["module_name_list"])
+        id_x_dict[param_id] = metric_x
+        id_y_dict[param_id] = metric_y
+
+    print(len(id_x_dict), len(id_y_dict))
+    print(max(id_x_dict.values()))
+    plt.scatter(id_x_dict.values(), id_y_dict.values(),edgecolors='r')
+    plt.show()
+
+
 if __name__ == '__main__':
     # plot()
     # bar1()
     # bar2()
     # pie()
     # bar3()
-    plot_reproduce()
+    # plot_reproduce()
+    plot_feature()

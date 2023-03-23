@@ -34,6 +34,8 @@ class ATDDAssessor(Assessor):
         self.beta1 = self.diagnose["beta1"]
         self.beta3 = self.diagnose["beta3"]
         self.zeta = self.diagnose["zeta"]
+        self.delta = self.diagnose["delta"]
+        self.gamma = self.diagnose["gamma"]
         self.window_size_float = self.diagnose["window_size_float"]
 
         self.cur_step = 0
@@ -103,7 +105,8 @@ class ATDDAssessor(Assessor):
         self.cmp_percentile_list = percentile_list
 
     def get_veg_metric(self, param_grad_abs_ave_list, module_name_flow_2dlist, module_name_list):
-        if 0 in param_grad_abs_ave_list:
+        # 越小越好
+        if 0 in param_grad_abs_ave_list or 'NaN' in param_grad_abs_ave_list:
             return np.log10(self.beta3) - np.log10(self.beta1)
         else:
             mid = (np.log10(self.beta3) - np.log10(self.beta1))
@@ -114,11 +117,17 @@ class ATDDAssessor(Assessor):
                     idx_1 = module_idx_flow_list[i]
                     idx_2 = module_idx_flow_list[i + 1]
                     v1, v2 = param_grad_abs_ave_list[idx_1], param_grad_abs_ave_list[idx_2]
-                    lst.append(abs(np.log10(v1 / v2) - mid))
+                    val = abs(np.log10(v1 / v2) - mid)
+
+                    max_l = 30
+                    for level in range(max_l):
+                        b = (np.log10(self.beta3) - mid) / (2 ** level)
+                        if val > b:
+                            lst.append(i - level)
+                    lst.append(- max_l - 1)
             return sum(lst) / len(lst)
 
     def get_ol_metric(self, acc_list):
-        # dist = 0
         count = 0
         maximum_list = []
         minimum_list = []
@@ -130,11 +139,27 @@ class ATDDAssessor(Assessor):
             if acc_list[i] - acc_list[i - 1] <= 0 and acc_list[i] - acc_list[i + 1] <= 0:
                 minimum_list.append(acc_list[i])
         for i in range(min(len(maximum_list), len(minimum_list))):
-            # dist += maximum_list[i] - minimum_list[i]
             if maximum_list[i] - minimum_list[i] >= self.zeta:
                 count += 1
-        # return [count / len(acc_list), dist / len(acc_list)]
         return count / len(acc_list)
+
+    def get_sc_metric(self, acc_list):
+        count = 0  # 越多越好
+        if len(acc_list) > 1:
+            for i in range(1, len(acc_list)):  # !!!!! 0- -1
+                if acc_list[i] - acc_list[i - 1] > self.delta:
+                    count += 1
+            return count / (len(acc_list) - 1)
+        return 1
+
+    def get_dr_metric(self, param_grad_zero_rate):
+        # 越低越好
+        max_l = 7
+        for level in range(max_l):
+            g = self.gamma / (10 ** level)
+            if param_grad_zero_rate > g:
+                return - level
+        return - max_l - 1
 
     def get_metric_value(self, result_dict, metric_name):
         d = result_dict
@@ -144,11 +169,12 @@ class ATDDAssessor(Assessor):
             return self.get_veg_metric(d["param_grad_abs_ave_list"], d["module_name_flow_2dlist"],
                                        d["module_name_list"])
         if metric_name == "dr_metric":
-            return d["param_grad_zero_rate"]
+            return self.get_dr_metric(d["param_grad_zero_rate"])
         if metric_name == "ol_metric":
             return self.get_ol_metric(d["acc_list"])
         if metric_name == "sc_metric":
-            return d["acc_list"][-1] - d["acc_list"][0]
+            # return d["acc_list"][-1] - d["acc_list"][0] #### 改为count类 acc比val_acc更好
+            return self.get_sc_metric(d["acc_list"])
 
     def get_metric_window_ave(self, metric_name, result_dict_list, step_end):
         step_start = max(0, step_end - int(round(self.window_size_float * self.max_epoch)))
