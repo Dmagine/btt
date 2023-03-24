@@ -226,8 +226,10 @@ class ATDDMonitor:
                     if torch.sum(param > 1) + torch.sum(param < -1) > 1:
                         self.weight_cond = False
         if if_enable(["data"]):
+            # 提速 一般一个dataloader的几个batch就能判断出了
             self.data_cond = True
             x_range, y_range = [0, 0], [0, 0]
+            count, n = 0, 5
             for dataloader in data_loader_list:
                 for x, y in dataloader:
                     if x_range is None:
@@ -241,13 +243,16 @@ class ATDDMonitor:
                         x_range[1] = max(x_range[1], float(torch.max(x)))
                         y_range[0] = min(y_range[0], float(torch.min(y)))
                         y_range[1] = max(y_range[1], float(torch.max(y)))
-            if x_range[0] < -1 or x_range[1] > 1:
-                self.data_cond = False
+                    count += 1
+                    if count > n:
+                        break
+                    if x_range[0] < -1 or x_range[1] > 1:
+                        self.data_cond = False
+                        break
+                break
+
         if if_enable(["lr"]):
-            if lr > 1e-3:
-                self.lr_cond = True
-            else:
-                self.lr_cond = False
+            self.lr_cond = True if lr > 1e-3 else False
 
     def init_module_basic(self, model):
         if not if_enable(["model"]):
@@ -256,12 +261,25 @@ class ATDDMonitor:
             if type(module) in [nn.Conv2d, nn.Linear, nn.LSTM, nn.RNN]:
                 self.module_name_list.append(module_name)
                 for (param_name, param) in module.named_parameters():
-                    if "weight" == param_name or ("weight" in param_name and "hh" in param_name):  # for lstm
+                    if "weight" == param_name or ("weight" in param_name and "hh" in param_name):  # for lstm # 取消掉？
                         self.total_layer_num += 1
                         self.param_grad_abs_ave_2dlist.append([])
                         self.param_val_var_2dlist.append([])
                         self.param_grad_var_2dlist.append([])
         logger.debug(" ".join([" ", "module_name_list:", str(self.module_name_list)]))
+        # print(module_name,module_name.split('.'),param_name)
+        # conv1.0 ['conv1', '0'] weight
+        # conv1.0 ['conv1', '0'] bias
+        # blk1.conv1 ['blk1', 'conv1'] weight
+        # blk1.conv1 ['blk1', 'conv1'] bias
+        # blk1.conv2 ['blk1', 'conv2'] weight
+        # blk1.conv2 ['blk1', 'conv2'] bias
+        # blk1.extra.0 ['blk1', 'extra', '0'] weight
+        # blk1.extra.0 ['blk1', 'extra', '0'] bias
+        # blk2.conv1 ['blk2', 'conv1'] weight
+        # blk2.conv1 ['blk2', 'conv1'] bias
+        # blk2.conv2 ['blk2', 'conv2'] weight
+        # blk2.conv2 ['blk2', 'conv2'] bias
 
         ###
         self.relu_pre_module_name = model.relu_pre_module_name \
@@ -285,7 +303,7 @@ class ATDDMonitor:
                         layer_index += 1
                         self.param_grad_nelement_total += param.grad.nelement()
 
-                        if True in [mid_name in module_name for mid_name in self.relu_pre_module_name]:
+                        if True in [name == module_name.split('.')[0] for name in self.relu_pre_module_name]:  # !
                             self.param_grad_nzeroelement_total += torch.sum(param.grad == 0).item()
                         if True in torch.isinf(param) or True in torch.isinf(param.grad):
                             self.param_has_inf = True

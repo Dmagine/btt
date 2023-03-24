@@ -104,7 +104,17 @@ class ATDDAssessor(Assessor):
         self.cmp_step_list = step_list
         self.cmp_percentile_list = percentile_list
 
+    def get_module_idx_list_by_name(self):  # 组合module可能包含多个真实module
+        pass
+
     def get_veg_metric(self, param_grad_abs_ave_list, module_name_flow_2dlist, module_name_list):
+        def get_partial_ave(v_lst, i_lst):
+            tmp_lst = []
+            for i in range(len(v_lst)):
+                if i in i_lst:
+                    tmp_lst.append(v_lst[i])
+            return sum(tmp_lst) / len(tmp_lst)
+
         # 越小越好
         if 0 in param_grad_abs_ave_list or 'NaN' in param_grad_abs_ave_list:
             return np.log10(self.beta3) - np.log10(self.beta1)
@@ -112,11 +122,22 @@ class ATDDAssessor(Assessor):
             mid = (np.log10(self.beta3) - np.log10(self.beta1))
             lst = []
             for module_name_flow_list in module_name_flow_2dlist:
-                module_idx_flow_list = [module_name_list.index(name) for name in module_name_flow_list]
-                for i in range(len(module_idx_flow_list) - 1):
-                    idx_1 = module_idx_flow_list[i]
-                    idx_2 = module_idx_flow_list[i + 1]
-                    v1, v2 = param_grad_abs_ave_list[idx_1], param_grad_abs_ave_list[idx_2]
+                ###############
+                module_idx_list_flow_list = []
+                for name in module_name_flow_list:
+                    idx_lst = []
+                    for idx in range(len(module_name_list)):
+                        full_name = module_name_list[idx]
+                        if name == full_name.split('.')[0]:
+                            idx_lst.append(idx)
+                    module_idx_list_flow_list.append(idx_lst)
+                logger.debug(" ".join(["module_idx_list_flow_list:", str(module_idx_list_flow_list)]))
+
+                for i in range(len(module_idx_list_flow_list) - 1):
+                    idx_1st1 = module_idx_list_flow_list[i]
+                    idx_lst2 = module_idx_list_flow_list[i + 1]
+                    v1 = get_partial_ave(param_grad_abs_ave_list, idx_1st1)
+                    v2 = get_partial_ave(param_grad_abs_ave_list, idx_lst2)
                     val = abs(np.log10(v1 / v2) - mid)
 
                     max_l = 30

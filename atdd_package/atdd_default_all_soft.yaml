@@ -24,7 +24,7 @@ tuner:
     basic:
       optimize_mode: maximize
       algorithm_name: random
-      rule_name_list: [ "at","dd"] #
+      rule_name_list: [ "at","dd" ] #
     rectify:
       k: 0.5
       b: 0.5
@@ -43,7 +43,7 @@ assessor:
   classArgs:
     basic:
       maximize_metric_name_list: [ "sc_metric" ]
-      minimize_metric_name_list: [ "val_loss" ]
+      minimize_metric_name_list: [ "val_loss","veg_metric","dr_metric","ol_metric" ]
     compare:
       k: 0
       b: 0.5
@@ -63,7 +63,7 @@ inspector:
   classArgs:
     basic:
       start_step_float: 0.15
-      rule_name_list: [ "at","dd" ]
+      rule_name_list: [ "at","dd","wd" ]
     diagnose:
       alpha1: 0
       alpha2: 0

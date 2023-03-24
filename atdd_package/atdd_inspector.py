@@ -280,6 +280,14 @@ class ATDDInspector:
                 return True
         return False
 
+    def _get_partial_ave(self, i_lst):
+        v_lst = self.param_grad_abs_ave_list
+        tmp_lst = []
+        for i in range(len(v_lst)):
+            if i in i_lst:
+                tmp_lst.append(v_lst[i])
+        return sum(tmp_lst) / len(tmp_lst)
+
     def if_vg(self):
         if not self.if_enable(["acc", "model"]):
             return False
@@ -289,13 +297,25 @@ class ATDDInspector:
             symptom_flag = True
         else:
             for module_name_flow_list in self.module_name_flow_2dlist:
-                module_idx_flow_list = [self.module_name_list.index(name) for name in module_name_flow_list]
+                # module_idx_flow_list = [self.module_name_list.index(name) for name in module_name_flow_list]
+                ###############
+                module_idx_list_flow_list = []
+                for name in module_name_flow_list:
+                    idx_lst = []
+                    for idx in range(len(self.module_name_list)):
+                        full_name = self.module_name_list[idx]
+                        if name == full_name.split('.')[0]:
+                            idx_lst.append(idx)
+                    module_idx_list_flow_list.append(idx_lst)
+                logger.debug(" ".join(["module_idx_list_flow_list:", str(module_idx_list_flow_list)]))
                 if self.last_acc <= self.dp.theta and \
-                        self.param_grad_abs_ave_list[module_idx_flow_list[0]] <= self.dp.beta2:
-                    for i in range(len(module_idx_flow_list) - 1):
-                        idx_1 = module_idx_flow_list[i]
-                        idx_2 = module_idx_flow_list[i + 1]
-                        if self.param_grad_abs_ave_list[idx_1] / self.param_grad_abs_ave_list[idx_2] <= self.dp.beta1:
+                        self._get_partial_ave(module_idx_list_flow_list[0]) <= self.dp.beta2:
+                    for i in range(len(module_idx_list_flow_list) - 1):
+                        idx_1st1 = module_idx_list_flow_list[i]
+                        idx_lst2 = module_idx_list_flow_list[i + 1]
+                        v1 = self._get_partial_ave(idx_1st1)
+                        v2 = self._get_partial_ave(idx_lst2)
+                        if v1 / v2 <= self.dp.beta1:
                             symptom_flag = True
                             break
                     if symptom_flag:
@@ -313,12 +333,23 @@ class ATDDInspector:
             symptom_flag = True  ####
         else:
             for module_name_flow_list in self.module_name_flow_2dlist:
-                module_idx_flow_list = [self.module_name_list.index(name) for name in module_name_flow_list]
+                ###############
+                module_idx_list_flow_list = []
+                for name in module_name_flow_list:
+                    idx_lst = []
+                    for idx in range(len(self.module_name_list)):
+                        full_name = self.module_name_list[idx]
+                        if name == full_name.split('.')[0]:
+                            idx_lst.append(idx)
+                    module_idx_list_flow_list.append(idx_lst)
+                logger.debug(" ".join(["module_idx_list_flow_list:", str(module_idx_list_flow_list)]))
                 if self.last_acc <= self.dp.theta:
-                    for i in range(len(module_idx_flow_list) - 1):
-                        idx_1 = module_idx_flow_list[i]
-                        idx_2 = module_idx_flow_list[i + 1]
-                        if self.param_grad_abs_ave_list[idx_1] / self.param_grad_abs_ave_list[idx_2] >= self.dp.beta3:
+                    for i in range(len(module_idx_list_flow_list) - 1):
+                        idx_1st1 = module_idx_list_flow_list[i]
+                        idx_lst2 = module_idx_list_flow_list[i + 1]
+                        v1 = self._get_partial_ave(idx_1st1)
+                        v2 = self._get_partial_ave(idx_lst2)
+                        if v1 / v2 >= self.dp.beta3:
                             symptom_flag = True
                             break
                     if symptom_flag:
