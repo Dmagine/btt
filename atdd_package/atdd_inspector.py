@@ -304,7 +304,7 @@ class ATDDInspector:
                     idx_lst = []
                     for idx in range(len(self.module_name_list)):
                         full_name = self.module_name_list[idx]
-                        if name == full_name.split('.')[0]:
+                        if name in full_name and full_name.index(name) == 0:  # prefix
                             idx_lst.append(idx)
                     module_idx_list_flow_list.append(idx_lst)
                 logger.debug(" ".join(["module_idx_list_flow_list:", str(module_idx_list_flow_list)]))
@@ -339,7 +339,7 @@ class ATDDInspector:
                     idx_lst = []
                     for idx in range(len(self.module_name_list)):
                         full_name = self.module_name_list[idx]
-                        if name == full_name.split('.')[0]:
+                        if name in full_name and full_name.index(name) == 0:  # prefix
                             idx_lst.append(idx)
                     module_idx_list_flow_list.append(idx_lst)
                 logger.debug(" ".join(["module_idx_list_flow_list:", str(module_idx_list_flow_list)]))
