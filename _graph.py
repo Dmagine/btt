@@ -275,7 +275,7 @@ def plot_feature():
 
                     max_l = 30
                     for level in range(max_l):
-                        b = (np.log10(beta3) - mid) / (2**level)
+                        b = (np.log10(beta3) - mid) / (2 ** level)
                         if val > b:
                             lst.append(i - level)
                     lst.append(- max_l - 1)
@@ -344,7 +344,8 @@ def plot_feature():
         # metric_y = np.log10(d["val_loss"]) if type(d["val_loss"]) is float else 10  # val_loss okkk
         # metric_y = np.log10(d["param_grad_zero_rate"])  # np.log10(d["param_grad_zero_rate"]) 0.07
         # metric_y = 1 if d["cmp_sc_metric"] is not None else 0  # np.log10(d["param_grad_zero_rate"]) # cmp_sc_metric
-        metric_y = get_dr_metric(d["param_grad_zero_rate"]) # okkk
+        # metric_y = get_dr_metric(d["param_grad_zero_rate"]) # okkk
+        metric_y = d["param_grad_zero_rate"]  #
         # metric_y = get_sc_metric(d["acc_list"])  # okkk
         # metric_y = get_ol_metric(d["acc_list"]) # eee okk
         # metric_y = get_veg_metric(d["param_grad_abs_ave_list"], d["module_name_flow_2dlist"], d["module_name_list"])
@@ -353,7 +354,139 @@ def plot_feature():
 
     print(len(id_x_dict), len(id_y_dict))
     print(max(id_x_dict.values()))
-    plt.scatter(id_x_dict.values(), id_y_dict.values(),edgecolors='r')
+    plt.scatter(id_x_dict.values(), id_y_dict.values(), edgecolors='r')
+    plt.show()
+
+
+def _get_partial_ave(param_grad_abs_ave_list, i_lst):
+    v_lst = param_grad_abs_ave_list
+    tmp_lst = []
+    for i in range(len(v_lst)):
+        if i in i_lst:
+            tmp_lst.append(v_lst[i])
+    return sum(tmp_lst) / len(tmp_lst)
+
+
+def get_quotient_list(param_grad_abs_ave_list, module_name_list, module_name_flow_2dlist):
+    for i in range(len(param_grad_abs_ave_list)):
+        if type(param_grad_abs_ave_list[i]) is str:
+            param_grad_abs_ave_list[i] = np.inf
+        param_grad_abs_ave_list[i] = np.array(param_grad_abs_ave_list[i])
+    lst = []
+    for module_name_flow_list in module_name_flow_2dlist:
+        module_idx_list_flow_list = []
+        for name in module_name_flow_list:
+            idx_lst = []
+            for idx in range(len(module_name_list)):
+                full_name = module_name_list[idx]
+                if name in full_name and full_name.index(name) == 0:  # prefix
+                    idx_lst.append(idx)
+            module_idx_list_flow_list.append(idx_lst)
+        for i in range(len(module_idx_list_flow_list) - 1):
+            idx_1st1 = module_idx_list_flow_list[i]
+            idx_lst2 = module_idx_list_flow_list[i + 1]
+            v1 = _get_partial_ave(param_grad_abs_ave_list, idx_1st1)
+            v2 = _get_partial_ave(param_grad_abs_ave_list, idx_lst2)
+            lst.append(v1 / v2)
+    return lst
+
+
+def get_ol_list(acc_list):
+    maximum_list = []
+    minimum_list = []
+    lst = []
+    for i in range(len(acc_list)):
+        if i == 0 or i == len(acc_list) - 1:
+            continue
+        if acc_list[i] - acc_list[i - 1] >= 0 and acc_list[i] - acc_list[i + 1] >= 0:
+            maximum_list.append(acc_list[i])
+        if acc_list[i] - acc_list[i - 1] <= 0 and acc_list[i] - acc_list[i + 1] <= 0:
+            minimum_list.append(acc_list[i])
+    for i in range(min(len(maximum_list), len(minimum_list))):
+        lst.append(maximum_list[i] - minimum_list[i])
+    return lst
+
+
+def plot_testbed():
+    scene_name_list = ["mnistlstm", "cifar10res18","fashionlenet5"]
+    scene_id_list = ["tpk1j376", "m61of0s7","h3p8wkex"]
+
+    for scene_idx in range(len(scene_name_list)):
+        print(scene_name_list[scene_idx])
+        desk_dir = "/Users/admin/Desktop/"
+        db_path = os.path.join(desk_dir, scene_name_list[scene_idx], scene_id_list[scene_idx])
+        db_pathh = os.path.join("./", scene_name_list[scene_idx])
+        os.system(" ".join(["cp", db_path, db_pathh]))
+        conn = sqlite3.connect(db_pathh)
+        cur = conn.cursor()
+
+        sql = "SELECT * FROM MetricData WHERE type='FINAL'"
+        cur.execute(sql)
+        print("begin to fetch data x:")
+        values = cur.fetchall()
+
+        id_x_dict = {}  # default
+        for i in range(len(values)):  # final ??? seq include 0
+            param_id = values[i][2]
+            d = yaml.load(eval(values[i][5]), Loader=yaml.FullLoader)
+            metric_x = d["default"]
+            id_x_dict[param_id] = metric_x
+        top_x_val = np.percentile(list(id_x_dict.values()), 99)  # 从小到大排 第95% val_acc
+        good_x_val = np.percentile(list(id_x_dict.values()), 95)
+        care_x_val = np.percentile(list(id_x_dict.values()), 90)
+
+        sql = "SELECT * FROM MetricData WHERE type='PERIODICAL' and sequence=10"  ######
+        # WHERE type='FINAL' 'PERIODICAL' limit 10000
+        cur.execute(sql)
+        print("begin to fetch data y:")
+        values = cur.fetchall()
+        id_y_dict = {}
+        print("begin to processing data:")
+        for i in range(len(values)):  # final ??? seq include 0
+            param_id = values[i][2]
+            d = yaml.load(eval(values[i][5]), Loader=yaml.FullLoader)
+            # metric_y = d["param_grad_zero_rate"]
+            # metric_y = d["acc"]
+            metric_y = id_x_dict[param_id] - d["default"]
+            # metric_y = np.log10(d["loss"]) if type(d["loss"]) is not str else np.inf
+            # lst = d["param_grad_abs_ave_list"]
+            # val = sum(lst) / len(lst) if type(lst[0]) is not str else np.inf
+            # metric_y = np.log10(val)
+
+            # param_grad_abs_ave_list = d["param_grad_abs_ave_list"]
+            # module_name_list = d["module_name_list"]
+            # module_name_flow_2dlist = d["module_name_flow_2dlist"]
+            # lst = get_quotient_list(param_grad_abs_ave_list, module_name_list, module_name_flow_2dlist)
+            # val = sum(lst)/len(lst)
+            # metric_y = np.log10(val)
+            id_y_dict[param_id] = metric_y
+        for k, v in id_y_dict.items():
+            if v == -np.inf:
+                id_y_dict[k] = min(id_y_dict.values())
+            if v == np.inf:
+                id_y_dict[k] = max(id_y_dict.values())
+        print("begin to split data:")
+        y_top, y_good, y_all, y_care = [], [], [], []
+        for key, value in id_x_dict.items():
+            if value >= top_x_val:
+                y_top.append(id_y_dict[key])
+            if value >= good_x_val:
+                y_good.append(id_y_dict[key])
+            if value >= care_x_val:
+                y_care.append(id_y_dict[key])
+            y_all.append(id_y_dict[key])
+        print("begin to plot data:")
+        plt.subplot(1, len(scene_name_list), scene_idx + 1)
+        y_range = (-0.25,0.25)  # (0,1) (-3,2) (-10, 5) (0,0.5) (-0.25,0.25)
+        y_bins = 10  #
+        plt.hist(y_all, range=y_range, bins=y_bins, color='grey', alpha=0.8)
+        plt.hist(y_care, range=y_range, bins=y_bins, color='b', alpha=0.8)
+        plt.hist(y_good, range=y_range, bins=y_bins, color='g', alpha=0.8)
+        plt.hist(y_top, range=y_range, bins=y_bins, color='r', alpha=0.8)
+        # plt.hist(y_all, range=(-10, 5), bins=15, color='grey', alpha=0.8)
+        # plt.hist(y_care, range=(-10, 5), bins=15, color='b', alpha=0.8)
+        # plt.hist(y_good, range=(-10, 5), bins=15, color='g', alpha=0.8)
+        # plt.hist(y_top, range=(-10, 5), bins=15, color='r', alpha=0.8)
     plt.show()
 
 
@@ -364,4 +497,5 @@ if __name__ == '__main__':
     # pie()
     # bar3()
     # plot_reproduce()
-    plot_feature()
+    # plot_feature()
+    plot_testbed()

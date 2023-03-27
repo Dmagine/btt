@@ -299,12 +299,17 @@ class ATDDMonitor:
                         self.param_grad_abs_ave_2dlist[layer_index].append(float(torch.mean(torch.abs(param.grad))))
                         # self.param_val_var_2dlist[layer_index].append(float(torch.var(torch.flatten(param))))
                         self.param_val_var_2dlist[layer_index].append(float(torch.mean(torch.flatten(param))))
-                        self.param_grad_var_2dlist[layer_index].append(float(torch.var(torch.flatten(param.grad))))
+                        self.param_grad_var_2dlist[layer_index].append(float(torch.var(param.grad)))  # var ok
                         layer_index += 1
-                        self.param_grad_nelement_total += param.grad.nelement()
-
-                        if True in [name == module_name.split('.')[0] for name in self.relu_pre_module_name]:  # !
-                            self.param_grad_nzeroelement_total += torch.sum(param.grad == 0).item()
+                        nel = param.grad.nelement()
+                        nel_0 = torch.sum(param.grad == 0).item()
+                        # if True in [name == module_name.split('.')[0] for name in self.relu_pre_module_name]:  # !
+                        if True in [name in module_name and module_name.index(name) == 0
+                                    and (module_name == name or module_name[len(name)] == ".")
+                                    for name in self.relu_pre_module_name]:
+                            self.param_grad_nelement_total += nel  #### 位置！！！！！????
+                            self.param_grad_nzeroelement_total += nel_0
+                            logger.debug(" ".join([module_name, "zero_rate:", str(nel_0), str(nel), str(nel_0 / nel)]))
                         if True in torch.isinf(param) or True in torch.isinf(param.grad):
                             self.param_has_inf = True
 
