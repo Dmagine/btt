@@ -1,0 +1,23 @@
+experiment_name: "fashionlenet5_monitor"
+searchSpaceFile: search_space_fashionlenet5.json
+
+
+trial_command: python3.8 atdd_model_fashionlenet5.py
+trial_code_directory: .
+
+trial_concurrency: 2
+maxExperimentDuration: 1h ###
+training_service:
+  platform: local
+#  useActiveGpu: true
+#trialGpuNumber: 1
+
+
+advisor:
+  codeDirectory: atdd_package
+  className: atdd_advisor.ATDDAdvisor
+  classArgs:
+    shared: default
+    monitor: default
+    tuner:
+      name: random

@@ -1,0 +1,53 @@
+{
+  "grad_clip": {
+    "_type": "choice",
+    "_value": [
+      true,
+      false
+    ]
+  },
+  "init": {
+    "_type": "choice",
+    "_value": [
+      "no",
+      "kaiming",
+      "xavier"
+    ]
+  },
+  "opt": {
+    "_type": "choice",
+    "_value": [
+      "sgd",
+      "adam",
+      "adadelta"
+    ]
+  },
+  "batch_size": {
+    "_type": "randint",
+    "_value": [
+      50,
+      200
+    ]
+  },
+  "lr": {
+    "_type": "loguniform",
+    "_value": [
+      0.000001,
+      1000
+    ]
+  },
+  "gamma": {
+    "_type": "uniform",
+    "_value": [
+      0,
+      1
+    ]
+  },
+  "weight_decay": {
+    "_type": "uniform",
+    "_value": [
+      0,
+      1
+    ]
+  }
+}

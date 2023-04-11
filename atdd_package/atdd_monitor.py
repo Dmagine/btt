@@ -1,5 +1,7 @@
 import logging
 
+import numpy as np
+import scipy.stats as stats
 import torch
 from torch import nn
 
@@ -17,56 +19,61 @@ class ATDDMonitor:
 
         self.model_num = self.shared["model_num"]
         self.enable_dict = self.shared["enable_dict"]
+        self.max_epoch = self.shared["max_epoch"]
         self.intermediate_default = self.report["intermediate_default"]
         self.final_default = self.report["final_default"]
 
-        #
-        self.total_layer_num = 0
-        self.step_counter = 0
+        self.epoch_idx = None
+        self.batch_idx = None
 
         #
-        self.acc_list = []
-        self.loss_list = []
-        self.reward_list = []
-        self.val_acc_list = []
-        self.val_loss_list = []
-        self.val_reward_list = []
-        # self.poor_weight_list = []
-
-        self.param_has_inf = False
-        self.param_grad_zero_rate = None
-        self.module_name_list = []
-        self.relu_pre_module_name = None
-        self.module_name_flow_2dlist = None
-        self.param_grad_abs_ave_list = []
-        self.param_val_var_list = []  # 先 mean 再 var
-        self.param_grad_var_list = []
-
+        self.acc_list = None
+        self.loss_list = None
+        self.reward_list = None
+        self.val_acc_list = None
+        self.val_loss_list = None
+        self.val_reward_list = None
         self.test_acc = None
         self.test_loss = None
         self.test_reward = None
+
+        self.has_nan_inf_list = None
+        self.epoch_has_nan_inf = None
+
+        self.module_nele_list = None
+        self.module_name_flow_matrix = None
+        self.relu_pre_module_name_list = None
+        # self.module_name_list = None
+        # self.relu_pre_module_name = None
+
+        # 跨网络层统筹的统计值（将不同网络层一视同仁取均值） 一个epoch对应一个值 ##############
+
+        # 原始：一个epoch的一个batch的  |  一个module的(一个对象的)一个统计值
+        # module内处理(均值/中值/末值)：cube -> matrix
+        # batch处理(均值/中值/末值)：matrix -> list
+        # module间处理(均值/中值/末值)：list -> value
 
         # DeepDiagnosis
         self.lr_cond = None
         self.weight_cond = None
         self.data_cond = None
 
-        # self.improper_data = False
-        # self.improper_weight_init = False
-        # self.lr_condition = None
-        # self.x_range = None
-        # self.y_range = None
+        self.num_train_batch = None
 
-        # helper parameters:
-        self.param_grad_nelement_total = 0
-        self.param_grad_nzeroelement_total = 0
-
-        self.param_grad_abs_ave_2dlist = []
-        self.param_grad_var_2dlist = []
-        self.param_val_var_2dlist = []
+        self.module_name_list = None
+        self.metric_name_list = None
+        self.metric_prefix_list = ["weight", "weight_abs", "weight_grad", "weight_grad_abs"]
+        self.metric_suffix_list = ["avg", "var", "mid", "max", "min", "upper", "lower", "skew", "kurt", "rate0"]
+        self.epoch_module_metric_3da = None  # dim1:epoch_idx, dim2:module_idx, dim3:metric_idx
+        self.batch_module_metric_3da = None  # dim1:batch_idx, dim2:module_idx, dim3:metric_idx
 
     def complete_config_by_default(self):
         pass
+
+    def refresh_before_epoch_start(self):
+        self.epoch_idx = self.epoch_idx + 1 if self.epoch_idx is not None else 0
+        self.batch_idx = 0
+        self.epoch_has_nan_inf = False
 
     def get_intermediate_default_metric_value(self):
         if if_enable(["val"]) and "val" in self.intermediate_default:  # e.g. "val_acc"
@@ -95,83 +102,57 @@ class ATDDMonitor:
         else:
             return self.get_intermediate_default_metric_value()
 
-    def refresh_before_epoch_start(self):
-        self.step_counter += 1
-
-        # self.acc_list = []
-        self.param_grad_abs_ave_list = []
-        self.param_grad_var_list = []
-        self.param_val_var_list = []
-        self.param_grad_zero_rate = 0
-        self.param_has_inf = False
-        self.param_grad_nelement_total = 0
-        self.param_grad_nzeroelement_total = 0
-        self.param_grad_abs_ave_2dlist = []
-        self.param_val_var_2dlist = []
-        self.param_grad_var_2dlist = []
-        for i in range(self.total_layer_num):
-            self.param_grad_abs_ave_2dlist.append([])
-            self.param_val_var_2dlist.append([])
-            self.param_grad_var_2dlist.append([])
-        # self.total_layer_num = 0
-
     def get_basic_v_result(self):
         d = {}
-        if if_enable(["acc"]):
+        if if_enable(["acc"]) and self.acc_list is not None:
             d.update({"acc": self.acc_list[-1]})
-        if if_enable(["loss"]):
+        if if_enable(["loss"]) and self.loss_list is not None:
             d.update({"loss": self.loss_list[-1]})
-        if if_enable(["reward"]):
+        if if_enable(["reward"]) and self.reward_list is not None:
             d.update({"reward": self.reward_list[-1]})
-        if if_enable(["acc", "val"]):
+        if if_enable(["acc", "val"]) and self.val_acc_list is not None:
             d.update({"val_acc": self.val_acc_list[-1]})
-        if if_enable(["loss", "val"]):
+        if if_enable(["loss", "val"]) and self.val_loss_list is not None:
             d.update({"val_loss": self.val_loss_list[-1]})
-        if if_enable(["reward", "val"]):
+        if if_enable(["reward", "val"]) and self.val_reward_list is not None:
             d.update({"val_reward": self.val_reward_list[-1]})
-        d.update({"step_counter": self.step_counter})
+        d.update({"epoch_idx": self.epoch_idx})
         return d
 
-    def get_additional_v_result(self):
+    def get_statistic_2da_result(self):
         d = {}
-        d.update({"param_has_inf": self.param_has_inf})
-        d.update({"param_grad_zero_rate": self.param_grad_zero_rate})
-        d.update({"data_cond": self.data_cond})
-        d.update({"weight_cond": self.weight_cond})
-        d.update({"lr_cond": self.lr_cond})
+        d.update({"module_metric_2da": self.epoch_module_metric_3da[self.epoch_idx]})
         return d
 
     def get_basic_l_result(self):
         d = {}
-        d.update({"acc_list": self.acc_list})
-        d.update({"loss_list": self.loss_list})
-        d.update({"reward_list": self.reward_list})
-        d.update({"val_acc_list": self.val_acc_list})
-        d.update({"val_loss_list": self.val_loss_list})
-        d.update({"val_reward_list": self.val_reward_list})
+        if if_enable(["acc"]) and self.acc_list is not None:
+            d.update({"acc_list": self.acc_list})
+        if if_enable(["loss"]) and self.loss_list is not None:
+            d.update({"loss_list": self.loss_list})
+        if if_enable(["reward"]) and self.reward_list is not None:
+            d.update({"reward_list": self.reward_list})
+        if if_enable(["acc", "val"]) and self.val_acc_list is not None:
+            d.update({"val_acc_list": self.val_acc_list})
+        if if_enable(["loss", "val"]) and self.val_loss_list is not None:
+            d.update({"val_loss_list": self.val_loss_list})
+        if if_enable(["reward", "val"]) and self.val_reward_list is not None:
+            d.update({"val_reward_list": self.val_reward_list})
         return d
 
-    def get_result_4_assessor(self):
-        # param_grad_abs_ave_list module_name_flow_2dlist module_name_list param_grad_zero_rate
-
+    def get_result_4_inspector_assessor(self):
         d = {}
-        d.update({"param_grad_abs_ave_list": self.param_grad_abs_ave_list})
-        d.update({"module_name_flow_2dlist": self.module_name_flow_2dlist})
+        d.update({"has_nan_inf_list": self.has_nan_inf_list})
+        d.update({"module_name_flow_matrix": self.module_name_flow_matrix})
+        d.update({"relu_pre_module_name_list": self.relu_pre_module_name_list})
         d.update({"module_name_list": self.module_name_list})
-        return d
+        d.update({"module_nele_list": self.module_nele_list})
 
-    def get_result_4_inspector(self):
-        # param_grad_abs_ave_list param_has_inf param_grad_zero_rate acc_list val_acc_list
-        # poor_weight_list loss_list val_loss_list
-        # val_loss_list reward_list val_reward_list
-
-        d = {}
-        d.update({"param_has_inf": self.param_has_inf})
-        d.update({"param_val_var_list": self.param_val_var_list})
-        d.update({"param_grad_zero_rate": self.param_grad_zero_rate})
-        d.update({"param_grad_abs_ave_list": self.param_grad_abs_ave_list})
-        d.update({"module_name_flow_2dlist": self.module_name_flow_2dlist})
-        d.update({"module_name_list": self.module_name_list})
+        #
+        d.update({"metric_prefix_list": self.metric_prefix_list})
+        d.update({"metric_suffix_list": self.metric_suffix_list})
+        d.update({"module_metric_2da": self.epoch_module_metric_3da[self.epoch_idx]})
+        d.update({"epoch_idx":self.epoch_idx})
         return d
 
     def get_result_4_tuner(self):
@@ -193,29 +174,21 @@ class ATDDMonitor:
         return d
 
     def get_intermediate_dict(self):
+
         d = {"default": self.get_intermediate_default_metric_value()}
         d.update(self.get_basic_v_result())
-        d.update(self.get_additional_v_result())
-        d.update(self.get_result_4_inspector())
-        d.update(self.get_result_4_assessor())
+        d.update(self.get_result_4_inspector_assessor())
         d.update(self.get_basic_l_result())
-        d.update(self.get_result_4_tuner())
-
-        d.update({
-            # for record:
-            "param_grad_var_list": self.param_grad_var_list,  ####
-            "param_val_var_list": self.param_val_var_list,  ####
-        })
+        d.update(self.get_statistic_2da_result())
         return d
 
     def get_final_dict(self):
+        self.epoch_module_metric_3da = self.epoch_module_metric_3da[0:self.epoch_idx + 1, :, :]
+
         d = {"default": self.get_final_default_metric_value()}
         d.update(self.get_basic_v_result())
         d.update(self.get_test_result())
-        # d.update(self.get_result_4_inspector())
-        # d.update(self.get_basic_l_result())
-        d.update(self.get_result_4_tuner())
-
+        d.update(self.get_statistic_2da_result())
         return d
 
     def init_cond(self, opt, data_loader_list, lr):
@@ -254,19 +227,33 @@ class ATDDMonitor:
         if if_enable(["lr"]):
             self.lr_cond = True if lr > 1e-3 else False
 
-    def init_module_basic(self, model):
+    def init_basic(self, model, train_dataloader):
         if not if_enable(["model"]):
             return
+        self.has_nan_inf_list = []
+
+        self.num_train_batch = len(train_dataloader)
+        self.module_name_list = []
+        self.module_nele_list = []
         for (module_name, module) in model.named_modules():
             if type(module) in [nn.Conv2d, nn.Linear, nn.LSTM, nn.RNN]:
-                self.module_name_list.append(module_name)
                 for (param_name, param) in module.named_parameters():
-                    if "weight" == param_name or ("weight" in param_name and "hh" in param_name):  # for lstm # 取消掉？
-                        self.total_layer_num += 1
-                        self.param_grad_abs_ave_2dlist.append([])
-                        self.param_val_var_2dlist.append([])
-                        self.param_grad_var_2dlist.append([])
+                    if "weight" == param_name:
+                        self.module_name_list.append(module_name)
+                        self.module_nele_list.append(param.nelement())
+        self.metric_name_list = []
+        for prefix in self.metric_prefix_list:
+            for suffix in self.metric_suffix_list:
+                self.metric_name_list.append("_".join([prefix, suffix]))
+        self.batch_module_metric_3da = \
+            np.zeros((self.num_train_batch, len(self.module_name_list), len(self.metric_name_list)))
+        self.epoch_module_metric_3da = np.zeros(
+            (self.max_epoch, len(self.module_name_list), len(self.metric_name_list)))
+
         logger.debug(" ".join([" ", "module_name_list:", str(self.module_name_list)]))
+        logger.debug(" ".join([" ", "metric_name_list:", str(self.metric_name_list)]))
+
+        # 一般来说 展开后的一个module 对应一个weight
         # print(module_name,module_name.split('.'),param_name)
         # conv1.0 ['conv1', '0'] weight
         # conv1.0 ['conv1', '0'] bias
@@ -281,76 +268,132 @@ class ATDDMonitor:
         # blk2.conv2 ['blk2', 'conv2'] weight
         # blk2.conv2 ['blk2', 'conv2'] bias
 
-        ###
-        self.relu_pre_module_name = model.relu_pre_module_name \
-            if hasattr(model, "relu_pre_module_name") else self.module_name_list
-        self.module_name_flow_2dlist = model.module_name_flow_2dlist \
-            if hasattr(model, "module_name_flow_2dlist") else [self.module_name_list]
+        self.module_name_flow_matrix = model.module_name_flow_matrix \
+            if hasattr(model, "module_name_flow_matrix") else [self.module_name_list]
+        self.relu_pre_module_name_list = model.relu_pre_module_name_list \
+            if hasattr(model, "relu_pre_module_name_list") else self.module_name_list
+
+    def clean_tensor(self, x):
+        # self.has_inf_list
+        x = x[~ torch.isnan(x)]
+        x_finite = x[~ torch.isinf(x)]
+        if x_finite.nelement() == 0:
+            return x
+        x_max = torch.max(x_finite)
+        x_min = torch.min(x_finite)
+        x[torch.inf == x] = x_max
+        x[-torch.inf == x] = x_min
+        return x
 
     def collect_in_training(self, model):
         if not if_enable(["model"]):
             return
-        layer_index = 0
-        # assume sequence idx->layer !!!!
+
+        module_idx = 0
+        single_batch_module_metric_2da = np.zeros((len(self.module_name_list), len(self.metric_name_list)))
         for (module_name, module) in model.named_modules():
-            if type(module) in [nn.Conv2d, nn.Linear, nn.LSTM, nn.RNN]:
-                for (param_name, param) in module.named_parameters():
-                    if "weight" == param_name or ("weight" in param_name and "hh" in param_name):  # for lstm
-                        self.param_grad_abs_ave_2dlist[layer_index].append(float(torch.mean(torch.abs(param.grad))))
-                        # self.param_val_var_2dlist[layer_index].append(float(torch.var(torch.flatten(param))))
-                        self.param_val_var_2dlist[layer_index].append(float(torch.mean(torch.flatten(param))))
-                        self.param_grad_var_2dlist[layer_index].append(float(torch.var(param.grad)))  # var ok
-                        layer_index += 1
-                        nel = param.grad.nelement()
-                        nel_0 = torch.sum(param.grad == 0).item()
-                        # if True in [name == module_name.split('.')[0] for name in self.relu_pre_module_name]:  # !
-                        if True in [name in module_name and module_name.index(name) == 0
-                                    and (module_name == name or module_name[len(name)] == ".")
-                                    for name in self.relu_pre_module_name]:
-                            self.param_grad_nelement_total += nel  #### 位置！！！！！????
-                            self.param_grad_nzeroelement_total += nel_0
-                            logger.debug(" ".join([module_name, "zero_rate:", str(nel_0), str(nel), str(nel_0 / nel)]))
-                        if True in torch.isinf(param) or True in torch.isinf(param.grad):
-                            self.param_has_inf = True
+            if type(module) not in [nn.Conv2d, nn.Linear, nn.LSTM, nn.RNN]:
+                continue
+            for (param_name, param) in module.named_parameters():
+                if "weight" not in param_name:
+                    continue
+
+                weight_array = self.clean_tensor(param.flatten().detach().cpu()).numpy()
+                weight_abs_array = np.abs(weight_array)
+                weight_grad_array = self.clean_tensor(param.grad.flatten().detach().cpu()).numpy()
+                weight_grad_abs_array = np.abs(weight_grad_array)
+
+                # has_inf
+                self.epoch_has_nan_inf &= np.any(np.isinf(weight_array)) or np.any(np.isinf(weight_grad_array))
+
+                metric_idx = 0
+                for prefix in self.metric_prefix_list:
+                    tmp = None
+                    # ["weight", "weight_abs", "weight_grad", "weight_grad_abs"]
+                    if prefix == "weight":
+                        tmp = weight_array
+                    elif prefix == "weight_abs":
+                        tmp = weight_abs_array
+                    elif prefix == "weight_grad":
+                        tmp = weight_grad_array
+                    elif prefix == "weight_grad_abs":
+                        tmp = weight_grad_abs_array
+                    # ["avg", "var", "mid", "max", "min", "upper", "lower", "skew", "kurt", "rate0"]
+                    for suffix in self.metric_suffix_list:
+                        if tmp.size == 0:
+                            single_batch_module_metric_2da[module_idx][metric_idx] = np.nan
+                            self.epoch_has_nan_inf = True
+                            continue
+                        if suffix == "avg":
+                            single_batch_module_metric_2da[module_idx][metric_idx] = np.mean(tmp)
+                        elif suffix == "var":
+                            single_batch_module_metric_2da[module_idx][metric_idx] = np.var(tmp)
+                        elif suffix == "mid":
+                            single_batch_module_metric_2da[module_idx][metric_idx] = np.median(tmp)
+                        elif suffix == "max":
+                            single_batch_module_metric_2da[module_idx][metric_idx] = np.max(tmp)
+                        elif suffix == "min":
+                            single_batch_module_metric_2da[module_idx][metric_idx] = np.min(tmp)
+                        elif suffix == "upper":
+                            single_batch_module_metric_2da[module_idx][metric_idx] = np.percentile(tmp, 75)
+                        elif suffix == "lower":
+                            single_batch_module_metric_2da[module_idx][metric_idx] = np.percentile(tmp, 25)
+                        elif suffix == "skew":
+                            single_batch_module_metric_2da[module_idx][metric_idx] = stats.skew(tmp)
+                        elif suffix == "kurt":
+                            single_batch_module_metric_2da[module_idx][metric_idx] = stats.kurtosis(tmp)
+                        elif suffix == "rate0":
+                            single_batch_module_metric_2da[module_idx][metric_idx] = np.sum(tmp == 0) / tmp.size
+                        metric_idx += 1
+                self.batch_module_metric_3da[self.batch_idx] = single_batch_module_metric_2da
+                module_idx += 1
+        self.batch_idx += 1
 
     def collect_after_training(self, acc=None, loss=None, reward=None):
-        if if_enable(["acc"]):
+        if if_enable(["acc"]) and acc is not None:
+            self.acc_list = [] if self.acc_list is None else self.acc_list
             self.acc_list.append(acc)
-        if if_enable(["loss"]):
+        if if_enable(["loss"]) and loss is not None:
+            self.loss_list = [] if self.loss_list is None else self.loss_list
             self.loss_list.append(loss)
-        if if_enable(["reward"]):
+        if if_enable(["reward"]) and reward is not None:
+            self.reward_list = [] if self.reward_list is None else self.reward_list
             self.reward_list.append(reward)
 
     def calculate_metrics_after_training(self):
-        def get_ave(lst):
-            return sum(lst) / len(lst)
-
-        def get_var(lst):
-            import numpy as np
-            return float(np.var(lst))
-
         if if_enable(["model"]):
-            for i in range(self.total_layer_num):
-                self.param_grad_abs_ave_list.append(get_ave(self.param_grad_abs_ave_2dlist[i]))
-                # self.param_val_var_list.append(get_ave(self.param_val_var_2dlist[i]))
-                self.param_val_var_list.append(get_var(self.param_val_var_2dlist[i]))
-                self.param_grad_var_list.append(get_ave(self.param_grad_var_2dlist[i]))
-            self.param_grad_zero_rate = self.param_grad_nzeroelement_total / self.param_grad_nelement_total
+            single_batch_module_metric_2da = np.mean(self.batch_module_metric_3da, axis=0)
+            self.epoch_module_metric_3da[self.epoch_idx] = single_batch_module_metric_2da
+        self.has_nan_inf_list.append(self.epoch_has_nan_inf)
 
     def collect_after_validating(self, acc=None, loss=None, reward=None):
         if if_enable(["val"]):
-            if if_enable(["acc"]):
+            if if_enable(["acc"]) and acc is not None:
+                self.val_acc_list = [] if self.val_acc_list is None else self.val_acc_list
                 self.val_acc_list.append(acc)
-            if if_enable(["loss"]):
+            if if_enable(["loss"]) and loss is not None:
+                self.val_loss_list = [] if self.val_loss_list is None else self.val_loss_list
                 self.val_loss_list.append(loss)
-            if if_enable(["reward"]):
+            if if_enable(["reward"]) and reward is not None:
+                self.val_reward_list = [] if self.val_reward_list is None else self.val_reward_list
                 self.val_reward_list.append(reward)
 
     def collect_after_testing(self, acc=None, loss=None, reward=None):
         if if_enable(["test"]):
-            if if_enable(["acc"]):
+            if if_enable(["acc"]) and acc is not None:
                 self.test_acc = acc
-            if if_enable(["loss"]):
+            if if_enable(["loss"]) and loss is not None:
                 self.test_loss = loss
-            if if_enable(["reward"]):
+            if if_enable(["reward"]) and reward is not None:
                 self.test_reward = reward
+
+
+def get_methods(self):
+    lst1 = list(filter(lambda m: not m.startswith("__") and callable(getattr(self, m)), dir(self)))
+    print("关键方法:", lst1)
+    lst2 = list(filter(lambda m: not m.startswith("__"), dir(self)))
+    print("关键变量", lst2)
+
+
+if __name__ == '__main__':
+    get_methods(ATDDMonitor)

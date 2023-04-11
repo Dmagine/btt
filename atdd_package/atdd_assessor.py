@@ -183,27 +183,37 @@ class ATDDAssessor(Assessor):
         return - max_l - 1
 
     def get_metric_value(self, result_dict, metric_name):
+        def get_metric_array(p, s):
+            idx = metric_prefix_list.index(p) * len(metric_suffix_list) + metric_suffix_list.index(s)
+            return module_metric_2da[:, idx].flatten()
+
         d = result_dict
+        module_metric_2da = d["module_metric_2da"]
+        metric_prefix_list = d["metric_prefix_list"]
+        metric_suffix_list = d["metric_suffix_list"]
+        module_nele_list = d["module_nele_list"]
+        weight_grad_rate0 = np.average(get_metric_array("weight_grad", "rate0"), 0, module_nele_list)
+        weight_grad_abs_avg_array = get_metric_array("weight_grad_abs", "avg")
+        module_name_flow_matrix = d["module_name_flow_matrix"]
+        module_name_list = d["module_name_list"]
+        acc_list = d["acc_list"]
+
         if metric_name in ["acc", "loss", "reward", "val_acc", "val_loss", "val_reward"]:
             return d[metric_name]
         if metric_name == "veg_metric":
-            return self.get_veg_metric(d["param_grad_abs_ave_list"], d["module_name_flow_2dlist"],
-                                       d["module_name_list"])
+            return self.get_veg_metric(weight_grad_abs_avg_array, module_name_flow_matrix, module_name_list)
         if metric_name == "dr_metric":
-            return self.get_dr_metric(d["param_grad_zero_rate"])
+            return self.get_dr_metric(weight_grad_rate0)
         if metric_name == "ol_metric":
-            return self.get_ol_metric(d["acc_list"])
+            return self.get_ol_metric(acc_list)
         if metric_name == "sc_metric":
-            # return d["acc_list"][-1] - d["acc_list"][0] #### 改为count类 acc比val_acc更好
-            return self.get_sc_metric(d["acc_list"])
+            return self.get_sc_metric(acc_list)
 
     def get_metric_window_ave(self, metric_name, result_dict_list, step_end):
         step_start = max(0, step_end - int(round(self.window_size_float * self.max_epoch)))
         ll = []
         for i in range(step_start, step_end):  # (2,5) -> 2 3 4
-            ##############
             val = self.get_metric_value(result_dict_list[i], metric_name)
-            # val = result_dict_list[i][metric_name]
             ll.append(val)
             if np.isnan(val) or np.isinf(val):
                 return None
@@ -216,7 +226,8 @@ class ATDDAssessor(Assessor):
         return count
 
     def get_default_dict(self):
-        d = {"step_counter": self.cur_step}
+        # d = {"step_counter": self.cur_step}
+        d = {}
         for metric_name in self.minimize_metric_name_list + self.maximize_metric_name_list:
             d.update({("cmp_" + metric_name): None})
         return d

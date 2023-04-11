@@ -10,7 +10,7 @@ shared:
     epoch: true
     val: true
     test: true
-    data: true
+    data: false ###
     lr: true
 monitor:
   classArgs:
@@ -42,13 +42,13 @@ tuner:
 assessor:
   classArgs:
     basic:
-      maximize_metric_name_list: [ "sc_metric" ]
-      minimize_metric_name_list: [ "val_loss","veg_metric","dr_metric","ol_metric" ]
+      maximize_metric_name_list: [ "acc","sc_metric" ]
+      minimize_metric_name_list: [ "loss","veg_metric","dr_metric","ol_metric" ] # remove: val_loss add: loss acc
     compare:
       k: 0
       b: 0.5
       max_percentile: 90
-      start_step_float: 0.0
+      start_step_float: 0.5 ###### pre:0.0
       end_step_float: 0.75
       metric_demarcation_num: 10 # # #
       comparable_trial_minimum: 2
@@ -62,7 +62,7 @@ assessor:
 inspector:
   classArgs:
     basic:
-      start_step_float: 0.15
+      start_step_float: 0 ###### pre:0.15
       rule_name_list: [ "at","dd","wd" ]
     diagnose:
       alpha1: 0

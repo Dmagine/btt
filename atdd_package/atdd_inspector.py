@@ -40,11 +40,11 @@ class ATDDInspector:
         self.val_acc_list = None
         self.val_loss_list = None
         self.val_reward_list = None
-        self.param_has_inf = None
-        self.param_grad_zero_rate = None
+        self.epoch_has_nan_inf = None
+        self.weight_grad_rate0 = None
         self.param_val_var_list = None
-        self.param_grad_abs_ave_list = None
-        self.module_name_flow_2dlist = None
+        self.weight_grad_abs_avg_array = None
+        self.module_name_flow_matrix = None
         self.module_name_list = None
         self.step_counter = None
         self.trial_id = None
@@ -52,6 +52,13 @@ class ATDDInspector:
         self.continuous_vg_count = 0  # alpha1
         self.continuous_eg_count = 0  # alpha2
         self.continuous_dr_count = 0  # alpha3
+
+        self.module_metric_2da = None
+        self.metric_prefix_list = None
+        self.metric_suffix_list = None
+
+        self.relu_pre_module_name_list = None # not used
+        self.module_nele_list = None
 
     def complete_config_by_default(self):
         pass
@@ -86,23 +93,54 @@ class ATDDInspector:
              }
         return d
 
+    def get_metric_array(self, p, s):
+        idx = self.metric_prefix_list.index(p) * len(self.metric_suffix_list) + self.metric_suffix_list.index(s)
+        return self.module_metric_2da[:, idx].flatten()
+
     def load_and_get_dict(self):
+
         msg = ATDDMessenger()
         d = msg.read_monitor_info()
-        self.last_acc = d["acc_list"][-1]
-        self.acc_list = d["acc_list"]
-        self.loss_list = d["loss_list"]
-        self.reward_list = d["reward_list"]
-        self.val_acc_list = d["val_acc_list"]
-        self.val_loss_list = d["val_loss_list"]
-        self.val_reward_list = d["val_reward_list"]
-        self.param_has_inf = d["param_has_inf"]
-        self.param_grad_zero_rate = d["param_grad_zero_rate"]
-        self.param_val_var_list = d["param_val_var_list"]  # 不好说明。。。。。uw废弃
-        self.param_grad_abs_ave_list = d["param_grad_abs_ave_list"]
-        self.module_name_flow_2dlist = d["module_name_flow_2dlist"]
+        self.last_acc = d["acc_list"][-1] if "acc_list" in d else None
+        self.acc_list = d["acc_list"] if "acc_list" in d else None
+        self.loss_list = d["loss_list"] if "loss_list" in d else None
+        self.reward_list = d["reward_list"] if "reward_list" in d else None
+        self.val_acc_list = d["val_acc_list"] if "val_acc_list" in d else None
+        self.val_loss_list = d["val_loss_list"] if "val_loss_list" in d else None
+        self.val_reward_list = d["val_reward_list"] if "val_reward_list" in d else None
+
+        # self.param_has_inf = d["param_has_inf"]
+        # self.param_grad_zero_rate = d["param_grad_zero_rate"]
+        # self.param_val_var_list = d["param_val_var_list"]  # 不好说明。。。。。uw废弃
+        # self.param_grad_abs_ave_list = d["param_grad_abs_ave_list"]
+        # self.module_name_flow_2dlist = d["module_name_flow_2dlist"]
+        # self.module_name_list = d["module_name_list"]
+        # self.step_counter = d["step_counter"]
+
+        #         d = {}
+        #         d.update({"has_inf_list": self.has_inf_list})
+        #         d.update({"module_name_flow_matrix": self.module_name_flow_matrix})
+        #         d.update({"relu_pre_module_name_list": self.relu_pre_module_name_list})
+        #         d.update({"module_name_list": self.module_name_list})
+        #         d.update({"module_nelement_list": self.module_nelement_list})
+        #
+        #         # nele
+        #         d.update({"metric_prefix_list": self.metric_prefix_list})
+        #         d.update({"metric_suffix_list": self.metric_suffix_list})
+        #         d.update({"module_metric_2da": self.epoch_module_metric_3da[self.epoch_idx]})
+
+        self.module_metric_2da = d["module_metric_2da"]
+        self.metric_prefix_list = d["metric_prefix_list"]
+        self.metric_suffix_list = d["metric_suffix_list"]
+
+        self.module_nele_list = d["module_nele_list"]
+        self.relu_pre_module_name_list = d["relu_pre_module_name_list"]
+        self.epoch_has_nan_inf = d["has_nan_inf_list"][-1]
+        self.weight_grad_rate0 = np.average(self.get_metric_array("weight_grad", "rate0"), 0, self.module_nele_list)
+        self.weight_grad_abs_avg_array = self.get_metric_array("weight_grad_abs", "avg")
+        self.step_counter = d["epoch_idx"] + 1
+        self.module_name_flow_matrix = d["module_name_flow_matrix"]
         self.module_name_list = d["module_name_list"]
-        self.step_counter = d["step_counter"]
 
         if self.step_counter < self.start_step:
             logger.info(" ".join(["step_counter:", str(self.step_counter), "lt", "start_step", str(self.start_step)]))
@@ -140,7 +178,7 @@ class ATDDInspector:
             return True
         ############################ 。。。。。 # 细看 rfi4zmp0 还是合理（10*-5）！但是 unpb3fiz 受其影响（10*-10）
         # if self.if_dd_uw():
-        #     self.dd_symptom = "UnchangedWeight"  # or PoorWeight ? DD use no param_grad_var_list
+        #     self.dd_symptom = "UnchangedWeight"  # or PoorWeight ? DD use no param_grad_var_list ...
         #     return True
 
         # if self.dd_sa_judge():  # unused
@@ -193,12 +231,13 @@ class ATDDInspector:
             symptom_flag |= self.judge_at_symptom()
         if "dd" in self.rule_name_list:
             symptom_flag |= self.judge_dd_symptom()
-        if "wd" in self.rule_name_list:
-            symptom_flag |= self.judge_wd_symptom()
-
+        # if "wd" in self.rule_name_list:
+        #     symptom_flag |= self.judge_wd_symptom()
         return symptom_flag
 
     def _if_wd_symptom(self, li, expect: str):
+        if li is None:
+            return False
         if len(li) >= self.window_size * 2:  # 不然第二段因为数量少导致var必然小
             s = self.window_size
             mean_now = get_ave(li[-s:])
@@ -216,16 +255,19 @@ class ATDDInspector:
 
     def if_wd_symptom(self, s):
         if s == "acc":
-            return self._if_wd_symptom(self.acc_list, "inc") and self._if_wd_symptom(self.val_acc_list, "inc")
+            # return self._if_wd_symptom(self.acc_list, "inc") and self._if_wd_symptom(self.val_acc_list, "inc")
+            return self._if_wd_symptom(self.acc_list, "inc")
         elif s == "loss":
-            return self._if_wd_symptom(self.loss_list, "dec") and self._if_wd_symptom(self.val_loss_list, "dec")
+            # return self._if_wd_symptom(self.loss_list, "dec") and self._if_wd_symptom(self.val_loss_list, "dec")
+            return self._if_wd_symptom(self.loss_list, "inc")
         elif s == "reward":
-            return self._if_wd_symptom(self.reward_list, "inc") and self._if_wd_symptom(self.val_reward_list, "inc")
+            # return self._if_wd_symptom(self.reward_list, "inc") and self._if_wd_symptom(self.val_reward_list, "inc")
+            return self._if_wd_symptom(self.reward_list, "inc")
 
     def if_dd_et(self):
         if not self.if_enable(["model"]):
             return False
-        if self.param_has_inf:
+        if self.epoch_has_nan_inf:
             return True
         return False
 
@@ -253,10 +295,11 @@ class ATDDInspector:
         return False
 
     def if_dd_lnd(self):
-        if self.if_enable(["val"]):
-            return self._if_dd_lnd(self.loss_list) or self._if_dd_lnd(self.val_loss_list)  # 可能没有val_loss_list...
-        else:
-            return self._if_dd_lnd(self.loss_list)
+        # if self.if_enable(["val"]):
+        #     return self._if_dd_lnd(self.loss_list) or self._if_dd_lnd(self.val_loss_list)  # 可能没有val_loss_list...
+        # else:
+        #     return self._if_dd_lnd(self.loss_list)
+        return self._if_dd_lnd(self.loss_list)
 
     def _if_dd_ani(self, acc_list):
         if not self.if_enable(["acc"]):
@@ -267,21 +310,22 @@ class ATDDInspector:
         return False
 
     def if_dd_ani(self):
-        if self.if_enable(["val"]):
-            return self._if_dd_ani(self.acc_list) or self._if_dd_ani(self.val_acc_list)  # 加上val 算是检查过拟合
-        else:
-            return self._if_dd_ani(self.acc_list)
+        # if self.if_enable(["val"]):
+        #     return self._if_dd_ani(self.acc_list) or self._if_dd_ani(self.val_acc_list)  # 加上val 算是检查过拟合
+        # else:
+        #     return self._if_dd_ani(self.acc_list)
+        return self._if_dd_ani(self.acc_list)
 
     def if_dd_vg(self):
         if not self.if_enable(["model"]):
             return False
-        for item in self.param_grad_abs_ave_list:
+        for item in self.weight_grad_abs_avg_array:
             if item < self.dp.dd_threshold_VG:
                 return True
         return False
 
     def _get_partial_ave(self, i_lst):
-        v_lst = self.param_grad_abs_ave_list
+        v_lst = self.weight_grad_abs_avg_array
         tmp_lst = []
         for i in range(len(v_lst)):
             if i in i_lst:
@@ -293,10 +337,10 @@ class ATDDInspector:
             return False
 
         symptom_flag = False
-        if 0 in self.param_grad_abs_ave_list:
+        if 0 in self.weight_grad_abs_avg_array:
             symptom_flag = True
         else:
-            for module_name_flow_list in self.module_name_flow_2dlist:
+            for module_name_flow_list in self.module_name_flow_matrix:
                 # module_idx_flow_list = [self.module_name_list.index(name) for name in module_name_flow_list]
                 ###############
                 module_idx_list_flow_list = []
@@ -329,10 +373,10 @@ class ATDDInspector:
         if not self.if_enable(["acc", "model"]):
             return False
         symptom_flag = False
-        if self.param_has_inf:
+        if self.epoch_has_nan_inf:
             symptom_flag = True  ####
         else:
-            for module_name_flow_list in self.module_name_flow_2dlist:
+            for module_name_flow_list in self.module_name_flow_matrix:
                 ###############
                 module_idx_list_flow_list = []
                 for name in module_name_flow_list:
@@ -363,7 +407,7 @@ class ATDDInspector:
         if not self.if_enable(["acc", "model"]):
             return False
         symptom_flag = False
-        if self.last_acc <= self.dp.theta and self.param_grad_zero_rate >= self.dp.gamma:
+        if self.last_acc <= self.dp.theta and self.weight_grad_rate0 >= self.dp.gamma:
             symptom_flag = True
         self.continuous_dr_count = self.continuous_dr_count + 1 if symptom_flag else 0
         if self.continuous_dr_count > self.dp.alpha3:
@@ -395,7 +439,9 @@ class ATDDInspector:
         return False
 
     def if_sc(self):
-        return self._if_sc(self.acc_list) and self._if_sc(self.val_acc_list)
+        ##### 希望不基于val
+        # return self._if_sc(self.acc_list) and self._if_sc(self.val_acc_list)
+        return self._if_sc(self.acc_list)
 
     def _if_sc(self, acc_list):
         # 任意的 i 都要满足 才触发！
@@ -408,3 +454,14 @@ class ATDDInspector:
             # logger.warning("%s: %s\n" % (self.tmp_trial_job_id, "problem SC"))
             return True
         return False
+
+
+def get_methods(self):
+    lst1 = list(filter(lambda m: not m.startswith("__") and callable(getattr(self, m)), dir(self)))
+    print("关键方法:", lst1)
+    lst2 = list(filter(lambda m: not m.startswith("__"), dir(self)))
+    print("关键变量", lst2)
+
+
+if __name__ == '__main__':
+    get_methods(ATDDInspector)

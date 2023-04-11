@@ -74,9 +74,9 @@ class ATDDManager:
         if self.monitor_config is not None:
             self.monitor.collect_after_testing(*args)
 
-    def init_module_basic(self, *args):
+    def init_basic(self, *args):
         if self.monitor_config is not None:
-            self.monitor.init_module_basic(*args)
+            self.monitor.init_basic(*args)
 
     def init_cond(self, *args):
         if self.monitor_config is not None:

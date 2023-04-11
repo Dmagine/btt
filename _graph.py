@@ -4,6 +4,7 @@ import sqlite3
 import matplotlib.pyplot as plt
 import numpy as np
 import yaml
+from scipy.stats import gaussian_kde, stats
 
 
 def plot():
@@ -407,9 +408,54 @@ def get_ol_list(acc_list):
     return lst
 
 
+def clean_list(lst):
+    for i in range(len(lst)):
+        lst[i] = clean_val(lst[i])
+    return lst
+
+
+def clean_val(s):
+    if s == 'inf':
+        return np.inf
+    elif s == '-inf':
+        return -np.inf
+    elif s == 'NaN' or type(s) is str:
+        return np.nan
+    else:
+        return float(s)
+
+
+def clean_dict(id_x_dict, id_y_dict):
+    nan_k_list = []
+    inf_k_list = []
+    minus_inf_k_list = []
+    valid_v_list = [v for v in id_y_dict.values() if v != np.inf and v != -np.inf and v != np.nan]
+    for k, v in id_y_dict.items():
+        if v == -np.inf:
+            minus_inf_k_list.append(k)
+            print("-inf")
+        if v == np.inf:
+            inf_k_list.append(k)
+            print("inf")
+        if np.isnan(v):
+            nan_k_list.append(k)
+            print("nan")
+    gap = (max(valid_v_list) - min(valid_v_list)) * 0.1  ######
+    for k in id_y_dict.keys():
+        if k in minus_inf_k_list:
+            id_y_dict[k] = min(valid_v_list) - gap
+        if k in inf_k_list:
+            id_y_dict[k] = max(valid_v_list) + gap
+
+    id_x_dict = {k: v for k, v in id_x_dict.items() if k not in nan_k_list}
+    id_y_dict = {k: v for k, v in id_y_dict.items() if k not in nan_k_list}
+    return id_x_dict, id_y_dict
+
+
 def plot_testbed():
-    scene_name_list = ["mnistlstm", "cifar10res18","fashionlenet5"]
-    scene_id_list = ["tpk1j376", "m61of0s7","h3p8wkex"]
+    scene_name_list = ["test",
+                       "test"]  # "test" "mnistlstm", "cifar10res18", "fashionlenet5","cifar100vgg16", "catstrans"
+    scene_id_list = ["ihaxrjm7", "d8kxgme9"]  # "ihaxrjm7" "tpk1j376", "m61of0s7", "h3p8wkex", "1e84bp09", "vfisu80c"
 
     for scene_idx in range(len(scene_name_list)):
         print(scene_name_list[scene_idx])
@@ -420,51 +466,86 @@ def plot_testbed():
         conn = sqlite3.connect(db_pathh)
         cur = conn.cursor()
 
+        # sql = "SELECT * FROM TrialJobEvent WHERE event='WAITING'"
+        # cur.execute(sql)
+        # values = cur.fetchall()
+        # relu_id_list = []
+        # for i in range(len(values)):  # final ??? seq include 0
+        #     trial_id = values[i][1]
+        #     d = yaml.load(values[i][3], Loader=yaml.FullLoader)
+        #     print(d["parameters"])
+        #     use_relu = d["parameters"]["act_func"] in ["relu", "relu6"]
+        #     if use_relu:
+        #         relu_id_list.append(trial_id)
+        # # print(relu_id_list)
+
         sql = "SELECT * FROM MetricData WHERE type='FINAL'"
         cur.execute(sql)
         print("begin to fetch data x:")
         values = cur.fetchall()
-
         id_x_dict = {}  # default
         for i in range(len(values)):  # final ??? seq include 0
-            param_id = values[i][2]
+            trial_id = values[i][1]
+            # if trial_id in relu_id_list:
+            #     continue
             d = yaml.load(eval(values[i][5]), Loader=yaml.FullLoader)
             metric_x = d["default"]
-            id_x_dict[param_id] = metric_x
+            id_x_dict[trial_id] = metric_x
         top_x_val = np.percentile(list(id_x_dict.values()), 99)  # 从小到大排 第95% val_acc
         good_x_val = np.percentile(list(id_x_dict.values()), 95)
         care_x_val = np.percentile(list(id_x_dict.values()), 90)
 
-        sql = "SELECT * FROM MetricData WHERE type='PERIODICAL' and sequence=10"  ######
+        sql = "SELECT * FROM MetricData WHERE type='PERIODICAL' and sequence=19"  ###### and sequence=19
         # WHERE type='FINAL' 'PERIODICAL' limit 10000
         cur.execute(sql)
         print("begin to fetch data y:")
         values = cur.fetchall()
         id_y_dict = {}
         print("begin to processing data:")
+        # nan_count = 0
         for i in range(len(values)):  # final ??? seq include 0
-            param_id = values[i][2]
+            trial_id = values[i][1]
             d = yaml.load(eval(values[i][5]), Loader=yaml.FullLoader)
-            # metric_y = d["param_grad_zero_rate"]
+            # metric_y = d["param_grad_zero_rate"] # d["param_grad_0rate"]
             # metric_y = d["acc"]
-            metric_y = id_x_dict[param_id] - d["default"]
+            # metric_y = id_x_dict[param_id] - d["default"]
             # metric_y = np.log10(d["loss"]) if type(d["loss"]) is not str else np.inf
             # lst = d["param_grad_abs_ave_list"]
             # val = sum(lst) / len(lst) if type(lst[0]) is not str else np.inf
             # metric_y = np.log10(val)
-
             # param_grad_abs_ave_list = d["param_grad_abs_ave_list"]
             # module_name_list = d["module_name_list"]
             # module_name_flow_2dlist = d["module_name_flow_2dlist"]
             # lst = get_quotient_list(param_grad_abs_ave_list, module_name_list, module_name_flow_2dlist)
             # val = sum(lst)/len(lst)
             # metric_y = np.log10(val)
-            id_y_dict[param_id] = metric_y
+
+            # 新指标
+            # metric_y = d["param_grad_0rate"]  # (0,1)
+            # metric_y = np.log10(clean_val(d["param_grad_abs_ave"]))  # ok
+
+            # metric_y = clean_val(d["param_grad_ave"])  # ok hard to scale half...
+            # metric_y = np.log10(clean_val(d["param_grad_var"]))  # ok (-80,20)
+            # metric_y = clean_val(d["param_grad_skew"]) # (-1,1) half...
+            # metric_y = clean_val(d["param_grad_kurt"])  # (0,50) no!!!
+            # metric_y = clean_val(d["param_ave"]) # (-10,10) no!!!
+            # metric_y = np.log10(clean_val(d["param_var"])) # (-80,20) ok
+            # metric_y = clean_val(d["param_skew"]) # (-1,1) no!!!
+            # metric_y = clean_val(d["param_kurt"])  #  (0,50) no!!!
+            id_y_dict[trial_id] = metric_y
+        y_range = (0, 1)
+        valid_v_list = [v for v in id_y_dict.values() if v != np.inf and v != -np.inf and v != np.nan]
         for k, v in id_y_dict.items():
             if v == -np.inf:
-                id_y_dict[k] = min(id_y_dict.values())
+                id_y_dict[k] = min(valid_v_list)
+                print("-inf")
             if v == np.inf:
-                id_y_dict[k] = max(id_y_dict.values())
+                id_y_dict[k] = max(valid_v_list)
+                print("inf")
+            if np.isnan(v):
+                # id_y_dict[k] = max(valid_v_list)
+                id_x_dict.pop(k)
+                print("nan")
         print("begin to split data:")
         y_top, y_good, y_all, y_care = [], [], [], []
         for key, value in id_x_dict.items():
@@ -477,17 +558,303 @@ def plot_testbed():
             y_all.append(id_y_dict[key])
         print("begin to plot data:")
         plt.subplot(1, len(scene_name_list), scene_idx + 1)
-        y_range = (-0.25,0.25)  # (0,1) (-3,2) (-10, 5) (0,0.5) (-0.25,0.25)
-        y_bins = 10  #
+        # y_range = (min(id_y_dict.values()), max(id_y_dict.values()))
+        # (0,1) (-3,2) (-10, 5) (0,0.5) (-0.25,0.25) (-1,1) (0,50) (-50,20)
+        y_bins = 30  #
         plt.hist(y_all, range=y_range, bins=y_bins, color='grey', alpha=0.8)
         plt.hist(y_care, range=y_range, bins=y_bins, color='b', alpha=0.8)
         plt.hist(y_good, range=y_range, bins=y_bins, color='g', alpha=0.8)
         plt.hist(y_top, range=y_range, bins=y_bins, color='r', alpha=0.8)
-        # plt.hist(y_all, range=(-10, 5), bins=15, color='grey', alpha=0.8)
-        # plt.hist(y_care, range=(-10, 5), bins=15, color='b', alpha=0.8)
-        # plt.hist(y_good, range=(-10, 5), bins=15, color='g', alpha=0.8)
-        # plt.hist(y_top, range=(-10, 5), bins=15, color='r', alpha=0.8)
     plt.show()
+
+
+def print_distribution(y_list):
+    print(" ".join(["min:", str(min(y_list)), "lower:", str(np.percentile(y_list, 25)),
+                    "mean:", str(np.mean(y_list)), "median:", str(np.median(y_list)),
+                    "upper:", str(np.percentile(y_list, 75)), "max:", str(max(y_list))]))
+
+
+def calc_skew(lst):
+    return stats.skew(lst)
+
+
+def calc_kurt(lst):
+    return stats.kurtosis(lst)
+
+
+def get_adjacent_quotient_lst(lst):
+    return [lst[i] / lst[i + 1] for i in range(len(lst) - 1)]
+
+
+def plot_merge_epoch():
+    scene_name_list = ["fashionlenet5", "cifar10res18"]
+    scene_id_list = ["ihaxrjm7", "v542mpos"]
+    # "test" "mnistlstm", "cifar10res18", "fashionlenet5","cifar100vgg16", "catstrans"
+    # "ihaxrjm7" "tpk1j376", "m61of0s7", "h3p8wkex", "1e84bp09", "vfisu80c"
+    max_seq = 0
+
+    for scene_idx in range(len(scene_name_list)):
+        print(scene_name_list[scene_idx])
+        desk_dir = "/Users/admin/Desktop/new/"
+        db_path = os.path.join(desk_dir, scene_name_list[scene_idx], scene_id_list[scene_idx])
+        db_pathh = os.path.join("./", scene_name_list[scene_idx])
+        os.system(" ".join(["cp", db_path, db_pathh]))
+        conn = sqlite3.connect(db_pathh)
+        cur = conn.cursor()
+        sql = "SELECT * FROM MetricData WHERE type='FINAL'"
+        cur.execute(sql)
+        print("begin to fetch data x:")
+        values = cur.fetchall()
+        id_x_dict = {}  # default
+        id_y_dict = {}
+        for i in range(len(values)):  # final ??? seq include 0
+            trial_id = values[i][1]
+            d = yaml.load(eval(values[i][5]), Loader=yaml.FullLoader)
+            metric_x = clean_val(d["default"])  #####
+            id_x_dict[trial_id] = metric_x
+            id_y_dict[trial_id] = [0] * (max_seq + 1)  # init
+
+        sql = "SELECT * FROM MetricData WHERE type='PERIODICAL' and sequence<=" + str(max_seq)  # 模拟小数据集 0 1 2
+        # and sequence=19 'FINAL' 'PERIODICAL' limit 10000
+        cur.execute(sql)
+        print("begin to fetch data y:")
+        values = cur.fetchall()
+        print("begin to processing data:")
+        for i in range(len(values)):  # final ??? seq include 0
+            trial_id = values[i][1]
+            seq = values[i][4]
+            d = yaml.load(eval(values[i][5]), Loader=yaml.FullLoader)
+
+            # metric_y = clean_val(d["param_grad_0rate"])
+            # metric_y = np.log10(clean_val(d["param_grad_abs_ave"]))
+
+            # 感觉这个是最好的：
+            # EG: skew负很多/kurt很大/max&min&median都大 "偏科学习"
+            # VG: skew正很多/kurt很大/max&min&median都小 "偏科学习"
+            # DR&SC：max&min&median都很小/skew绝对值小/kurt绝对值小 "不学习"
+            # OL：max&min&median都很大 "乱学习"
+            # 正常：max&min&median不大不小/skew绝对值小/kurt绝对值小 "正常学习"
+            # metric_y = calc_skew(clean_list(d["param_grad_abs_ave_list"])) # 一般
+            # metric_y = calc_kurt(clean_list(d["param_grad_abs_ave_list"]))# 一般
+            metric_y = np.median(clean_list(d["param_grad_abs_ave_list"]))  # 一般
+            # metric_y = np.max(clean_list(d["param_grad_abs_ave_list"]))# 一般
+            # metric_y = np.min(clean_list(d["param_grad_abs_ave_list"]))# 一般
+
+            # lst = get_adjacent_quotient_lst(clean_list(d["param_grad_abs_ave_list"]))
+            # metric_y = calc_skew(lst)
+            # metric_y = calc_kurt(lst)
+            # metric_y = np.median(lst)
+            # metric_y = np.max(lst)
+            # metric_y = np.min(lst)
+
+            # metric_y = clean_val(d["param_grad_ave"])  # ... 跨场景难以scale
+            # metric_y = np.log10(clean_val(d["param_grad_var"]))
+            # metric_y = clean_val(d["param_grad_skew"])
+            # metric_y = np.log10(clean_val(d["param_grad_kurt"]))
+            # metric_y = clean_val(d["param_ave"])
+            # metric_y = np.log10(clean_val(d["param_var"]))
+            # metric_y = clean_val(d["param_skew"])
+            # metric_y = clean_val(d["param_kurt"])
+
+            # metric_y = clean_val(d["loss"])
+            # metric_y = clean_val(d["acc"])
+            # metric_y = clean_val(d["val_loss"])
+            # metric_y = clean_val(d["val_acc"])
+            id_y_dict[trial_id][seq] = metric_y
+        id_y_dict = {k: np.mean(v) for k, v in id_y_dict.items()}
+        id_x_dict, id_y_dict = clean_dict(id_x_dict, id_y_dict)
+        print("x len:", len(id_x_dict))
+        x_val_99 = np.percentile(list(id_x_dict.values()), 99)  # 从小到大排 第95% val_acc
+        x_val_95 = np.percentile(list(id_x_dict.values()), 95)
+        x_val_90 = np.percentile(list(id_x_dict.values()), 90)
+        x_val_50 = np.percentile(list(id_x_dict.values()), 50)
+        x_val_25 = np.percentile(list(id_x_dict.values()), 25)
+        x_val_10 = np.percentile(list(id_x_dict.values()), 10)
+        y_99_up = [id_y_dict[key] for key, x in id_x_dict.items() if x >= x_val_99]
+        y_95_up = [id_y_dict[key] for key, x in id_x_dict.items() if x >= x_val_95]
+        y_90_up = [id_y_dict[key] for key, x in id_x_dict.items() if x >= x_val_90]
+
+        y_50_down = [id_y_dict[key] for key, x in id_x_dict.items() if x < x_val_50]
+        y_25_down = [id_y_dict[key] for key, x in id_x_dict.items() if x < x_val_25]
+        y_10_down = [id_y_dict[key] for key, x in id_x_dict.items() if x < x_val_10]
+        y_0 = list(id_y_dict.values())
+        y_upper_bound, y_lower_bound = np.percentile(y_0, 95), np.percentile(y_0, 5)
+        gap = (y_upper_bound - y_lower_bound) * 0.1
+        y_upper_bound, y_lower_bound = y_upper_bound + gap, y_lower_bound - gap
+        # print("y_upper_bound:", y_upper_bound, "y_lower_bound:", y_lower_bound)
+        print("begin to plot data:")
+        plt.subplot(1, len(scene_name_list), scene_idx + 1)
+        y_bins = 20  #
+        y_range = (y_lower_bound, y_upper_bound)
+        x = np.linspace(y_lower_bound, y_upper_bound, 100)
+        # plt.hist(y_100, range=y_range, bins=y_bins, color='grey', alpha=0.8)
+        # plt.hist(y_90, range=y_range, bins=y_bins, color='b', alpha=0.8)
+        # plt.hist(y_95, range=y_range, bins=y_bins, color='g', alpha=0.8)
+        # plt.hist(y_99, range=y_range, bins=y_bins, color='r', alpha=0.8)
+        # plt.hist(y_0, range=y_range, bins=y_bins, color='grey', density=True, alpha=0.5)
+        # plt.plot(x, gaussian_kde(y_0, bw_method=None)(x), color='grey', linewidth=1)
+        # print("begin to print distribution:")
+        # print_distribution(y_0)
+        # target bad
+        plt.hist(y_50_down, range=y_range, bins=y_bins, color='b', density=True, alpha=0.5)
+        plt.plot(x, gaussian_kde(y_50_down, bw_method=None)(x), color='b', linewidth=1)
+        print("begin to print distribution:")
+        print_distribution(y_50_down)
+        # good
+        plt.hist(y_95_up, range=y_range, bins=y_bins, color='r', density=True, alpha=0.5)
+        plt.plot(x, gaussian_kde(y_95_up, bw_method=None)(x), color='r', linewidth=1)
+        print("begin to print distribution:")
+        print_distribution(y_95_up)
+
+    plt.show()
+
+
+def plot_last_layer():
+    scene_name_list = ["fashionlenet5", "cifar10res18"]
+    scene_id_list = ["ihaxrjm7", "v542mpos"]
+
+    for scene_idx in range(len(scene_name_list)):
+        print(scene_name_list[scene_idx])
+        desk_dir = "/Users/admin/Desktop/new/"
+        db_path = os.path.join(desk_dir, scene_name_list[scene_idx], scene_id_list[scene_idx])
+        db_pathh = os.path.join("./", scene_name_list[scene_idx])
+        os.system(" ".join(["cp", db_path, db_pathh]))
+        conn = sqlite3.connect(db_pathh)
+        cur = conn.cursor()
+        sql = "SELECT * FROM MetricData WHERE type='FINAL'"
+        cur.execute(sql)
+        print("begin to fetch data x:")
+        values = cur.fetchall()
+        id_x_dict = {}  # default
+        id_y_dict = {}
+        for i in range(len(values)):  # final ??? seq include 0
+            trial_id = values[i][1]
+            d = yaml.load(eval(values[i][5]), Loader=yaml.FullLoader)
+            metric_x = clean_val(d["default"])  #####
+            id_x_dict[trial_id] = metric_x
+            id_y_dict[trial_id] = [0]  # init
+
+        sql = "SELECT * FROM MetricData WHERE type='PERIODICAL' and sequence=0 "  # 模拟小数据集 0 1 2
+        cur.execute(sql)
+        print("begin to fetch data y:")
+        values = cur.fetchall()
+        print("begin to processing data:")
+        for i in range(len(values)):  # final ??? seq include 0
+            trial_id = values[i][1]
+            seq = values[i][4]
+            d = yaml.load(eval(values[i][5]), Loader=yaml.FullLoader)
+            # metric_y = clean_val(d["param_grad_abs_ave_list"][-1])  # y_lower_bound, y_upper_bound = 0, 0.05
+            # metric_y = clean_val(d["param_grad_ave_list"][-1])
+            # metric_y = clean_val(d["param_grad_var_list"][-1]) # y_lower_bound, y_upper_bound = 0, 0.01
+            # metric_y = clean_val(d["param_grad_skew_list"][-1])
+            # metric_y = clean_val(d["param_grad_kurt_list"][-1])
+            # metric_y = clean_val(d["param_ave_list"][-1])
+            # metric_y = clean_val(d["param_var_list"][-1])
+            # metric_y = clean_val(d["param_skew_list"][-1])
+            metric_y = clean_val(d["param_kurt_list"][-1])
+
+            id_y_dict[trial_id][seq] = metric_y
+        id_y_dict = {k: np.mean(v) for k, v in id_y_dict.items()}
+        id_x_dict, id_y_dict = clean_dict(id_x_dict, id_y_dict)
+        print("x len:", len(id_x_dict))
+        x_val_99 = np.percentile(list(id_x_dict.values()), 99)  # 从小到大排 第95% val_acc
+        x_val_95 = np.percentile(list(id_x_dict.values()), 95)
+        x_val_90 = np.percentile(list(id_x_dict.values()), 90)
+        x_val_50 = np.percentile(list(id_x_dict.values()), 50)
+        x_val_25 = np.percentile(list(id_x_dict.values()), 25)
+        x_val_10 = np.percentile(list(id_x_dict.values()), 10)
+        y_99_up = [id_y_dict[key] for key, x in id_x_dict.items() if x >= x_val_99]
+        y_95_up = [id_y_dict[key] for key, x in id_x_dict.items() if x >= x_val_95]
+        y_90_up = [id_y_dict[key] for key, x in id_x_dict.items() if x >= x_val_90]
+
+        y_50_down = [id_y_dict[key] for key, x in id_x_dict.items() if x < x_val_50]
+        y_25_down = [id_y_dict[key] for key, x in id_x_dict.items() if x < x_val_25]
+        y_10_down = [id_y_dict[key] for key, x in id_x_dict.items() if x < x_val_10]
+
+        y_0 = list(id_y_dict.values())
+        y_upper_bound, y_lower_bound = np.percentile(y_0, 95), np.percentile(y_0, 5)
+        gap = (y_upper_bound - y_lower_bound) * 0.1
+        y_upper_bound, y_lower_bound = y_upper_bound + gap, y_lower_bound - gap
+        print("begin to plot data:")
+        plt.subplot(1, len(scene_name_list), scene_idx + 1)
+        y_bins = 20  #
+        # y_lower_bound, y_upper_bound = 0, 0.05
+        y_range = (y_lower_bound, y_upper_bound)
+        x = np.linspace(y_lower_bound, y_upper_bound, 100)
+
+        # target bad
+        target = y_50_down
+        plt.hist(target, range=y_range, bins=y_bins, color='b', density=True, alpha=0.5)
+        plt.plot(x, gaussian_kde(target, bw_method=None)(x), color='b', linewidth=1)
+        print("begin to print distribution:")
+        print_distribution(target)
+        # good
+        target = y_95_up
+        plt.hist(target, range=y_range, bins=y_bins, color='r', density=True, alpha=0.5)
+        plt.plot(x, gaussian_kde(target, bw_method=None)(x), color='r', linewidth=1)
+        print("begin to print distribution:")
+        print_distribution(target)
+    plt.show()
+
+
+def plot_benchmark():
+    import scipy.stats as stats
+    scene_name_list = ["mnistlenet_large"]
+    scene_id_list = ["ou7xnzlm"]
+    max_seq = 0
+    for scene_idx in range(len(scene_name_list)):
+        print(scene_name_list[scene_idx])
+        desk_dir = "/Users/admin/Desktop/deep-bo-benchmark/"
+        db_path = os.path.join(desk_dir, scene_name_list[scene_idx], scene_id_list[scene_idx])
+        db_pathh = os.path.join("./", scene_name_list[scene_idx])
+        os.system(" ".join(["cp", db_path, db_pathh]))
+        conn = sqlite3.connect(db_pathh)
+        cur = conn.cursor()
+        sql = "SELECT * FROM MetricData WHERE type='FINAL'"
+        cur.execute(sql)
+        print("begin to fetch data x:")
+        values = cur.fetchall()
+        id_x_dict = {}  # default
+        id_y_list_dict = {}
+        for i in range(len(values)):  # final ??? seq include 0
+            trial_id = values[i][1]
+            d = yaml.load(eval(values[i][5]), Loader=yaml.FullLoader)
+            id_x_dict[trial_id] = float(d)
+            id_y_list_dict[trial_id] = [0] * 15
+
+        sql = "SELECT * FROM MetricData WHERE type='PERIODICAL' "  # 模拟小数据集 0 1 2
+        # and sequence=19 'FINAL' 'PERIODICAL' limit 10000
+        cur.execute(sql)
+        print("begin to fetch data y:")
+        values = cur.fetchall()
+        print("begin to processing data:")
+        for i in range(len(values)):  # final ??? seq include 0
+            trial_id = values[i][1]
+            seq = values[i][4]
+            d = yaml.load(eval(values[i][5]), Loader=yaml.FullLoader)
+            if trial_id not in id_y_list_dict:
+                continue
+            id_y_list_dict[trial_id][seq] = float(d)
+
+        print("begin to plot data:")
+        p_list = [99, 95, 90, 50, 0]
+        c_list = ['r', 'g', 'b', 'y', 'k']
+        for i in range(len(p_list)):
+            x_val = np.percentile(list(id_x_dict.values()), p_list[i])
+            y_matrix = np.array([id_y_list_dict[key] for key, x in id_x_dict.items() if x >= x_val])
+            x_list = np.array([id_x_dict[key] for key, x in id_x_dict.items() if x >= x_val])
+            plot_y_list = [stats.spearmanr(x_list,y_matrix[:,epoch_i])[0] for epoch_i in range(15)]
+            plot_x_list = np.arange(0, 15, 1)
+            plt.plot(plot_x_list, plot_y_list, color=c_list[i], label=str(p_list[i]) + "th-up")
+            plt.legend()
+        plt.show()
+        x_list = list(id_x_dict.values())
+        x_list.sort()
+        x_list.reverse()
+        plot_x_list = np.linspace(0, 1, len(x_list))
+        plot_y_list = x_list
+        plt.plot(plot_x_list, plot_y_list, color='b', label="x=y")
+        plt.show()
 
 
 if __name__ == '__main__':
@@ -498,4 +865,7 @@ if __name__ == '__main__':
     # bar3()
     # plot_reproduce()
     # plot_feature()
-    plot_testbed()
+    # plot_testbed()
+    # plot_merge_epoch()
+    # plot_last_layer()
+    plot_benchmark()
