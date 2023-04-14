@@ -22,6 +22,7 @@ class ATDDAssessor(Assessor):
         self.model_num = self.shared["model_num"]
         self.max_epoch = self.shared["max_epoch"]
         self.enable_dict = self.shared["enable_dict"]
+        self.quick_calc = self.shared["quick_calc"]
         self.maximize_metric_name_list = self.basic["maximize_metric_name_list"]
         self.minimize_metric_name_list = self.basic["minimize_metric_name_list"]
         self.k = self.compare["k"]
@@ -29,6 +30,7 @@ class ATDDAssessor(Assessor):
         self.max_percentile = self.compare["max_percentile"]  # eg. 90
         self.start_step_float = self.compare["start_step_float"]
         self.end_step_float = self.compare["end_step_float"]
+        self.step_size = self.compare["step_size"]
         self.comparable_trial_minimum = self.compare["comparable_trial_minimum"]
         self.metric_demarcation_num = self.compare["metric_demarcation_num"]  # boundary 避免太紧 suanle
         self.beta1 = self.diagnose["beta1"]
@@ -37,6 +39,7 @@ class ATDDAssessor(Assessor):
         self.delta = self.diagnose["delta"]
         self.gamma = self.diagnose["gamma"]
         self.window_size_float = self.diagnose["window_size_float"]
+        self.window_size_min = self.diagnose["window_size_min"]
 
         self.cur_step = 0
 
@@ -86,7 +89,10 @@ class ATDDAssessor(Assessor):
             p = 100 * (step / max_epoch * self.k + self.b)
             p = max(min(100, p), 0)
             percentile_list.insert(0, min(self.max_percentile, p))
-            step = int(np.ceil((step - start_s) / 2))
+            if self.step_size == "median":
+                step = int(np.ceil((step - start_s) / 2))
+            elif type(self.step_size) == int:
+                step -= self.step_size
 
         pre, now = 0, 0
         pass_list = []
@@ -188,12 +194,18 @@ class ATDDAssessor(Assessor):
             return module_metric_2da[:, idx].flatten()
 
         d = result_dict
-        module_metric_2da = d["module_metric_2da"]
-        metric_prefix_list = d["metric_prefix_list"]
-        metric_suffix_list = d["metric_suffix_list"]
         module_nele_list = d["module_nele_list"]
-        weight_grad_rate0 = np.average(get_metric_array("weight_grad", "rate0"), 0, module_nele_list)
-        weight_grad_abs_avg_array = get_metric_array("weight_grad_abs", "avg")
+
+        if self.quick_calc:
+            weight_grad_abs_avg_1da = d["weight_grad_abs_avg_1da"]
+            weight_grad_rate0 = np.average(d["weight_grad_rate0_1da"], 0, module_nele_list)
+        else:
+            module_metric_2da = d["module_metric_2da"]
+            metric_prefix_list = d["metric_prefix_list"]
+            metric_suffix_list = d["metric_suffix_list"]
+            weight_grad_rate0 = np.average(get_metric_array("weight_grad", "rate0"), 0, module_nele_list)
+            weight_grad_abs_avg_1da = get_metric_array("weight_grad_abs", "avg")
+
         module_name_flow_matrix = d["module_name_flow_matrix"]
         module_name_list = d["module_name_list"]
         acc_list = d["acc_list"]
@@ -201,7 +213,7 @@ class ATDDAssessor(Assessor):
         if metric_name in ["acc", "loss", "reward", "val_acc", "val_loss", "val_reward"]:
             return d[metric_name]
         if metric_name == "veg_metric":
-            return self.get_veg_metric(weight_grad_abs_avg_array, module_name_flow_matrix, module_name_list)
+            return self.get_veg_metric(weight_grad_abs_avg_1da, module_name_flow_matrix, module_name_list)
         if metric_name == "dr_metric":
             return self.get_dr_metric(weight_grad_rate0)
         if metric_name == "ol_metric":
@@ -210,7 +222,8 @@ class ATDDAssessor(Assessor):
             return self.get_sc_metric(acc_list)
 
     def get_metric_window_ave(self, metric_name, result_dict_list, step_end):
-        step_start = max(0, step_end - int(round(self.window_size_float * self.max_epoch)))
+        ws = max(int(round(self.window_size_float * self.max_epoch)), self.window_size_min)
+        step_start = max(0, step_end - ws)
         ll = []
         for i in range(step_start, step_end):  # (2,5) -> 2 3 4
             val = self.get_metric_value(result_dict_list[i], metric_name)
@@ -271,7 +284,7 @@ class ATDDAssessor(Assessor):
         self.tmp_trial_id = trial_id
         self.messenger = ATDDMessenger(trial_id)
         self.result_dict = dict(result_dict_list[-1])
-        logger.info("send intermediate_result_dict: %s: %s" % (trial_id, self.result_dict["step_counter"]))
+        logger.info("send intermediate_result_dict: %s: %s" % (trial_id, self.result_dict["epoch_idx"]))
         logger.debug("intermediate_result_dict: %s: %s" % (trial_id, str(self.result_dict)))
 
         cur_step = len(result_dict_list)

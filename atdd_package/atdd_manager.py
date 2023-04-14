@@ -62,9 +62,9 @@ class ATDDManager:
         # if self.raw_mode is True:
         #     self.raw_update()
 
-    def calculate_metrics_after_training(self):
+    def calculate_after_training(self):
         if self.monitor_config is not None:
-            self.monitor.calculate_metrics_after_training()
+            self.monitor.calculate_after_training()
 
     def collect_after_validating(self, *args):
         if self.monitor_config is not None:
@@ -139,3 +139,5 @@ class ATDDManager:
                 flag = True
         return flag
 
+
+manager = ATDDManager()

@@ -1,0 +1,25 @@
+experiment_name: "mnistlenet_raw_tpe_msr"
+searchSpaceFile: search_space_mnistlenet.json
+
+
+trial_command: python3.8 atdd_model_mnistlenet.py
+trial_code_directory: .
+
+trial_concurrency: 8
+maxExperimentDuration: 3h ####
+training_service:
+  platform: local
+  useActiveGpu: true
+trialGpuNumber: 1
+
+
+tuner:
+  name: tpe
+assessor:
+  name: medianstop
+  class_args:
+    start_step: 8 ###
+
+
+
+

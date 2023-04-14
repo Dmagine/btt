@@ -1,6 +1,0 @@
-
-log_2023-03-03--13-43-49_assessor_loss_plus_idx_0.txt
-log_2023-03-03--14-48-56_assessor_loss_plus_idx_1.txt
-log_2023-03-03--15-54-03_assessor_loss_plus_idx_2.txt
-log_2023-03-03--16-59-11_assessor_loss_plus_idx_3.txt
-log_2023-03-03--18-04-19_assessor_loss_plus_idx_4.txt

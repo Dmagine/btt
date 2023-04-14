@@ -1,0 +1,26 @@
+experiment_name: "mnistlenet_raw_smac_lce"
+searchSpaceFile: search_space_mnistlenet.json
+
+
+trial_command: python3.8 atdd_model_mnistlenet.py
+trial_code_directory: .
+
+trial_concurrency: 8
+maxExperimentDuration: 3h ####
+training_service:
+  platform: local
+  useActiveGpu: true
+trialGpuNumber: 1
+
+
+tuner:
+  name: smac
+assessor:
+  name: curvefitting
+  class_args:
+    epoch_num: 15 ###
+    start_step: 8
+
+
+
+

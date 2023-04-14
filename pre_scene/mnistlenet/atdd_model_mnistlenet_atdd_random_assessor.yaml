@@ -1,0 +1,31 @@
+experiment_name: "mnistlenet_atdd_monitor_assessor"
+searchSpaceFile: search_space_mnistlenet.json
+
+
+trial_command: python3.8 atdd_model_mnistlenet.py
+trial_code_directory: .
+
+trial_concurrency: 8
+maxExperimentDuration: 3h ####
+training_service:
+  platform: local
+  useActiveGpu: true
+trialGpuNumber: 1
+
+
+advisor:
+  codeDirectory: atdd_package
+  className: atdd_advisor.ATDDAdvisor
+  classArgs:
+    shared:
+      max_epoch: 15
+    monitor: default
+    tuner:
+      name: random
+    assessor: default
+
+
+
+
+
+

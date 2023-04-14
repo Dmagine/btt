@@ -1,0 +1,141 @@
+{
+  "conv1_k_num": {
+    "_type": "randint",
+    "_value": [
+      5,
+      500
+    ]
+  },
+  "pool1_size": {
+    "_type": "randint",
+    "_value": [
+      2,
+      5
+    ]
+  },
+  "conv2_k_num": {
+    "_type": "randint",
+    "_value": [
+      5,
+      500
+    ]
+  },
+  "conv_k_size": {
+    "_type": "randint",
+    "_value": [
+      2,
+      6
+    ]
+  },
+  "pool2_size": {
+    "_type": "randint",
+    "_value": [
+      2,
+      5
+    ]
+  },
+  "full_num": {
+    "_type": "randint",
+    "_value": [
+      1,
+      4096
+    ]
+  },
+  "lr": {
+    "_type": "loguniform",
+    "_value": [
+      0.000001,
+      10
+    ]
+  },
+  "weight_decay": {
+    "_type": "loguniform",
+    "_value": [
+      0.000001,
+      0.1
+    ]
+  },
+  "batch_norm": {
+    "_type": "choice",
+    "_value": [
+      0,
+      1
+    ]
+  },
+  "drop": {
+    "_type": "choice",
+    "_value": [
+      0,
+      1
+    ]
+  },
+  "batch_size": {
+    "_type": "randint",
+    "_value": [
+      2,
+      2000
+    ]
+  },
+  "data_norm": {
+    "_type": "choice",
+    "_value": [
+      0,
+      1
+    ]
+  },
+  "gamma": {
+    "_type": "uniform",
+    "_value": [
+      0,
+      1
+    ]
+  },
+  "step_size": {
+    "_type": "randint",
+    "_value": [
+      1,
+      7
+    ]
+  },
+  "grad_clip": {
+    "_type": "choice",
+    "_value": [
+      0,
+      1
+    ]
+  },
+  "clip_thresh": {
+    "_type": "loguniform",
+    "_value": [
+      0.1,
+      100
+    ]
+  },
+  "act": {
+    "_type": "choice",
+    "_value": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "opt": {
+    "_type": "choice",
+    "_value": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "pool": {
+    "_type": "choice",
+    "_value": [
+      0,
+      1
+    ]
+  }
+}

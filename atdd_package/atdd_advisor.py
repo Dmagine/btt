@@ -4,6 +4,7 @@ import logging
 import os
 from collections import defaultdict
 
+import nni
 from nni import NoMoreTrialError
 from nni.__main__ import _create_algo
 from nni.assessor import AssessResult
@@ -95,6 +96,14 @@ class ATDDAdvisor(MsgDispatcherBase):
         self.tuner = _create_algo(self.config_dict["tuner"], 'tuner')
         self.assessor = _create_algo(self.config_dict["assessor"], 'assessor') \
             if "assessor" in self.config_dict else None
+
+        self.if_bohb = self.config_dict["tuner"]["name"].lower() == "bohb" \
+            if "name" in self.config_dict["tuner"] else False
+        _logger.info("HPO: bohb!!!")
+
+        # nni 2.9 bohb .....
+        self.recovered_max_param_id = -1
+        self.recovered_trial_params = {}
 
     def reproduce_config(self):
         if "tuner" in self.config_dict and "classArgs" in self.config_dict["tuner"] \
@@ -349,3 +358,32 @@ class ATDDAdvisor(MsgDispatcherBase):
         data['type'] = MetricType.FINAL
         data['value'] = dump(data['value'])
         self.enqueue_command(CommandType.ReportMetricData, data)
+
+    # nni 2.9 missed these .......
+    def recover_parameter_id(self, data) -> int:
+        # this is for handling the resuming of the interrupted data: parameters
+        if not isinstance(data, list):
+            data = [data]
+
+        previous_max_param_id = 0
+        for trial in data:
+            # {'parameter_id': 0, 'parameter_source': 'resumed', 'parameters': {'batch_size': 128, ...}
+            if isinstance(trial, str):
+                trial = nni.load(trial)
+            if not isinstance(trial['parameter_id'], int):
+                # for dealing with user customized trials
+                # skip for now
+                continue
+            self.recovered_trial_params[trial['parameter_id']] = trial['parameters']
+            if previous_max_param_id < trial['parameter_id']:
+                previous_max_param_id = trial['parameter_id']
+        self.recovered_max_param_id = previous_max_param_id
+        return previous_max_param_id
+
+    def is_created_in_previous_exp(self, param_id: int) -> bool:
+        if self.if_bohb:
+            return False
+        return param_id <= self.recovered_max_param_id
+
+    def get_previous_param(self, param_id: int) -> dict:
+        return self.recovered_trial_params[param_id]

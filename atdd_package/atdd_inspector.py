@@ -22,12 +22,15 @@ class ATDDInspector:
         self.model_num = self.shared["model_num"]
         self.max_epoch = self.shared["max_epoch"]
         self.enable_dict = self.shared["enable_dict"]
+        self.quick_calc = self.shared["quick_calc"]
+
         self.start_step_float = self.basic["start_step_float"]
         self.rule_name_list = self.basic["rule_name_list"]
+        self.continuous_trigger_count = self.basic["continuous_trigger_count"]
         self.dp = diagnose_params(**diagnose)
 
         self.start_step = int(self.start_step_float * self.max_epoch)
-        self.window_size = int(self.dp.window_size_float * self.max_epoch)
+        self.window_size = max(round(self.dp.window_size_float * self.max_epoch), self.dp.window_size_min)
 
         self.at_symptom = None
         self.dd_symptom = None
@@ -43,21 +46,25 @@ class ATDDInspector:
         self.epoch_has_nan_inf = None
         self.weight_grad_rate0 = None
         self.param_val_var_list = None
-        self.weight_grad_abs_avg_array = None
+        self.weight_grad_abs_avg_1da = None
         self.module_name_flow_matrix = None
         self.module_name_list = None
-        self.step_counter = None
+        self.epoch_idx = None
         self.trial_id = None
 
-        self.continuous_vg_count = 0  # alpha1
-        self.continuous_eg_count = 0  # alpha2
-        self.continuous_dr_count = 0  # alpha3
+        # self.cnt_vg_count = 0
+        # self.cnt_eg_count = 0
+        self.cnt_dr_count = 0
+        self.cnt_sc_count = 0
+        self.cnt_ol_count = 0
+        self.cnt_ani_count = 0
+        self.cnt_lnd_count = 0
 
         self.module_metric_2da = None
         self.metric_prefix_list = None
         self.metric_suffix_list = None
 
-        self.relu_pre_module_name_list = None # not used
+        self.relu_pre_module_name_list = None  # not used
         self.module_nele_list = None
 
     def complete_config_by_default(self):
@@ -72,25 +79,33 @@ class ATDDInspector:
         return True
 
     def get_default_symptom_dict(self):
-        d = {"step_counter": self.step_counter,
-             "continuous_vg_count": self.continuous_vg_count,
-             "continuous_eg_count": self.continuous_eg_count,
-             "continuous_dr_count": self.continuous_dr_count,
-             "at_symptom": self.at_symptom,
-             "dd_symptom": self.dd_symptom,
-             "wd_symptom": self.wd_symptom,
-             }
+        d = {
+            # "cnt_vg_count": self.cnt_vg_count,
+            # "cnt_eg_count": self.cnt_eg_count,
+            "cnt_dr_count": self.cnt_dr_count,
+            "cnt_sc_count": self.cnt_sc_count,
+            "cnt_ol_count": self.cnt_ol_count,
+            "cnt_ani_count": self.cnt_ani_count,
+            "cnt_lnd_count": self.cnt_lnd_count,
+            "at_symptom": self.at_symptom,
+            "dd_symptom": self.dd_symptom,
+            "wd_symptom": self.wd_symptom,
+        }
         return d
 
     def get_none_symptom_dict(self):
-        d = {"step_counter": self.step_counter,
-             "continuous_vg_count": None,
-             "continuous_eg_count": None,
-             "continuous_dr_count": None,
-             "at_symptom": None,
-             "dd_symptom": None,
-             "wd_symptom": None,
-             }
+        d = {
+            # "cnt_vg_count": self.cnt_vg_count,
+            # "cnt_eg_count": self.cnt_eg_count,
+            "cnt_dr_count": self.cnt_dr_count,
+            "cnt_sc_count": self.cnt_sc_count,
+            "cnt_ol_count": self.cnt_ol_count,
+            "cnt_ani_count": self.cnt_ani_count,
+            "cnt_lnd_count": self.cnt_lnd_count,
+            "at_symptom": None,
+            "dd_symptom": None,
+            "wd_symptom": None,
+        }
         return d
 
     def get_metric_array(self, p, s):
@@ -129,21 +144,26 @@ class ATDDInspector:
         #         d.update({"metric_suffix_list": self.metric_suffix_list})
         #         d.update({"module_metric_2da": self.epoch_module_metric_3da[self.epoch_idx]})
 
-        self.module_metric_2da = d["module_metric_2da"]
-        self.metric_prefix_list = d["metric_prefix_list"]
-        self.metric_suffix_list = d["metric_suffix_list"]
-
         self.module_nele_list = d["module_nele_list"]
         self.relu_pre_module_name_list = d["relu_pre_module_name_list"]
         self.epoch_has_nan_inf = d["has_nan_inf_list"][-1]
-        self.weight_grad_rate0 = np.average(self.get_metric_array("weight_grad", "rate0"), 0, self.module_nele_list)
-        self.weight_grad_abs_avg_array = self.get_metric_array("weight_grad_abs", "avg")
-        self.step_counter = d["epoch_idx"] + 1
+
+        if self.quick_calc:
+            self.weight_grad_abs_avg_1da = d["weight_grad_abs_avg_1da"]
+            self.weight_grad_rate0 = np.average(d["weight_grad_rate0_1da"], 0, self.module_nele_list)
+        else:
+            self.module_metric_2da = d["module_metric_2da"]
+            self.metric_prefix_list = d["metric_prefix_list"]
+            self.metric_suffix_list = d["metric_suffix_list"]
+            self.weight_grad_rate0 = np.average(self.get_metric_array("weight_grad", "rate0"), 0, self.module_nele_list)
+            self.weight_grad_abs_avg_1da = self.get_metric_array("weight_grad_abs", "avg")
+
+        self.epoch_idx = d["epoch_idx"]
         self.module_name_flow_matrix = d["module_name_flow_matrix"]
         self.module_name_list = d["module_name_list"]
 
-        if self.step_counter < self.start_step:
-            logger.info(" ".join(["step_counter:", str(self.step_counter), "lt", "start_step", str(self.start_step)]))
+        if self.epoch_idx < self.start_step:
+            logger.info(" ".join(["step_counter:", str(self.epoch_idx), "lt", "start_step", str(self.start_step)]))
             return self.get_none_symptom_dict()
         # if self.top_performance():
         #     return self.get_none_symptom_dict()
@@ -274,7 +294,7 @@ class ATDDInspector:
     def if_dd_uw(self):
         if not self.if_enable(["model"]):
             return False
-        if self.step_counter >= self.window_size:
+        if self.epoch_idx + 1 >= self.window_size:
             poor_weight_list = []
             for i in range(len(self.param_val_var_list)):
                 if self.param_val_var_list[i] < self.dp.dd_min_threshold \
@@ -289,10 +309,11 @@ class ATDDInspector:
     def _if_dd_lnd(self, loss_list):
         if not self.if_enable(["loss"]):
             return False
-        if self.step_counter >= self.window_size:  ###
-            if loss_list[-1] >= get_ave(loss_list[-self.window_size:]):  ###
-                return True
-        return False
+        if self.epoch_idx + 1 < self.window_size:
+            return False
+        symptom_flag = True if loss_list[-1] >= max(loss_list[-self.window_size:]) else False
+        self.cnt_lnd_count = self.cnt_lnd_count + 1 if symptom_flag else 0
+        return self.cnt_lnd_count >= self.continuous_trigger_count
 
     def if_dd_lnd(self):
         # if self.if_enable(["val"]):
@@ -304,10 +325,11 @@ class ATDDInspector:
     def _if_dd_ani(self, acc_list):
         if not self.if_enable(["acc"]):
             return False
-        if self.step_counter >= self.window_size:
-            if acc_list[-1] <= get_ave(acc_list[-self.window_size:]):
-                return True
-        return False
+        if self.epoch_idx + 1 < self.window_size:
+            return False
+        symptom_flag = True if acc_list[-1] <= min(acc_list[-self.window_size:]) else False
+        self.cnt_ani_count = self.cnt_ani_count +1 if symptom_flag else 0
+        return self.cnt_ani_count >= self.continuous_trigger_count
 
     def if_dd_ani(self):
         # if self.if_enable(["val"]):
@@ -319,13 +341,13 @@ class ATDDInspector:
     def if_dd_vg(self):
         if not self.if_enable(["model"]):
             return False
-        for item in self.weight_grad_abs_avg_array:
+        for item in self.weight_grad_abs_avg_1da:
             if item < self.dp.dd_threshold_VG:
                 return True
         return False
 
     def _get_partial_ave(self, i_lst):
-        v_lst = self.weight_grad_abs_avg_array
+        v_lst = self.weight_grad_abs_avg_1da
         tmp_lst = []
         for i in range(len(v_lst)):
             if i in i_lst:
@@ -337,7 +359,7 @@ class ATDDInspector:
             return False
 
         symptom_flag = False
-        if 0 in self.weight_grad_abs_avg_array:
+        if 0 in self.weight_grad_abs_avg_1da:
             symptom_flag = True
         else:
             for module_name_flow_list in self.module_name_flow_matrix:
@@ -364,10 +386,10 @@ class ATDDInspector:
                             break
                     if symptom_flag:
                         break
-        self.continuous_vg_count = self.continuous_vg_count + 1 if symptom_flag else 0
-        if self.continuous_vg_count > self.dp.alpha1:
-            return True
-        return False
+        # self.cnt_vg_count = self.cnt_vg_count + 1 if symptom_flag else 0
+        # if self.cnt_vg_count >= self.continuous_trigger_count:
+        #     return True
+        return True if symptom_flag else False
 
     def if_eg(self):
         if not self.if_enable(["acc", "model"]):
@@ -398,21 +420,17 @@ class ATDDInspector:
                             break
                     if symptom_flag:
                         break
-        self.continuous_eg_count = self.continuous_eg_count + 1 if symptom_flag else 0
-        if self.continuous_eg_count > self.dp.alpha2:
-            return True
-        return False
+        # self.cnt_eg_count = self.cnt_eg_count + 1 if symptom_flag else 0
+        # if self.cnt_eg_count >= self.continuous_trigger_count:
+        #     return True
+        return True if symptom_flag else False
 
     def if_dr(self):
         if not self.if_enable(["acc", "model"]):
             return False
-        symptom_flag = False
-        if self.last_acc <= self.dp.theta and self.weight_grad_rate0 >= self.dp.gamma:
-            symptom_flag = True
-        self.continuous_dr_count = self.continuous_dr_count + 1 if symptom_flag else 0
-        if self.continuous_dr_count > self.dp.alpha3:
-            return True
-        return False
+
+        self.cnt_dr_count += 1 if self.last_acc <= self.dp.theta and self.weight_grad_rate0 >= self.dp.gamma else 0
+        return True if self.cnt_dr_count >= self.continuous_trigger_count else False
 
     def get_ol_metric(self, acc_list):
         count = 0
@@ -434,9 +452,8 @@ class ATDDInspector:
         if not self.if_enable(["acc"]):
             return False
         ol_rate = self.get_ol_metric(self.acc_list)
-        if ol_rate >= self.dp.eta:
-            return True
-        return False
+        self.cnt_ol_count = self.cnt_ol_count + 1 if ol_rate >= self.dp.eta else 0
+        return True if self.cnt_ol_count >= self.continuous_trigger_count else False
 
     def if_sc(self):
         ##### 希望不基于val
@@ -447,13 +464,15 @@ class ATDDInspector:
         # 任意的 i 都要满足 才触发！
         if not self.if_enable(["acc"]):
             return False
-        if len(acc_list) > 1:
-            for i in range(1, len(acc_list)):  # !!!!! 0- -1
-                if acc_list[i] - acc_list[i - 1] > self.dp.delta:
-                    return False
-            # logger.warning("%s: %s\n" % (self.tmp_trial_job_id, "problem SC"))
-            return True
-        return False
+        if len(acc_list) <= 1:  ###
+            return False
+        symptom_flag = True ###
+        for i in range(1, len(acc_list)):  # !!!!! 0- -1
+            if acc_list[i] - acc_list[i - 1] > self.dp.delta:
+                symptom_flag = False
+                break
+        self.cnt_sc_count = self.cnt_sc_count + 1 if symptom_flag else 0
+        return True if self.cnt_sc_count >= self.continuous_trigger_count else False
 
 
 def get_methods(self):

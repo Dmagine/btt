@@ -8,7 +8,7 @@ diagnose_params = namedtuple("diagnose_params", {
     "alpha1", "alpha2", "alpha3", "beta1", "beta2", "beta3",
     "gamma", "delta", "zeta", "theta", "eta",
     "dd_max_threshold", "dd_min_threshold", "dd_threshold_VG",
-    "window_size_float"
+    "window_size_float", "window_size_min"
 })
 
 # default_json = {

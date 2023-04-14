@@ -1,0 +1,22 @@
+experiment_name: "mnistlenet_raw_gp"
+searchSpaceFile: search_space_mnistlenet.json
+
+
+trial_command: python3.8 atdd_model_mnistlenet.py
+trial_code_directory: .
+
+trial_concurrency: 8
+maxExperimentDuration: 1h ####
+training_service:
+  platform: local
+  useActiveGpu: true
+trialGpuNumber: 1
+
+
+tuner:
+  name: gp
+
+
+
+
+

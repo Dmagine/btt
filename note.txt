@@ -1,0 +1,19 @@
+mkdir -p ~/Pycharm-Projects-cenn/nni_at_assessor
+pip3 install -r requirements.txt
+pip3 install "typeguard<3"
+pip3 install more-itertools
+pip3 install -U numpy
+Pip3 install nni[all]==2.9
+
+
+scp -r /Users/admin/PycharmProjects/NNI-test/* cenzhiyao@192.168.6.105:~/Pycharm-Projects-cenn/nni_at_assessor
+scp -r /Users/admin/PycharmProjects/NNI-test/* peizhongyi@192.168.6.106:~/Pycharm-Projects-cenn/nni_at_assessor
+scp -r /Users/admin/PycharmProjects/NNI-test/* cenzhiyao@192.168.6.107:~/Pycharm-Projects-cenn/nni_at_assessor
+scp -r /Users/admin/PycharmProjects/NNI-test/* cenzhiyao@192.168.6.109:~/Pycharm-Projects-cenn/nni_at_assessor
+scp -r /Users/admin/PycharmProjects/NNI-test/* cenzhiyao@192.168.6.113:~/Pycharm-Projects-cenn/nni_at_assessor
+
+
+defer==1.0.6
+cupshelpers==1.0
+screen-resolution-extra==0.0.0
+xkit==0.0.0

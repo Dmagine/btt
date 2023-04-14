@@ -1,53 +1,63 @@
 {
-  "grad_clip": {
-    "_type": "choice",
-    "_value": [
-      true,
-      false
-    ]
-  },
-  "init": {
-    "_type": "choice",
-    "_value": [
-      "no",
-      "kaiming",
-      "xavier"
-    ]
-  },
-  "opt": {
-    "_type": "choice",
-    "_value": [
-      "sgd",
-      "adam",
-      "adadelta"
-    ]
-  },
-  "batch_size": {
+  "conv1_k_num": {
     "_type": "randint",
     "_value": [
-      50,
-      200
+      1,
+      350,
+    ]
+  },
+  "pool1_size": {
+    "_type": "choice",
+    "_value": [
+      2,
+      3
+    ]
+  },
+  "conv2_k_num": {
+    "_type": "randint",
+    "_value": [
+      1,350
+    ]
+  },
+  "conv_k_size": {
+    "_type": "choice",
+    "_value": [
+      2,3
+    ]
+  },
+  "pool2_size": {
+    "_type": "choice",
+    "_value": [
+      2,3
+    ]
+  },
+  "full_num": {
+    "_type": "randint",
+    "_value": [
+      1,
+      1024
     ]
   },
   "lr": {
     "_type": "loguniform",
     "_value": [
-      0.000001,
-      1000
+      0.0001,
+      0.4
     ]
   },
-  "gamma": {
+  "l2_factor": {
     "_type": "uniform",
     "_value": [
       0,
       1
     ]
   },
-  "weight_decay": {
+
+  "drop_rate": {
     "_type": "uniform",
     "_value": [
       0,
-      1
+      0.9
     ]
   }
 }
