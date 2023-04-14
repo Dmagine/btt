@@ -1,0 +1,26 @@
+experiment_name: "ett96auto_raw_random"
+searchSpaceFile: search_space_ett96auto.json
+
+
+trial_command: python3.8 atdd_model_ett96auto.py
+trial_code_directory: .
+
+trial_concurrency: 8
+maxExperimentDuration: 6h ####
+training_service:
+  platform: local
+  useActiveGpu: false
+trialGpuNumber: 1
+
+
+
+tuner:
+  name: random
+  class_args:
+    optimize_mode: minimize
+
+
+
+
+
+

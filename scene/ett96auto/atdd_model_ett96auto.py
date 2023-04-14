@@ -109,24 +109,45 @@ def main():
 
     args = parser.parse_args()
 
+    # python -u run.py \
+    #   --is_training 1 \
+    #   --root_path ./dataset/ETT-small/ \
+    #   --data_path ETTm2.csv \
+    #   --model_id ETTm2_96_24 \
+    #   --model Autoformer \
+    #   --data ETTm2 \
+    #   --features M \
+    #   --seq_len 96 \
+    #   --label_len 48 \
+    #   --pred_len 24 \
+    #   --e_layers 2 \
+    #   --d_layers 1 \
+    #   --factor 1 \
+    #   --enc_in 7 \
+    #   --dec_in 7 \
+    #   --c_out 7 \
+    #   --des 'Exp' \
+    #   --freq 't' \
+    #   --itr 1
+
     # fixed
     args.train_epochs = 20 #######
     args.patience = args.train_epochs  # no early stop -> 10
     args.is_training = True
     args.do_predict = False
-    args.root_path = "../../../data/dataset/exchange_rate/"
-    args.data_path = "exchange_rate.csv"
-    args.model_id = "Exchange_96_96"
+    args.root_path = "../../../data/dataset/ETT-small/"
+    args.data_path = "ETTm2.csv"
+    args.model_id = "ETTm2_96_24"
     args.model = "Autoformer"
     args.data = "custom"
     args.features = "M"
     args.seq_len = 96
     args.label_len = 48
-    args.pred_len = 96
+    args.pred_len = 24
     args.itr = 1
-    args.enc_in = 8
-    args.dec_in = 8
-    args.c_out = 8
+    args.enc_in = 7
+    args.dec_in = 7
+    args.c_out = 7
 
     ###########
     args.e_layers = params["e_layers"]  # choice 1,2,3
