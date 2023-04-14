@@ -309,34 +309,50 @@ class ATDDInspector:
     def _if_dd_lnd(self, loss_list):
         if not self.if_enable(["loss"]):
             return False
-        if self.epoch_idx + 1 < self.window_size:
+        if self.epoch_idx + 1 <= self.window_size:
             return False
         symptom_flag = True if loss_list[-1] >= max(loss_list[-self.window_size:]) else False
         self.cnt_lnd_count = self.cnt_lnd_count + 1 if symptom_flag else 0
         return self.cnt_lnd_count >= self.continuous_trigger_count
 
     def if_dd_lnd(self):
-        # if self.if_enable(["val"]):
-        #     return self._if_dd_lnd(self.loss_list) or self._if_dd_lnd(self.val_loss_list)  # 可能没有val_loss_list...
-        # else:
-        #     return self._if_dd_lnd(self.loss_list)
-        return self._if_dd_lnd(self.loss_list)
+        if self.if_enable(["val"]):
+            tmp = self.cnt_lnd_count
+            symptom_flag1 = self._if_dd_lnd(self.loss_list)
+            cnt_lnd_count1 = self.cnt_lnd_count
+
+            self.cnt_lnd_count = tmp
+            symptom_flag2 = self._if_dd_lnd(self.val_loss_list)
+            cnt_lnd_count2 = self.cnt_lnd_count
+
+            self.cnt_lnd_count = max(cnt_lnd_count1, cnt_lnd_count2)
+            return symptom_flag1 or symptom_flag2
+        else:
+            return self._if_dd_lnd(self.loss_list)
 
     def _if_dd_ani(self, acc_list):
         if not self.if_enable(["acc"]):
             return False
-        if self.epoch_idx + 1 < self.window_size:
+        if self.epoch_idx + 1 <= self.window_size:
             return False
         symptom_flag = True if acc_list[-1] <= min(acc_list[-self.window_size:]) else False
-        self.cnt_ani_count = self.cnt_ani_count +1 if symptom_flag else 0
+        self.cnt_ani_count = self.cnt_ani_count + 1 if symptom_flag else 0
         return self.cnt_ani_count >= self.continuous_trigger_count
 
     def if_dd_ani(self):
-        # if self.if_enable(["val"]):
-        #     return self._if_dd_ani(self.acc_list) or self._if_dd_ani(self.val_acc_list)  # 加上val 算是检查过拟合
-        # else:
-        #     return self._if_dd_ani(self.acc_list)
-        return self._if_dd_ani(self.acc_list)
+        if self.if_enable(["val"]):
+            tmp = self.cnt_ani_count
+            symptom_flag1 = self._if_dd_ani(self.acc_list)
+            cnt_ani_count1 = self.cnt_ani_count
+
+            self.cnt_ani_count = tmp
+            symptom_flag2 = self._if_dd_ani(self.val_acc_list)
+            cnt_ani_count2 = self.cnt_ani_count
+
+            self.cnt_ani_count = max(cnt_ani_count1, cnt_ani_count2)
+            return symptom_flag1 or symptom_flag2
+        else:
+            return self._if_dd_ani(self.acc_list)
 
     def if_dd_vg(self):
         if not self.if_enable(["model"]):
@@ -456,9 +472,7 @@ class ATDDInspector:
         return True if self.cnt_ol_count >= self.continuous_trigger_count else False
 
     def if_sc(self):
-        ##### 希望不基于val
-        # return self._if_sc(self.acc_list) and self._if_sc(self.val_acc_list)
-        return self._if_sc(self.acc_list)
+        return self._if_sc(self.acc_list)  # sc 只考虑 train acc
 
     def _if_sc(self, acc_list):
         # 任意的 i 都要满足 才触发！
@@ -466,7 +480,7 @@ class ATDDInspector:
             return False
         if len(acc_list) <= 1:  ###
             return False
-        symptom_flag = True ###
+        symptom_flag = True  ###
         for i in range(1, len(acc_list)):  # !!!!! 0- -1
             if acc_list[i] - acc_list[i - 1] > self.dp.delta:
                 symptom_flag = False
