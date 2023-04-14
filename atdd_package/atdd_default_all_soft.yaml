@@ -18,10 +18,6 @@ monitor:
     report:
       intermediate_default: val_acc
       final_default: val_acc
-#    calc:
-#      calc_metric_name_list: [ "weight_grad_abs_avg" ,"weight_grad_rate0" ]
-#      intermediate_key_list: []
-#      final_key_list: []
 tuner:
   classArgs:
     basic:
@@ -68,7 +64,7 @@ inspector:
   classArgs:
     basic:
       start_step_float: 0 ###### pre:0.15
-      rule_name_list: [ "at","dd","wd" ]
+      rule_name_list: [ "at","dd" ] # del "wd": var&mean aggressive & similar to ani&lnd
       continuous_trigger_count: 2 ####
     diagnose:
       alpha1: 0
