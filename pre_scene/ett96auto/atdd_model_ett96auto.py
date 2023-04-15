@@ -7,7 +7,7 @@ import numpy as np
 import torch
 
 sys.path.append("../../atdd_package")
-sys.path.append("../Autoformer")
+sys.path.append("../../scene/Autoformer")
 from exp.exp_main import Exp_Main
 
 params = {
@@ -16,6 +16,9 @@ params = {
     "d_model": 512,
     "n_heads": 8,
     "d_ff": 2048,
+    "learning_rate": 0.0001,
+    "batch_size": 32,
+    "dropout": 0.05
 }
 
 seed = 529
@@ -155,6 +158,9 @@ def main():
     args.d_model = params["d_model"]  # choice 256,512,1024
     args.n_heads = params["n_heads"]  # randint 5,15
     args.d_ff = params["d_ff"]  # choice 1024,2048,4096
+    args.learning_rate = params["learning_rate"]  # loguniform 1e-5,1e-3
+    args.batch_size = params["batch_size"]  # choice 16,32,64,128
+    args.dropout = params["dropout"]  # choice 0.05,0.1,0.15,0.2
 
     args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
 

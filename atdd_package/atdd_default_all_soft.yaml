@@ -65,7 +65,7 @@ inspector:
     basic:
       start_step_float: 0 ###### pre:0.15
       rule_name_list: [ "at","dd" ] # del "wd": var&mean aggressive & similar to ani&lnd
-      continuous_trigger_count: 2 ####
+      continuous_trigger_count: 2 #### 3?
     diagnose:
       alpha1: 0
       alpha2: 0

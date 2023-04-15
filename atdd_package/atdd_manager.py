@@ -1,4 +1,5 @@
 import logging
+import os
 
 import nni
 
@@ -114,6 +115,9 @@ class ATDDManager:
             d.update(d2)
         if self.assessor_config is not None:
             d3 = ATDDMessenger().read_assessor_info()
+            while d3 is None:
+                d3 = ATDDMessenger().read_assessor_info()
+                os.system("sleep 1")
             d.update(d3)
         d.update({"assessor_stop": self.assessor_stop})
         d.update({"inspector_stop": self.inspector_stop})
@@ -124,20 +128,19 @@ class ATDDManager:
         return d
 
     def if_atdd_send_stop(self):
-        flag = False
         if self.assessor_config is not None:
             flag_ = ATDDMessenger().if_atdd_assessor_send_stop()
             if flag_ is True:
                 info_dict = ATDDMessenger().read_assessor_info()
                 logger.info(" ".join(["assessor_info_dict ", str(info_dict)]))
-                flag = True
+                self.assessor_stop = True
         if self.inspector_config is not None:
             flag_ = ATDDMessenger().if_atdd_inspector_send_stop()
             if flag_ is True:
                 info_dict = ATDDMessenger().read_inspector_info()
                 logger.info(" ".join(["inspector_info_dict ", str(info_dict)]))
-                flag = True
-        return flag
+                self.inspector_stop = True
+        return self.assessor_stop or self.inspector_stop
 
 
 manager = ATDDManager()

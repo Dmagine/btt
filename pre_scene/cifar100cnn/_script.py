@@ -1,7 +1,7 @@
 
 import sys
 
-sys.path.append("../")
+sys.path.append("../../scene/")
 from _common import script_run
 
 
