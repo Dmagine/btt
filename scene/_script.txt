@@ -1,5 +1,5 @@
 nnictl stop --port 8080
-nnictl create --config atdd_model_cifar10cnn_raw_random.yaml --port 8080
+nnictl create --config atdd_model_cifar10cnn_atdd_random.yaml --port 8080
 
 nnictl stop --port 8080
 nnictl create --config atdd_model_mnistlenet_atdd_random_inspector_assessor.yaml --port 8080

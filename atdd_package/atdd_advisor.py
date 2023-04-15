@@ -3,6 +3,7 @@
 import logging
 import os
 from collections import defaultdict
+import torch
 
 import nni
 from nni import NoMoreTrialError
@@ -244,7 +245,7 @@ class ATDDAdvisor(MsgDispatcherBase):
             return
         # metrics value is dumped as json string in trial, so we need to decode it here
         if 'value' in data:
-            data['value'] = load(data['value'])
+            data['value'] = nni.load(data['value']) ###### not cuda
         if data['type'] == MetricType.FINAL:
             self._handle_final_metric_data(data)
         elif data['type'] == MetricType.PERIODICAL:
@@ -327,6 +328,7 @@ class ATDDAdvisor(MsgDispatcherBase):
             return
 
         try:
+            _logger.info(" ".join(["Assess trial", trial_job_id, "with", str(ordered_history)]))
             result = self.assessor.assess_trial(trial_job_id, ordered_history)
         except Exception as e:
             _logger.error('Assessor error')

@@ -283,6 +283,8 @@ class ATDDAssessor(Assessor):
         # log
         self.tmp_trial_id = trial_id
         self.messenger = ATDDMessenger(trial_id)
+        # if type(result_dict_list) is not dict:
+        #     logger.info(" ".join(["result_dict_list:", str(result_dict_list)]))
         self.result_dict = dict(result_dict_list[-1])
         logger.info("send intermediate_result_dict: %s: %s" % (trial_id, self.result_dict["epoch_idx"]))
         logger.debug("intermediate_result_dict: %s: %s" % (trial_id, str(self.result_dict)))

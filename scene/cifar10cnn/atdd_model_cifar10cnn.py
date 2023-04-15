@@ -12,7 +12,7 @@ from torchvision import datasets, transforms
 import torch.nn.functional as F
 
 sys.path.append("../../atdd_package")
-from atdd_manager import ATDDManager
+from atdd_manager import manager
 
 # log_dir = os.path.join(os.environ["NNI_OUTPUT_DIR"], 'tensorboard')
 # writer = SummaryWriter(log_dir)
@@ -37,7 +37,7 @@ params = {
 }
 
 seed = 529
-manager = ATDDManager(seed=seed)
+# manager = ATDDManager(seed=seed)
 
 
 def set_seed():

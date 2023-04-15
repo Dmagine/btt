@@ -9,10 +9,10 @@ def script_run(lst, t):
         os.system("nnictl stop --port 8080")  # ~/.local/bin/
 
         # 预防旧进程未完全清理
-        os.system("ps -ef | grep python3.8 | \
+        os.system("ps -ef | grep python | \
                                     grep peizhon+ | grep -v grep | grep -v script | grep -v view | \
                                     awk '{print $2}' | xargs kill -9")
-        os.system("ps -ef | grep python3.8 | \
+        os.system("ps -ef | grep python | \
                                     grep cenzhiy+ | grep -v grep | grep -v script | grep -v view | \
                                     awk '{print $2}' | xargs kill -9")
         exp_name = "_" + exp_file_name.split(".")[0]

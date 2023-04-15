@@ -138,6 +138,7 @@ class ATDDMessenger:
 
     def write_advisor_config(self, d):
         self.write_json_info(d, key='advisor_config')
+        self.write_json_info(d, key='advisor_config')
 
     def read_advisor_config(self):  # for tuner
         return self.read_json_info(key='advisor_config')

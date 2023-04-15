@@ -2,7 +2,7 @@ falseexperiment_name: "cifar10cnn_raw_smac"
 searchSpaceFile: search_space_cifar10cnn.json
 
 
-trial_command: python3.8 atdd_model_cifar10cnn.py
+trial_command: python3 atdd_model_cifar10cnn.py
 trial_code_directory: .
 
 trial_concurrency: 8
