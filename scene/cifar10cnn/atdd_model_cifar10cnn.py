@@ -113,21 +113,22 @@ class CNN(nn.Module):
 
 def train(dataloader, model, loss_fn, optimizer):
     size = len(dataloader.dataset)
+    num_batches = len(dataloader)
     model.train()
     correct = 0
-    loss_accumulate = 0
+    loss = 0
     for batch, (X, y) in enumerate(dataloader):
         X, y = X.to(device), y.to(device)
         pred = model(X)
         loss = loss_fn(pred, y)
-        loss_accumulate += float(loss.item()) * batch
+        loss += float(loss.item())
         optimizer.zero_grad()
         correct += (pred.argmax(1) == y).type(torch.float).sum().item()
         loss.backward()
         manager.collect_in_training(model)
         optimizer.step()
     acc = correct / size
-    loss_ave = loss_accumulate / size
+    loss_ave = loss / num_batches
     manager.collect_after_training(acc, loss_ave)
     manager.calculate_after_training()
     return acc, loss_ave
