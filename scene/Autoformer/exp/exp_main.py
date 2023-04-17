@@ -21,11 +21,16 @@ import numpy as np
 warnings.filterwarnings('ignore')
 
 sys.path.append("../../../atdd_package")
-from atdd_manager import manager
+from atdd_manager import ATDDManager
+
+manager = None
 
 class Exp_Main(Exp_Basic):
     def __init__(self, args):
         super(Exp_Main, self).__init__(args)
+        seed = 529
+        global manager
+        manager = ATDDManager(seed=seed)
 
     def _build_model(self):
         model_dict = {
@@ -38,6 +43,14 @@ class Exp_Main(Exp_Basic):
 
         if self.args.use_multi_gpu and self.args.use_gpu:
             model = nn.DataParallel(model, device_ids=self.args.device_ids)
+        #########
+        # for (module_name, module) in model.named_modules():
+        #     # if torch.nn.modules
+        #     if type(module) in [nn.Linear, nn.Conv2d, nn.Conv1d]:
+        #         for (param_name, param) in module.named_parameters():
+        #             if "weight" in param_name:
+        #                 print(type(module),module_name, param_name)
+        # exit()
         return model
 
     def _get_data(self, flag):

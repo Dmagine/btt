@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 class ATDDManager:
     def __init__(self, seed=None):
         set_seed(seed, "manager", logger)
+        self.seed = seed
 
         self.advisor_config = ATDDMessenger().read_advisor_config()
         self.shared_config = None
@@ -32,6 +33,7 @@ class ATDDManager:
 
         self.assessor_stop = False
         self.inspector_stop = False
+        self.assessor_protect = False
 
     def init_configs(self):
         if self.advisor_config is None:
@@ -121,6 +123,7 @@ class ATDDManager:
             d.update(d3)
         d.update({"assessor_stop": self.assessor_stop})
         d.update({"inspector_stop": self.inspector_stop})
+        d.update({"assessor_protect": self.assessor_protect})
         if self.raw_mode is True:
             d = self.get_raw_dict(rd)
         logger.info(" ".join(["final_result_dict:", str(d)]))
@@ -128,6 +131,7 @@ class ATDDManager:
         return d
 
     def if_atdd_send_stop(self):
+        protect_flag = False
         if self.assessor_config is not None:
             flag_ = ATDDMessenger().if_atdd_assessor_send_stop()
             if flag_ is True:
@@ -140,7 +144,8 @@ class ATDDManager:
                 info_dict = ATDDMessenger().read_inspector_info()
                 logger.info(" ".join(["inspector_info_dict ", str(info_dict)]))
                 self.inspector_stop = True
-        return self.assessor_stop or self.inspector_stop
+        ####
+        if self.assessor_config is not None:
+            self.assessor_protect = ATDDMessenger().if_atdd_assessor_send_protect()
 
-
-manager = ATDDManager()
+        return (self.assessor_stop or self.inspector_stop) if self.assessor_protect is False else False

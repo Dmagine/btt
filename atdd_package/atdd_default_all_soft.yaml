@@ -57,15 +57,19 @@ assessor:
       beta3: 70
       gamma: 0.7
       zeta: 0.03
-      delta: -0.01  # okkk
+      delta: 0.01  # pre: -0.01
       window_size_float: 0.25
       window_size_min: 5
+    protect:
+      enable: false
+      optimize_mode: maximize
+      threshold: 0.6
 inspector:
   classArgs:
     basic:
       start_step_float: 0 ###### pre:0.15
       rule_name_list: [ "at","dd" ] # del "wd": var&mean aggressive & similar to ani&lnd
-      continuous_trigger_count: 2 #### 3?
+      continuous_trigger_count: 1 # ....
     diagnose:
       alpha1: 0
       alpha2: 0
@@ -81,7 +85,7 @@ inspector:
       # dd
       dd_max_threshold: 10
       dd_min_threshold: 0.00001
-      dd_threshold_VG: 1.e-7
+      dd_threshold_VG: 1.e-7 # ...
       # wd dd
       window_size_float: 0.25
       window_size_min: 5

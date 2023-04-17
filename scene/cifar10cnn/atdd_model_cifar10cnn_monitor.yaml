@@ -1,4 +1,4 @@
-experiment_name: "cifar10cnn_atdd_random"
+experiment_name: "cifar10cnn_monitor"
 searchSpaceFile: search_space_cifar10cnn.json
 
 
@@ -22,13 +22,6 @@ advisor:
     monitor: default
     tuner:
       name: random
-    inspector: default
-    assessor:
-      classArgs:
-        protect:
-          enable: true
-          optimize_mode: maximize
-          threshold: 0.6
 
 
 

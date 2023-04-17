@@ -4,15 +4,15 @@ import sys
 import nni
 import numpy as np
 import torch
+import torch.nn.functional as F
 import torch.optim as optim
 from torch import nn
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
-import torch.nn.functional as F
 
 sys.path.append("../../atdd_package")
-from atdd_manager import manager
+from atdd_manager import ATDDManager
 
 # log_dir = os.path.join(os.environ["NNI_OUTPUT_DIR"], 'tensorboard')
 # writer = SummaryWriter(log_dir)
@@ -20,6 +20,7 @@ from atdd_manager import manager
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using {device} device")
 
+seed = 529
 params = {
     "conv1_k_num": 8,
     "conv2_k_num": 32,
@@ -35,9 +36,7 @@ params = {
     "batch_norm": 1,
     "batch_size": 90
 }
-
-seed = 529
-# manager = ATDDManager(seed=seed)
+manager = None
 
 
 def set_seed():
@@ -116,19 +115,19 @@ def train(dataloader, model, loss_fn, optimizer):
     num_batches = len(dataloader)
     model.train()
     correct = 0
-    loss = 0
+    loss_sum = 0
     for batch, (X, y) in enumerate(dataloader):
         X, y = X.to(device), y.to(device)
         pred = model(X)
         loss = loss_fn(pred, y)
-        loss += float(loss.item())
+        loss_sum += float(loss.item())
         optimizer.zero_grad()
         correct += (pred.argmax(1) == y).type(torch.float).sum().item()
         loss.backward()
         manager.collect_in_training(model)
         optimizer.step()
     acc = correct / size
-    loss_ave = loss / num_batches
+    loss_ave = loss_sum / num_batches
     manager.collect_after_training(acc, loss_ave)
     manager.calculate_after_training()
     return acc, loss_ave
@@ -163,11 +162,14 @@ def validate(dataloader, model, loss_fn):
 
 
 def main():
+    global manager,params
+    manager = ATDDManager(seed=seed)
     print("experiment_id: ", nni.get_experiment_id())
     print("trial_id: ", nni.get_trial_id())
     optimized_params = nni.get_next_parameter()
     params.update(optimized_params)
     print("params: ", params)
+    params["conv_k_size"] = int(1)
 
     train_kwargs = {'batch_size': params["batch_size"]}
     test_kwargs = {'batch_size': params["batch_size"]}

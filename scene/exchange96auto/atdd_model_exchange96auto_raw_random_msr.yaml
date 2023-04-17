@@ -1,0 +1,31 @@
+experiment_name: "exchange96auto_raw_random_msr"
+searchSpaceFile: search_space_exchange96auto.json
+
+
+trial_command: python3.8 atdd_model_exchange96auto.py
+trial_code_directory: .
+
+trial_concurrency: 8
+maxExperimentDuration: 6h ####
+training_service:
+  platform: local
+  useActiveGpu: false
+trialGpuNumber: 1
+
+
+
+tuner:
+  name: random
+  class_args:
+    optimize_mode: minimize
+assessor:
+  name: medianstop
+  class_args:
+    optimize_mode: minimize
+    start_step: 10
+
+
+
+
+
+

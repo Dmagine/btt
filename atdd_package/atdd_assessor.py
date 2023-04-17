@@ -10,13 +10,14 @@ logger = logging.getLogger(__name__)
 
 
 class ATDDAssessor(Assessor):
-    def __init__(self, shared, basic, compare, diagnose, seed=None):
+    def __init__(self, shared, basic, compare, diagnose, protect, seed=None):
         super().__init__()
         set_seed(seed, "assessor", logger)
         self.shared = shared
         self.basic = basic
         self.compare = compare
         self.diagnose = diagnose
+        self.protect = protect
         self.complete_config_by_default()
 
         self.model_num = self.shared["model_num"]
@@ -41,9 +42,14 @@ class ATDDAssessor(Assessor):
         self.window_size_float = self.diagnose["window_size_float"]
         self.window_size_min = self.diagnose["window_size_min"]
 
+        self.protect_id_set = set()
+
+        #######
+        self.valid_metric_name_list = None
+        self.init_valid_metric_name_list()
+
         self.cur_step = 0
 
-        self.metric_num = self.get_cmp_metric_num()
         self.cmp_step_list = None  # [1, np.ceil(s / 2), s, 2 * s]
         self.cmp_percentile_list = None  # [3.125, 12.5, 25, 50]  # (0,100) for np.percentile() 25下四分卫 75上四分卫
         self.init_cmp_list()
@@ -58,7 +64,14 @@ class ATDDAssessor(Assessor):
         self.result_dict = None
         self.step_acc_loss_list_dict = None
 
-        return
+    def init_valid_metric_name_list(self):
+        self.valid_metric_name_list = self.maximize_metric_name_list + self.minimize_metric_name_list
+        if self.enable_dict["acc"] is False:
+            key_lst = ["acc", "val_acc", "sc_metric", "ol_metric"]
+            for key in key_lst:
+                if key in self.valid_metric_name_list:
+                    self.valid_metric_name_list.remove(key)
+        logger.info("valid_metric_name_list: " + str(self.valid_metric_name_list))
 
     def complete_config_by_default(self):
         pass
@@ -67,7 +80,7 @@ class ATDDAssessor(Assessor):
         self.step_metric_score_list_dict_dict = {}
         for step in self.cmp_step_list:
             self.step_metric_score_list_dict_dict[step] = {}
-            for metric_name in self.maximize_metric_name_list + self.minimize_metric_name_list:
+            for metric_name in self.valid_metric_name_list:
                 self.step_metric_score_list_dict_dict[step][metric_name] = []
 
     def record_useful_history(self, step, metric_score_dict):
@@ -146,7 +159,7 @@ class ATDDAssessor(Assessor):
                     v2 = get_partial_ave(param_grad_abs_ave_list, idx_lst2)
                     val = abs(np.log10(v1 / v2) - mid)
 
-                    max_l = 30
+                    max_l = 2  ######### pre 30
                     for level in range(max_l):
                         b = (np.log10(self.beta3) - mid) / (2 ** level)
                         if val > b:
@@ -181,9 +194,9 @@ class ATDDAssessor(Assessor):
 
     def get_dr_metric(self, param_grad_zero_rate):
         # 越低越好
-        max_l = 7
+        max_l = 2  # aggressive7 3 may equal kill
         for level in range(max_l):
-            g = self.gamma / (10 ** level)
+            g = self.gamma / (2 ** level)
             if param_grad_zero_rate > g:
                 return - level
         return - max_l - 1
@@ -206,9 +219,10 @@ class ATDDAssessor(Assessor):
             weight_grad_rate0 = np.average(get_metric_array("weight_grad", "rate0"), 0, module_nele_list)
             weight_grad_abs_avg_1da = get_metric_array("weight_grad_abs", "avg")
 
-        module_name_flow_matrix = d["module_name_flow_matrix"]
+        module_name_flow_matrix = d["module_name_flow_matrix"] \
+            if "module_name_flow_matrix" in d else [d["module_name_list"]]
         module_name_list = d["module_name_list"]
-        acc_list = d["acc_list"]
+        acc_list = d["acc_list"] if "acc_list" in d else None
 
         if metric_name in ["acc", "loss", "reward", "val_acc", "val_loss", "val_reward"]:
             return d[metric_name]
@@ -232,17 +246,12 @@ class ATDDAssessor(Assessor):
                 return None
         return sum(ll) / len(ll)
 
-    def get_cmp_metric_num(self):
-        count = 0
-        for lst in [self.maximize_metric_name_list, self.minimize_metric_name_list]:
-            count += len(lst) if lst is not None else 0
-        return count
-
     def get_default_dict(self):
         # d = {"step_counter": self.cur_step}
         d = {}
-        for metric_name in self.minimize_metric_name_list + self.maximize_metric_name_list:
+        for metric_name in self.valid_metric_name_list:
             d.update({("cmp_" + metric_name): None})
+        d.update({"protect": False})
         return d
 
     def send_msg(self, metric_msg_dict=None):  # weak or bad
@@ -252,25 +261,46 @@ class ATDDAssessor(Assessor):
         self.messenger.write_assessor_info(d)
         return AssessResult.Good
 
-    def top_performance(self):
+    def if_top_performance(self):
         if self.step_acc_loss_list_dict is None:
             self.step_acc_loss_list_dict = {}  # step
             for step in self.cmp_step_list:
                 self.step_acc_loss_list_dict.update({step: {"acc_list": [], "loss_list": []}})
-        acc_list = self.result_dict["acc_list"]
-        loss_list = self.result_dict["loss_list"]
+        acc_list = self.result_dict["acc_list"] if "acc_list" in self.result_dict else None
+        loss_list = self.result_dict["loss_list"] if "loss_list" in self.result_dict else None
 
+        # no validation
         if acc_list is not None and len(acc_list) > 0:
             self.step_acc_loss_list_dict[self.cur_step]["acc_list"].append(acc_list[-1])
-            d = self.step_acc_loss_list_dict
-            if acc_list[-1] >= np.percentile(d[self.cur_step]["acc_list"], 100):
+            lst = self.step_acc_loss_list_dict[self.cur_step]["acc_list"]
+            if len(lst) >= self.comparable_trial_minimum and acc_list[-1] >= np.percentile(lst, 99):
                 logger.info(" ".join(["top acc performance:", self.tmp_trial_id, str(acc_list[-1])]))
                 return True
         if loss_list is not None and len(loss_list) > 0:
             self.step_acc_loss_list_dict[self.cur_step]["loss_list"].append(loss_list[-1])
-            d = self.step_acc_loss_list_dict
-            if loss_list[-1] <= np.percentile(d[self.cur_step]["loss_list"], 0):
+            lst = self.step_acc_loss_list_dict[self.cur_step]["loss_list"]
+            if len(lst) >= self.comparable_trial_minimum and loss_list[-1] <= np.percentile(lst, 1):
                 logger.info(" ".join(["top loss performance:", self.tmp_trial_id, str(loss_list[-1])]))
+                return True
+        return False
+
+    def if_protect(self):
+        if not self.protect["enable"]:
+            return False
+
+        optimize_mode = self.protect["optimize_mode"]
+        threshold = self.protect["threshold"]
+        if self.tmp_trial_id in self.protect_id_set:
+            if self.cur_step == self.max_epoch:
+                self.protect_id_set.remove(self.tmp_trial_id)
+            return True
+        if optimize_mode == "maximize":
+            if self.result_dict["default"] >= threshold:
+                self.protect_id_set.add(self.tmp_trial_id)
+                return True
+        elif optimize_mode == "minimize":
+            if self.result_dict["default"] <= threshold:
+                self.protect_id_set.add(self.tmp_trial_id)
                 return True
         return False
 
@@ -291,16 +321,20 @@ class ATDDAssessor(Assessor):
 
         cur_step = len(result_dict_list)
         self.cur_step = cur_step
+
+        if self.if_protect():
+            return self.send_msg({"protect": True})
+
         if cur_step not in self.cmp_step_list:
             return self.send_msg()
 
-        # if self.top_performance():
+        # if self.if_top_performance():
         #     return self.send_msg()
 
         # calculate this trial
         metric_score_dict = {}  # metric name -> metric value window ave
         bad_metric_msg_dict = {}
-        for metric_name in self.minimize_metric_name_list + self.maximize_metric_name_list:
+        for metric_name in self.valid_metric_name_list:
             metric_val = self.get_metric_window_ave(metric_name, result_dict_list, cur_step)
             if metric_val is None:  # nan
                 bad_metric_msg_dict.update({"cmp_" + metric_name: "inf_or_nan"})
@@ -319,7 +353,7 @@ class ATDDAssessor(Assessor):
 
         # compare
         out_dict = {}
-        for metric_name in self.maximize_metric_name_list + self.minimize_metric_name_list:
+        for metric_name in self.valid_metric_name_list:
             cmp_trial_num = len(metric_score_list_dict[metric_name])
             if cmp_trial_num < self.comparable_trial_minimum:
                 logger.info(" ".join(["limited cmp_trial_num:", trial_id, metric_name]))
@@ -348,9 +382,9 @@ class ATDDAssessor(Assessor):
         for metric_name, d in out_dict.items():
             if d["flag"] is False:
                 weak_metric_msg_dict.update({"cmp_" + metric_name: "weak"})
-        if (self.metric_num > self.metric_demarcation_num and len(weak_metric_msg_dict) >=
-            self.metric_num - self.metric_demarcation_num) \
-                or (self.metric_num <= self.metric_demarcation_num and len(weak_metric_msg_dict) != 0):
+        if (len(self.valid_metric_name_list) > self.metric_demarcation_num and len(weak_metric_msg_dict) >=
+            len(self.valid_metric_name_list) - self.metric_demarcation_num) \
+                or (len(self.valid_metric_name_list) <= self.metric_demarcation_num and len(weak_metric_msg_dict) != 0):
             logger.info(" ".join(["early stop weak:", trial_id, str(cur_step)]))
             logger.debug(" ".join(["Early Stopped:", trial_id, str(cur_step),
                                    str(weak_metric_msg_dict), str(out_dict), "\n"]))

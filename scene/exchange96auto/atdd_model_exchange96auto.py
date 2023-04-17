@@ -10,6 +10,8 @@ sys.path.append("../../atdd_package")
 sys.path.append("../Autoformer")
 from exp.exp_main import Exp_Main
 
+seed = 529
+
 params = {
     "e_layers": 2,
     "d_layers": 1,
@@ -21,9 +23,6 @@ params = {
     "dropout": 0.05
 }
 
-seed = 529
-
-
 def set_seed():
     print("seed: ", seed)
     torch.manual_seed(seed)
@@ -34,6 +33,7 @@ def set_seed():
 
 
 def main():
+    global params
     print("experiment_id: ", nni.get_experiment_id())
     print("trial_id: ", nni.get_trial_id())
     optimized_params = nni.get_next_parameter()
@@ -113,7 +113,7 @@ def main():
     args = parser.parse_args()
 
     # fixed
-    args.train_epochs = 20 #######
+    args.train_epochs = 20  #######
     args.patience = args.train_epochs  # no early stop -> 10
     args.is_training = True
     args.do_predict = False

@@ -1,9 +1,13 @@
+import logging
 import os
 import sys
 
+import nni
 import yaml
 from nni.common.serializer import dump, load
 from nni.runtime.env_vars import _load_env_vars, _trial_env_var_names, _dispatcher_env_var_names
+
+logger = logging.getLogger('atdd_messenger')
 
 info_file_name_dict = {
     'monitor': 'monitor_info',
@@ -24,12 +28,43 @@ class ATDDMessenger:
 
     def get_file_path(self, key):
         file_path = None
-        # file_path = None
-        # if key in self.trial_info_path_dict.keys():
-        #     file_path = self.trial_info_path_dict[key] if idx is None \
-        #         else "_".join([self.trial_info_path_dict[key], str(idx)])
-        # if key in self.experiment_info_path_dict.keys():
-        #     file_path = self.experiment_info_path_dict[key]
+
+        path_to_new_trial = "./"
+        ctx = get_nni_context()
+        if get_nni_context() == "platform":
+            dispatcher_env_vars = _load_env_vars(_dispatcher_env_var_names)
+            platform_log_dir = dispatcher_env_vars.NNI_LOG_DIRECTORY
+            ver = nni.__version__
+            if True in [ver.startswith("2.99"), ver.startswith("3.")]:
+                path_to_new_trial = "../environments/local-env/trials/"
+            # logger.info("get_nni_context() == platform")
+            # logger.info("platform_log_dir: {}".format(platform_log_dir))
+            # logger.info("path_to_new_trial: {}".format(path_to_new_trial))
+            # logger.info("platform_trials_dir: {}"
+            #             .format(os.path.join(platform_log_dir, '../trials/', path_to_new_trial)))
+            # print("get_nni_context() == platform")
+            # print("platform_log_dir: {}".format(platform_log_dir))
+            # print("path_to_new_trial: {}".format(path_to_new_trial))
+            # print("platform_trials_dir: {}"
+            #         .format(os.path.join(platform_log_dir, '../trials/', path_to_new_trial)))
+        elif ctx == "trial":
+            trial_env_vars = _load_env_vars(_trial_env_var_names)
+            trial_system_dir = trial_env_vars.NNI_SYS_DIR
+            if "environments" in trial_system_dir:
+                path_to_new_trial = "../environments/local-env/trials/"
+            # logger.info("get_nni_context() == trial")
+            # logger.info("trial_system_dir: {}".format(trial_system_dir))
+            # logger.info("path_to_new_trial: {}".format(path_to_new_trial))
+            # logger.info("platform_trials_dir: {}"
+            #             .format(os.path.join(trial_system_dir, '../trials/', path_to_new_trial)))
+            # print("get_nni_context() == trial")
+            # print("trial_system_dir: {}".format(trial_system_dir))
+            # print("path_to_new_trial: {}".format(path_to_new_trial))
+            # # os.path.join(trial_system_dir, '../')
+            # print("platform_trials_dir: {}"
+            #         .format(os.path.join(trial_system_dir, '../')))
+        else:
+            pass
 
         if key == "monitor":  # monitor write / inspector read
             trial_env_vars = _load_env_vars(_trial_env_var_names)
@@ -42,7 +77,7 @@ class ATDDMessenger:
             if get_nni_context() == "platform":
                 dispatcher_env_vars = _load_env_vars(_dispatcher_env_var_names)
                 platform_log_dir = dispatcher_env_vars.NNI_LOG_DIRECTORY
-                trial_system_dir = os.path.join(platform_log_dir, '../trials', self.trial_id)
+                trial_system_dir = os.path.join(platform_log_dir, '../trials/', path_to_new_trial, self.trial_id)
             else:
                 trial_env_vars = _load_env_vars(_trial_env_var_names)
                 trial_system_dir = trial_env_vars.NNI_SYS_DIR
@@ -63,7 +98,7 @@ class ATDDMessenger:
             if ctx == "platform":
                 dispatcher_env_vars = _load_env_vars(_dispatcher_env_var_names)
                 platform_log_dir = dispatcher_env_vars.NNI_LOG_DIRECTORY
-                self.platform_trials_dir = os.path.join(platform_log_dir, '../trials/')
+                self.platform_trials_dir = os.path.join(platform_log_dir, '../trials/', path_to_new_trial)
             elif ctx == "trial":
                 trial_env_vars = _load_env_vars(_trial_env_var_names)
                 trial_system_dir = trial_env_vars.NNI_SYS_DIR
@@ -83,7 +118,7 @@ class ATDDMessenger:
         if key == "tuner":
             dispatcher_env_vars = _load_env_vars(_dispatcher_env_var_names)
             platform_log_dir = dispatcher_env_vars.NNI_LOG_DIRECTORY
-            self.platform_trials_dir = os.path.join(platform_log_dir, '../trials/')
+            self.platform_trials_dir = os.path.join(platform_log_dir, '../trials/', path_to_new_trial)
             if not os.path.exists(self.platform_trials_dir):
                 os.makedirs(self.platform_trials_dir)
             file_path = os.path.join(self.platform_trials_dir, info_file_name_dict[key])
@@ -168,6 +203,14 @@ class ATDDMessenger:
         for k, v in info_dict.items():
             if "cmp_" in k and v is not None:
                 return True
+        return False
+
+    def if_atdd_assessor_send_protect(self):
+        info_dict = self.read_assessor_info()
+        if info_dict is None:
+            return False
+        if "protect" in info_dict and info_dict["protect"] is not None:
+            return info_dict["protect"]
         return False
 
 

@@ -76,6 +76,9 @@ class ATDDMonitor:
         self.batch_module_weight_grad_abs_avg_2da = None  # dim1:epoch_idx, dim2:module_idx
         self.batch_module_weight_grad_rate0_2da = None  # dim1:batch_idx, dim2:module_idx
 
+        # [nn.Conv2d, nn.Linear, nn.Conv1d, nn.LSTMCell]
+        self.support_module_type_list = [nn.Conv2d, nn.Linear, nn.Conv1d, nn.LSTMCell]
+
     def complete_config_by_default(self):
         pass
 
@@ -99,6 +102,21 @@ class ATDDMonitor:
                 return self.reward_list[-1]
             if if_enable(["loss"]) and "loss" in self.intermediate_default:
                 return self.loss_list[-1]
+        # not fit for self.intermediate_default
+        if if_enable(["val"]):  # e.g. "val_acc"
+            if if_enable(["acc"]):
+                return self.val_acc_list[-1]
+            if if_enable(["reward"]):
+                return self.val_reward_list[-1]
+            if if_enable(["loss"]):
+                return self.val_loss_list[-1]
+        else:
+            if if_enable(["acc"]):
+                return self.acc_list[-1]
+            if if_enable(["reward"]):
+                return self.reward_list[-1]
+            if if_enable(["loss"]):
+                return self.loss_list[-1]
 
     def get_final_default_metric_value(self):
         if if_enable(["test"]) and "test" in self.intermediate_default:
@@ -107,6 +125,13 @@ class ATDDMonitor:
             if if_enable(["reward"]) and "reward" in self.intermediate_default:
                 return self.test_reward
             if if_enable(["loss"]) and "loss" in self.intermediate_default:
+                return self.test_loss
+            # not fit for self.intermediate_default
+            if if_enable(["acc"]):
+                return self.test_acc
+            if if_enable(["reward"]):
+                return self.test_reward
+            if if_enable(["loss"]):
                 return self.test_loss
         else:
             return self.get_intermediate_default_metric_value()
@@ -156,8 +181,8 @@ class ATDDMonitor:
     def get_result_4_inspector_assessor(self):
         d = {}
         d.update({"has_nan_inf_list": self.has_nan_inf_list})
-        d.update({"module_name_flow_matrix": self.module_name_flow_matrix})
-        d.update({"relu_pre_module_name_list": self.relu_pre_module_name_list})
+        # d.update({"module_name_flow_matrix": self.module_name_flow_matrix})
+        # d.update({"relu_pre_module_name_list": self.relu_pre_module_name_list})
         d.update({"module_name_list": self.module_name_list})
         d.update({"module_nele_list": self.module_nele_list})
 
@@ -257,12 +282,14 @@ class ATDDMonitor:
         self.module_name_list = []
         self.module_nele_list = []
         for (module_name, module) in model.named_modules():
-            if type(module) in [nn.Conv2d, nn.Linear, nn.LSTMCell]:
-                for (param_name, param) in module.named_parameters():
-                    if "weight" in param_name:
-                        self.module_name_list.append(module_name)
-                        self.module_nele_list.append(param.nelement())
-                        break  # 只统计一次
+            if type(module) not in self.support_module_type_list:
+                continue
+            for (param_name, param) in module.named_parameters():
+                if "weight" not in param_name:
+                    continue
+                self.module_name_list.append(module_name)
+                self.module_nele_list.append(param.nelement())
+                break  # 只统计一次
         self.metric_name_list = []
         for prefix in self.metric_prefix_list:
             for suffix in self.metric_suffix_list:
@@ -324,7 +351,7 @@ class ATDDMonitor:
         else:
             single_batch_module_metric_2da = np.zeros((len(self.module_name_list), len(self.metric_name_list)))
         for (module_name, module) in model.named_modules():
-            if type(module) not in [nn.Conv2d, nn.Linear, nn.LSTMCell]:
+            if type(module) not in self.support_module_type_list:
                 continue
             for (param_name, param) in module.named_parameters():
                 if "weight" not in param_name:

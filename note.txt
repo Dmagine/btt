@@ -1,9 +1,15 @@
 mkdir -p ~/Pycharm-Projects-cenn/nni_at_assessor
-pip3 install -r requirements.txt
+cuda:11.6
+conda install pytorch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 -c pytorch # no -> -U
+pip3 install nni[all]==2.10
 pip3 install "typeguard<3"
 pip3 install more-itertools
-pip3 install -U numpy
-Pip3 install nni[all]==2.9
+pip3 install numpy==1.22.0
+pip3 install matplotlib
+pip3 install -r ~/Pycharm-Projects-cenn/nni_at_assessor/scene/Autoformer/requirements.txt
+pip3 install "scipy<1.8"
+pip3 install -U torch
+pip3 install -U torchvision
 
 
 scp -r /Users/admin/PycharmProjects/NNI-test/* cenzhiyao@192.168.6.105:~/Pycharm-Projects-cenn/nni_at_assessor
