@@ -2,11 +2,9 @@ import logging
 
 import nni
 import numpy as np
-import torch
 
 from atdd_messenger import ATDDMessenger
 from atdd_utils import diagnose_params
-from atdd_utils import get_ave
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +23,13 @@ class ATDDInspector:
         self.quick_calc = self.shared["quick_calc"]
 
         self.start_step_float = self.basic["start_step_float"]
+        self.end_step_float = self.basic["end_step_float"]
         self.rule_name_list = self.basic["rule_name_list"]
         self.continuous_trigger_count = self.basic["continuous_trigger_count"]
         self.dp = diagnose_params(**diagnose)
 
         self.start_step = int(self.start_step_float * self.max_epoch)
+        self.end_step = int(self.end_step_float * self.max_epoch)
         self.window_size = max(round(self.dp.window_size_float * self.max_epoch), self.dp.window_size_min)
 
         self.at_symptom = None
@@ -58,6 +58,7 @@ class ATDDInspector:
         self.cnt_dr_count = 0
         self.cnt_sc_count = 0
         self.cnt_ol_count = 0
+        self.cnt_oa_count = 0
         self.cnt_ani_count = 0
         self.cnt_lnd_count = 0
         self.cnt_vg2_count = 0
@@ -83,36 +84,45 @@ class ATDDInspector:
 
     def get_default_symptom_dict(self):
         d = {
-            "cnt_vg_count": self.cnt_vg_count,
-            "cnt_eg_count": self.cnt_eg_count,
-            "cnt_dr_count": self.cnt_dr_count,
-            "cnt_sc_count": self.cnt_sc_count,
-            "cnt_ol_count": self.cnt_ol_count,
-            "cnt_ani_count": self.cnt_ani_count,
-            "cnt_lnd_count": self.cnt_lnd_count,
-            "cnt_vg2_count": self.cnt_vg2_count,
-            "cnt_et_count": self.cnt_et_count,
+
             "at_symptom": self.at_symptom,
             "dd_symptom": self.dd_symptom,
             "wd_symptom": self.wd_symptom,
         }
+        if self.continuous_trigger_count > 1:
+            d.update({
+                "cnt_vg_count": self.cnt_vg_count,
+                "cnt_eg_count": self.cnt_eg_count,
+                "cnt_dr_count": self.cnt_dr_count,
+                "cnt_sc_count": self.cnt_sc_count,
+                "cnt_ol_count": self.cnt_ol_count,
+                "cnt_oa_count": self.cnt_oa_count,
+                "cnt_ani_count": self.cnt_ani_count,
+                "cnt_lnd_count": self.cnt_lnd_count,
+                "cnt_vg2_count": self.cnt_vg2_count,
+                "cnt_et_count": self.cnt_et_count,
+            })
         return d
 
     def get_none_symptom_dict(self):
         d = {
-            "cnt_vg_count": self.cnt_vg_count,
-            "cnt_eg_count": self.cnt_eg_count,
-            "cnt_dr_count": self.cnt_dr_count,
-            "cnt_sc_count": self.cnt_sc_count,
-            "cnt_ol_count": self.cnt_ol_count,
-            "cnt_ani_count": self.cnt_ani_count,
-            "cnt_lnd_count": self.cnt_lnd_count,
-            "cnt_vg2_count": self.cnt_vg2_count,
-            "cnt_et_count": self.cnt_et_count,
             "at_symptom": None,
             "dd_symptom": None,
             "wd_symptom": None,
         }
+        if self.continuous_trigger_count > 1:
+            d.update({
+                "cnt_vg_count": self.cnt_vg_count,
+                "cnt_eg_count": self.cnt_eg_count,
+                "cnt_dr_count": self.cnt_dr_count,
+                "cnt_sc_count": self.cnt_sc_count,
+                "cnt_ol_count": self.cnt_ol_count,
+                "cnt_oa_count": self.cnt_oa_count,
+                "cnt_ani_count": self.cnt_ani_count,
+                "cnt_lnd_count": self.cnt_lnd_count,
+                "cnt_vg2_count": self.cnt_vg2_count,
+                "cnt_et_count": self.cnt_et_count,
+            })
         return d
 
     def get_metric_array(self, p, s):
@@ -130,26 +140,6 @@ class ATDDInspector:
         self.val_acc_list = d["val_acc_list"] if "val_acc_list" in d else None
         self.val_loss_list = d["val_loss_list"] if "val_loss_list" in d else None
         self.val_reward_list = d["val_reward_list"] if "val_reward_list" in d else None
-
-        # self.param_has_inf = d["param_has_inf"]
-        # self.param_grad_zero_rate = d["param_grad_zero_rate"]
-        # self.param_val_var_list = d["param_val_var_list"]  # 不好说明。。。。。uw废弃
-        # self.param_grad_abs_ave_list = d["param_grad_abs_ave_list"]
-        # self.module_name_flow_2dlist = d["module_name_flow_2dlist"]
-        # self.module_name_list = d["module_name_list"]
-        # self.step_counter = d["step_counter"]
-
-        #         d = {}
-        #         d.update({"has_inf_list": self.has_inf_list})
-        #         d.update({"module_name_flow_matrix": self.module_name_flow_matrix})
-        #         d.update({"relu_pre_module_name_list": self.relu_pre_module_name_list})
-        #         d.update({"module_name_list": self.module_name_list})
-        #         d.update({"module_nelement_list": self.module_nelement_list})
-        #
-        #         # nele
-        #         d.update({"metric_prefix_list": self.metric_prefix_list})
-        #         d.update({"metric_suffix_list": self.metric_suffix_list})
-        #         d.update({"module_metric_2da": self.epoch_module_metric_3da[self.epoch_idx]})
 
         self.module_nele_list = d["module_nele_list"]
         self.relu_pre_module_name_list = d["relu_pre_module_name_list"] \
@@ -171,9 +161,11 @@ class ATDDInspector:
             if "module_name_flow_matrix" in d else [d["module_name_list"]]
         self.module_name_list = d["module_name_list"]
 
-        if self.epoch_idx < self.start_step:
-            logger.info(" ".join(["step_counter:", str(self.epoch_idx), "lt", "start_step", str(self.start_step)]))
+        if self.epoch_idx < self.start_step or self.epoch_idx > self.end_step:
+            logger.info(" ".join(["epoch_idx:", str(self.epoch_idx),
+                                  "start_step", str(self.start_step), "end_step", str(self.end_step)]))
             return self.get_none_symptom_dict()
+
         # if self.if_top_performance():
         #     return self.get_none_symptom_dict()
 
@@ -194,6 +186,9 @@ class ATDDInspector:
             return True
         if self.if_ol():
             self.at_symptom = "OL"
+            return True
+        if self.if_oa():
+            self.at_symptom = "OA"
             return True
         if self.if_sc():
             self.at_symptom = "SC"
@@ -262,24 +257,27 @@ class ATDDInspector:
             symptom_flag |= self.judge_dd_symptom()
         # if "wd" in self.rule_name_list:
         #     symptom_flag |= self.judge_wd_symptom()
+
         return symptom_flag
 
     def _if_wd_symptom(self, li, expect: str):
-        if li is None:
-            return False
-        if len(li) >= self.window_size * 2:  # 不然第二段因为数量少导致var必然小
-            s = self.window_size
-            mean_now = get_ave(li[-s:])
-            var_now = float(torch.var(torch.tensor(li[-s:])))
-            mean_pre = get_ave(li[-s * 2:-s])
-            var_pre = float(torch.var(torch.tensor(li[-s * 2:-s])))
-
-            if var_now > var_pre:  # 首先要求稳定性
-                return True
-            if expect == "inc" and mean_now <= mean_pre:
-                return True
-            if expect == "dec" and mean_now >= mean_pre:
-                return True
+        # if li is None:
+        #     return False
+        # if len(li) < self.window_size * 2:
+        #     return False
+        # if len(li) >= self.window_size * 2:  # 不然第二段因为数量少导致var必然小
+        #     s = self.window_size
+        #     mean_now = get_ave(li[-s:])
+        #     var_now = float(torch.var(torch.tensor(li[-s:])))
+        #     mean_pre = get_ave(li[-s * 2:-s])
+        #     var_pre = float(torch.var(torch.tensor(li[-s * 2:-s])))
+        #
+        #     if var_now > var_pre:  # 首先要求稳定性
+        #         return True
+        #     if expect == "inc" and mean_now <= mean_pre:
+        #         return True
+        #     if expect == "dec" and mean_now >= mean_pre:
+        #         return True
         return False
 
     def if_wd_symptom(self, s):
@@ -300,18 +298,18 @@ class ATDDInspector:
         return self.cnt_et_count >= self.continuous_trigger_count
 
     def if_dd_uw(self):
-        if not self.if_enable(["model"]):
-            return False
-        if self.epoch_idx + 1 >= self.window_size:
-            poor_weight_list = []
-            for i in range(len(self.param_val_var_list)):
-                if self.param_val_var_list[i] < self.dp.dd_min_threshold \
-                        or self.param_val_var_list[i] > self.dp.dd_max_threshold:
-                    poor_weight_list.append(True)
-                else:
-                    poor_weight_list.append(False)
-            if True in poor_weight_list:  # 任何一层有问题就停止
-                return True
+        # if not self.if_enable(["model"]):
+        #     return False
+        # if self.epoch_idx + 1 >= self.window_size:
+        #     poor_weight_list = []
+        #     for i in range(len(self.param_val_var_list)):
+        #         if self.param_val_var_list[i] < self.dp.dd_min_threshold \
+        #                 or self.param_val_var_list[i] > self.dp.dd_max_threshold:
+        #             poor_weight_list.append(True)
+        #         else:
+        #             poor_weight_list.append(False)
+        #     if True in poor_weight_list:  # 任何一层有问题就停止
+        #         return True
         return False
 
     def _if_dd_lnd(self, loss_list):
@@ -319,65 +317,67 @@ class ATDDInspector:
             return False
         if self.epoch_idx + 1 <= self.window_size:
             return False
-        symptom_flag = True if loss_list[-1] >= max(loss_list[-self.window_size:]) else False
+        # np polyfit
+        x = np.array(range(self.window_size))
+        y = np.array(loss_list[-self.window_size:])
+        z = np.polyfit(x, y, 1)
+        symptom_flag = z[0] >= 0
+
         self.cnt_lnd_count = self.cnt_lnd_count + 1 if symptom_flag else 0
         return self.cnt_lnd_count >= self.continuous_trigger_count
 
     def if_dd_lnd(self):
-        if self.if_enable(["val"]):
-            tmp = self.cnt_lnd_count
-            symptom_flag1 = self._if_dd_lnd(self.loss_list)
-            cnt_lnd_count1 = self.cnt_lnd_count
-
-            self.cnt_lnd_count = tmp
-            symptom_flag2 = self._if_dd_lnd(self.val_loss_list)
-            cnt_lnd_count2 = self.cnt_lnd_count
-
-            self.cnt_lnd_count = max(cnt_lnd_count1, cnt_lnd_count2)
-            return symptom_flag1 or symptom_flag2
-        else:
-            return self._if_dd_lnd(self.loss_list)
+        # if self.if_enable(["val"]):
+        #     tmp = self.cnt_lnd_count
+        #     symptom_flag1 = self._if_dd_lnd(self.loss_list)
+        #     cnt_lnd_count1 = self.cnt_lnd_count
+        #
+        #     self.cnt_lnd_count = tmp
+        #     symptom_flag2 = self._if_dd_lnd(self.val_loss_list)
+        #     cnt_lnd_count2 = self.cnt_lnd_count
+        #
+        #     self.cnt_lnd_count = max(cnt_lnd_count1, cnt_lnd_count2)
+        #     return symptom_flag1 or symptom_flag2
+        return self._if_dd_lnd(self.loss_list)
 
     def _if_dd_ani(self, acc_list):
         if not self.if_enable(["acc"]):
             return False
         if self.epoch_idx + 1 <= self.window_size:
             return False
-        symptom_flag = True if acc_list[-1] <= min(acc_list[-self.window_size:]) else False
+        y = np.array(acc_list[-self.window_size:])
+        x = np.array(range(len(y)))
+        z = np.polyfit(x, y, 1)  # k,b
+        symptom_flag = z[0] <= 0
+
         self.cnt_ani_count = self.cnt_ani_count + 1 if symptom_flag else 0
         return self.cnt_ani_count >= self.continuous_trigger_count
 
     def if_dd_ani(self):
-        if self.if_enable(["val"]):
-            tmp = self.cnt_ani_count
-            symptom_flag1 = self._if_dd_ani(self.acc_list)
-            cnt_ani_count1 = self.cnt_ani_count
-
-            self.cnt_ani_count = tmp
-            symptom_flag2 = self._if_dd_ani(self.val_acc_list)
-            cnt_ani_count2 = self.cnt_ani_count
-
-            self.cnt_ani_count = max(cnt_ani_count1, cnt_ani_count2)
-            return symptom_flag1 or symptom_flag2
-        else:
-            return self._if_dd_ani(self.acc_list)
+        # no val
+        # if self.if_enable(["val"]):
+        #     tmp = self.cnt_ani_count
+        #     symptom_flag1 = self._if_dd_ani(self.acc_list)
+        #     cnt_ani_count1 = self.cnt_ani_count
+        #
+        #     self.cnt_ani_count = tmp
+        #     symptom_flag2 = self._if_dd_ani(self.val_acc_list)
+        #     cnt_ani_count2 = self.cnt_ani_count
+        #
+        #     self.cnt_ani_count = max(cnt_ani_count1, cnt_ani_count2)
+        #     return symptom_flag1 or symptom_flag2
+        return self._if_dd_ani(self.acc_list)
 
     def if_dd_vg(self):
         if not self.if_enable(["model"]):
             return False
-        # symptom_flag = False
-        # count = 0
-        # for item in self.weight_grad_abs_avg_1da:
-        #     if item < self.dp.dd_threshold_VG:
-        #         count += 1
-        # if count / len(self.module_name_list) >= 1/2: #####
-        #     symptom_flag = True
         symptom_flag = False
+        count = 0
         for item in self.weight_grad_abs_avg_1da:
             if item < self.dp.dd_threshold_VG:
-                symptom_flag = True
-                break
-        # cnt_vg2_count
+                count += 1
+        if count / len(self.module_name_list) >= 0.25:  #####
+            symptom_flag = True
         self.cnt_vg2_count = self.cnt_vg2_count + 1 if symptom_flag else 0
         return self.cnt_vg2_count >= self.continuous_trigger_count
 
@@ -409,18 +409,19 @@ class ATDDInspector:
                             idx_lst.append(idx)
                     module_idx_list_flow_list.append(idx_lst)
                 logger.debug(" ".join(["module_idx_list_flow_list:", str(module_idx_list_flow_list)]))
-                if self.last_acc <= self.dp.theta and \
-                        self._get_partial_ave(module_idx_list_flow_list[0]) <= self.dp.beta2:
-                    for i in range(len(module_idx_list_flow_list) - 1):
-                        idx_1st1 = module_idx_list_flow_list[i]
-                        idx_lst2 = module_idx_list_flow_list[i + 1]
-                        v1 = self._get_partial_ave(idx_1st1)
-                        v2 = self._get_partial_ave(idx_lst2)
-                        if v1 / v2 <= self.dp.beta1:
-                            symptom_flag = True
-                            break
-                    if symptom_flag:
+                # if self.last_acc <= self.dp.theta and \
+                #         self._get_partial_ave(module_idx_list_flow_list[0]) <= self.dp.beta2:
+                # if self._get_partial_ave(module_idx_list_flow_list[0]) <= self.dp.beta2: # 去除"绝对阈值"相关规则
+                for i in range(len(module_idx_list_flow_list) - 1):
+                    idx_1st1 = module_idx_list_flow_list[i]
+                    idx_lst2 = module_idx_list_flow_list[i + 1]
+                    v1 = self._get_partial_ave(idx_1st1)
+                    v2 = self._get_partial_ave(idx_lst2)
+                    if v1 / v2 <= self.dp.beta1:
+                        symptom_flag = True
                         break
+                if symptom_flag:
+                    break
         self.cnt_vg_count = self.cnt_vg_count + 1 if symptom_flag else 0
         return True if self.cnt_vg_count >= self.continuous_trigger_count else False
 
@@ -442,17 +443,17 @@ class ATDDInspector:
                             idx_lst.append(idx)
                     module_idx_list_flow_list.append(idx_lst)
                 logger.debug(" ".join(["module_idx_list_flow_list:", str(module_idx_list_flow_list)]))
-                if self.last_acc <= self.dp.theta:
-                    for i in range(len(module_idx_list_flow_list) - 1):
-                        idx_1st1 = module_idx_list_flow_list[i]
-                        idx_lst2 = module_idx_list_flow_list[i + 1]
-                        v1 = self._get_partial_ave(idx_1st1)
-                        v2 = self._get_partial_ave(idx_lst2)
-                        if v1 / v2 >= self.dp.beta3:
-                            symptom_flag = True
-                            break
-                    if symptom_flag:
+                # if self.last_acc <= self.dp.theta:
+                for i in range(len(module_idx_list_flow_list) - 1):
+                    idx_1st1 = module_idx_list_flow_list[i]
+                    idx_lst2 = module_idx_list_flow_list[i + 1]
+                    v1 = self._get_partial_ave(idx_1st1)
+                    v2 = self._get_partial_ave(idx_lst2)
+                    if v1 / v2 >= self.dp.beta3:
+                        symptom_flag = True
                         break
+                if symptom_flag:
+                    break
         self.cnt_eg_count = self.cnt_eg_count + 1 if symptom_flag else 0
         return True if self.cnt_eg_count >= self.continuous_trigger_count else False
 
@@ -460,32 +461,29 @@ class ATDDInspector:
         if not self.if_enable(["acc", "model"]):
             return False
 
-        self.cnt_dr_count += 1 if self.last_acc <= self.dp.theta and self.weight_grad_rate0 >= self.dp.gamma else 0
+        # self.cnt_dr_count += 1 if self.last_acc <= self.dp.theta and self.weight_grad_rate0 >= self.dp.gamma else 0
+        self.cnt_dr_count += 1 if self.weight_grad_rate0 >= self.dp.gamma else 0
         return True if self.cnt_dr_count >= self.continuous_trigger_count else False
 
     def get_ol_metric(self, acc_list):
-        count = 0
-        maximum_list = []
-        minimum_list = []
-        for i in range(len(acc_list)):
-            if i == 0 or i == len(acc_list) - 1:
-                continue
-            if acc_list[i] - acc_list[i - 1] >= 0 and acc_list[i] - acc_list[i + 1] >= 0:
-                maximum_list.append(acc_list[i])
-            if acc_list[i] - acc_list[i - 1] <= 0 and acc_list[i] - acc_list[i + 1] <= 0:
-                minimum_list.append(acc_list[i])
-        for i in range(min(len(maximum_list), len(minimum_list))):
-            if maximum_list[i] - minimum_list[i] >= self.dp.zeta:
-                count += 1
-        return count / len(acc_list) if len(acc_list) > 0 else 0
+        if len(acc_list) < self.window_size:
+            return 0  # var = 0 min
+        return np.var([(acc - min(acc_list)) / (max(acc_list) - min(acc_list)) for acc in acc_list])
 
     def if_ol(self):
-        # 虽然ol 但是只用了acc ol整体出现频率很低
+        #
+        if not self.if_enable(["loss"]):
+            return False
+        ol_rate = self.get_ol_metric(self.loss_list)  ##### loss
+        self.cnt_ol_count = self.cnt_ol_count + 1 if ol_rate >= self.dp.eta1 else 0
+        return True if self.cnt_ol_count >= self.continuous_trigger_count else False
+
+    def if_oa(self):
         if not self.if_enable(["acc"]):
             return False
-        ol_rate = self.get_ol_metric(self.acc_list)
-        self.cnt_ol_count = self.cnt_ol_count + 1 if ol_rate >= self.dp.eta else 0
-        return True if self.cnt_ol_count >= self.continuous_trigger_count else False
+        oa_rate = self.get_ol_metric(self.acc_list)  ##### acc
+        self.cnt_oa_count = self.cnt_oa_count + 1 if oa_rate >= self.dp.eta2 else 0
+        return True if self.cnt_oa_count >= self.continuous_trigger_count else False
 
     def if_sc(self):
         return self._if_sc(self.acc_list)  # sc 只考虑 train acc
@@ -498,7 +496,7 @@ class ATDDInspector:
             return False
         symptom_flag = True  ###
         for i in range(1, len(acc_list)):  # !!!!! 0- -1
-            if acc_list[i] - acc_list[i - 1] > self.dp.delta:
+            if (acc_list[i] - acc_list[i - 1]) / (1 - acc_list[0]) > self.dp.delta:  ## abs -> rate
                 symptom_flag = False
                 break
         self.cnt_sc_count = self.cnt_sc_count + 1 if symptom_flag else 0

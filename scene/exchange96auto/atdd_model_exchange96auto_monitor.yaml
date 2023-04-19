@@ -6,7 +6,7 @@ trial_command: python3.8 atdd_model_exchange96auto.py
 trial_code_directory: .
 
 trial_concurrency: 8
-maxExperimentDuration: 6h ####
+maxExperimentDuration: 12h ####
 training_service:
   platform: local
   useActiveGpu: false

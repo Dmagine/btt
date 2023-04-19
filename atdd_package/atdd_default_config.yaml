@@ -47,45 +47,46 @@ assessor:
       k: 0
       b: 0.5
       max_percentile: 90
-      start_step_float: 0.5 ###### pre:0.0
-      end_step_float: 1.0 ###### pre:0.75
+      start_step_float: 0.0 ###### pre:0.0
+      end_step_float: 0.5 ###### pre:0.75
       step_size: 1 # pre:"median"
       metric_demarcation_num: 10
       comparable_trial_minimum: 10 ###
     diagnose:
       beta1: 0.001
-      beta3: 70
+      beta3: 1 # pre: 70
       gamma: 0.7
-      zeta: 0.03
-      delta: 0.01  # pre: -0.01
+      zeta: 0.01 # pre: 0.03
+      eta1: 0.2 ### loss
+      eta2: 0.2 ### acc no
+      delta: 0.01  # 含义改变
       window_size_float: 0.25
       window_size_min: 5
-    protect:
-      enable: false
-      optimize_mode: maximize
-      threshold: 0.6
+#    protect:
+#      enable: false
+#      optimize_mode: maximize
+#      threshold: 0.6
 inspector:
   classArgs:
     basic:
       start_step_float: 0 ###### pre:0.15
-      rule_name_list: [ "at","dd" ] # del "wd": var&mean aggressive & similar to ani&lnd
+      end_step_float: 0.5 ###
+      rule_name_list: [ "at","dd" ] # del "wd": similar to ani&lnd
       continuous_trigger_count: 1 # ....
     diagnose:
-      alpha1: 0
-      alpha2: 0
-      alpha3: 0
       beta1: 0.001
-      beta2: 0.0001
+#      beta2: 0.0001
       beta3: 70
       gamma: 0.7
-      delta: 0.01
-      zeta: 0.03
-      theta: 0.9
-      eta: 0.2
+      delta: 0.01 # 含义改变
+      zeta: 0.01 # pre: 0.03
+#      theta: 0.9
+      eta1: 0.2 ### loss
+      eta2: 0.2 ### acc no
       # dd
       dd_max_threshold: 10
       dd_min_threshold: 0.00001
       dd_threshold_VG: 1.e-7 # ...
-      # wd dd
+      # window wd
       window_size_float: 0.25
       window_size_min: 5

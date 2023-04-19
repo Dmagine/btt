@@ -10,14 +10,14 @@ logger = logging.getLogger(__name__)
 
 
 class ATDDAssessor(Assessor):
-    def __init__(self, shared, basic, compare, diagnose, protect, seed=None):
+    def __init__(self, shared, basic, compare, diagnose, protect=None, seed=None):
         super().__init__()
         set_seed(seed, "assessor", logger)
         self.shared = shared
         self.basic = basic
         self.compare = compare
         self.diagnose = diagnose
-        self.protect = protect
+        # self.protect = protect
         self.complete_config_by_default()
 
         self.model_num = self.shared["model_num"]
@@ -159,7 +159,7 @@ class ATDDAssessor(Assessor):
                     v2 = get_partial_ave(param_grad_abs_ave_list, idx_lst2)
                     val = abs(np.log10(v1 / v2) - mid)
 
-                    max_l = 2  ######### pre 30
+                    max_l = 3  ######### pre 30
                     for level in range(max_l):
                         b = (np.log10(self.beta3) - mid) / (2 ** level)
                         if val > b:
@@ -187,14 +187,14 @@ class ATDDAssessor(Assessor):
         count = 0  # 越多越好
         if len(acc_list) > 1:
             for i in range(1, len(acc_list)):  # !!!!! 0- -1
-                if acc_list[i] - acc_list[i - 1] > self.delta:
+                if (acc_list[i] - acc_list[i - 1]) / (1 - acc_list[0]) > self.delta:
                     count += 1
             return count / (len(acc_list) - 1)
         return 1
 
     def get_dr_metric(self, param_grad_zero_rate):
         # 越低越好
-        max_l = 2  # aggressive7 3 may equal kill
+        max_l = 3  # aggressive7 3 may equal kill
         for level in range(max_l):
             g = self.gamma / (2 ** level)
             if param_grad_zero_rate > g:
@@ -273,13 +273,13 @@ class ATDDAssessor(Assessor):
         if acc_list is not None and len(acc_list) > 0:
             self.step_acc_loss_list_dict[self.cur_step]["acc_list"].append(acc_list[-1])
             lst = self.step_acc_loss_list_dict[self.cur_step]["acc_list"]
-            if len(lst) >= self.comparable_trial_minimum and acc_list[-1] >= np.percentile(lst, 99):
+            if len(lst) >= self.comparable_trial_minimum and acc_list[-1] >= np.percentile(lst, 90):  ###
                 logger.info(" ".join(["top acc performance:", self.tmp_trial_id, str(acc_list[-1])]))
                 return True
         if loss_list is not None and len(loss_list) > 0:
             self.step_acc_loss_list_dict[self.cur_step]["loss_list"].append(loss_list[-1])
             lst = self.step_acc_loss_list_dict[self.cur_step]["loss_list"]
-            if len(lst) >= self.comparable_trial_minimum and loss_list[-1] <= np.percentile(lst, 1):
+            if len(lst) >= self.comparable_trial_minimum and loss_list[-1] <= np.percentile(lst, 10):  ###
                 logger.info(" ".join(["top loss performance:", self.tmp_trial_id, str(loss_list[-1])]))
                 return True
         return False
@@ -322,14 +322,14 @@ class ATDDAssessor(Assessor):
         cur_step = len(result_dict_list)
         self.cur_step = cur_step
 
-        if self.if_protect():
-            return self.send_msg({"protect": True})
+        # if self.if_protect():
+        #     return self.send_msg({"protect": True})
 
         if cur_step not in self.cmp_step_list:
             return self.send_msg()
 
-        # if self.if_top_performance():
-        #     return self.send_msg()
+        if self.if_top_performance():
+            return self.send_msg({"protect": True})
 
         # calculate this trial
         metric_score_dict = {}  # metric name -> metric value window ave

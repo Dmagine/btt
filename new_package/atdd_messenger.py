@@ -12,9 +12,9 @@ logger = logging.getLogger('atdd_messenger')
 info_file_name_dict = {
     'monitor': 'monitor_info',
     'assessor': 'assessor_info',
-    'inspector': 'inspector_info',
+    # 'inspector': 'inspector_info',
     'advisor_config': 'advisor_config_info',
-    'tuner': 'tuner_info',
+    # 'tuner': 'tuner_info',
     'other': 'other_info'
 }
 
@@ -37,21 +37,11 @@ class ATDDMessenger:
             ver = nni.__version__
             if True in [ver.startswith("2.99"), ver.startswith("3.")]:
                 path_to_new_trial = "../environments/local-env/trials/"
-            # logger.info("get_nni_context() == platform")
-            # logger.info("platform_log_dir: {}".format(platform_log_dir))
-            # logger.info("path_to_new_trial: {}".format(path_to_new_trial))
-            # logger.info("platform_trials_dir: {}"
-            #             .format(os.path.join(platform_log_dir, '../trials/', path_to_new_trial)))
         elif ctx == "trial":
             trial_env_vars = _load_env_vars(_trial_env_var_names)
             trial_system_dir = trial_env_vars.NNI_SYS_DIR
             if "environments" in trial_system_dir:
                 path_to_new_trial = "../environments/local-env/trials/"
-            # logger.info("get_nni_context() == trial")
-            # logger.info("trial_system_dir: {}".format(trial_system_dir))
-            # logger.info("path_to_new_trial: {}".format(path_to_new_trial))
-            # logger.info("platform_trials_dir: {}"
-            #             .format(os.path.join(trial_system_dir, '../trials/', path_to_new_trial)))
         else:
             pass
 
@@ -70,13 +60,6 @@ class ATDDMessenger:
             else:
                 trial_env_vars = _load_env_vars(_trial_env_var_names)
                 trial_system_dir = trial_env_vars.NNI_SYS_DIR
-            self.trial_nni_dir = os.path.join(trial_system_dir, '.nni')
-            if not os.path.exists(self.trial_nni_dir):
-                os.makedirs(self.trial_nni_dir)
-            file_path = os.path.join(self.trial_nni_dir, info_file_name_dict[key])
-        if key == "inspector":  # inspector write / manager read
-            trial_env_vars = _load_env_vars(_trial_env_var_names)
-            trial_system_dir = trial_env_vars.NNI_SYS_DIR
             self.trial_nni_dir = os.path.join(trial_system_dir, '.nni')
             if not os.path.exists(self.trial_nni_dir):
                 os.makedirs(self.trial_nni_dir)
@@ -142,23 +125,17 @@ class ATDDMessenger:
             return info_dict
         return None
 
-    def write_assessor_info(self, d):
-        self.write_json_info(d, key='assessor')
-
-    def read_assessor_info(self):
-        return self.read_json_info(key='assessor')
-
     def write_monitor_info(self, d):
         self.write_json_info(d, key='monitor')
 
     def read_monitor_info(self):
         return self.read_json_info(key='monitor')
 
-    def write_inspector_info(self, d):
-        self.write_json_info(d, key='inspector')
+    def write_assessor_info(self, d):
+        self.write_json_info(d, key='assessor')
 
-    def read_inspector_info(self):  # for tuner
-        return self.read_json_info(key='inspector')
+    def read_assessor_info(self):
+        return self.read_json_info(key='assessor')
 
     def write_advisor_config(self, d):
         self.write_json_info(d, key='advisor_config')
@@ -167,23 +144,14 @@ class ATDDMessenger:
     def read_advisor_config(self):  # for tuner
         return self.read_json_info(key='advisor_config')
 
-    def read_default_config_info(self):
-        return self.read_yaml_info(key='default_config')
-
-    def read_tuner_info(self):
+    def read_tuner_info(self):  # reproducer
         return self.read_json_info(key='tuner')
 
     def write_tuner_info(self, d):
         self.write_json_info(d, key='tuner')
 
-    def if_atdd_inspector_send_stop(self):
-        info_dict = ATDDMessenger().read_inspector_info()
-        if info_dict is None:
-            return False
-        for k, v in info_dict.items():
-            if "_symptom" in k and v is not None:
-                return True
-        return False
+    def read_default_config_info(self):
+        return self.read_yaml_info(key='default_config')
 
     def if_atdd_assessor_send_stop(self):
         info_dict = self.read_assessor_info()
@@ -192,14 +160,6 @@ class ATDDMessenger:
         for k, v in info_dict.items():
             if "cmp_" in k and v is not None:
                 return True
-        return False
-
-    def if_atdd_assessor_send_protect(self):
-        info_dict = self.read_assessor_info()
-        if info_dict is None:
-            return False
-        if "protect" in info_dict and info_dict["protect"] is not None:
-            return info_dict["protect"]
         return False
 
 

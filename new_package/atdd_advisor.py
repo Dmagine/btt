@@ -3,7 +3,6 @@
 import logging
 import os
 from collections import defaultdict
-import torch
 
 import nni
 from nni import NoMoreTrialError
@@ -80,12 +79,12 @@ def is_default(s):
 
 
 class ATDDAdvisor(MsgDispatcherBase):
-    def __init__(self, seed=None, **kwargs):  # keys: shared,tuner,assessor,monitor,inspector
+    def __init__(self, seed=None, **kwargs):
         super().__init__(os.environ['NNI_TUNER_COMMAND_CHANNEL'])  # ws://localhost:{port}/tuner
         # super().__init__("ws://localhost:8080/tuner")
         _logger.info("advisor hello")
         set_seed(seed, "advisor", _logger)
-        self.component_name_list = ["monitor", "tuner", "assessor", "inspector"]
+        self.component_name_list = ["monitor", "assessor", "tuner"]
         self.config_dict = kwargs
         self.complete_config_by_default()
         self.share_config()  # 适配 _create_algo 手动加入shared
@@ -108,11 +107,13 @@ class ATDDAdvisor(MsgDispatcherBase):
         self.recovered_trial_params = {}
 
     def reproduce_config(self):
-        if "tuner" in self.config_dict and "classArgs" in self.config_dict["tuner"] \
-                and "reproduce" in self.config_dict["tuner"]["classArgs"]:
+        if "tuner" in self.config_dict and "class_args" in self.config_dict["tuner"] \
+                and "reproduce" in self.config_dict["tuner"]["class_args"] \
+                and self.config_dict["tuner"]["class_args"]["reproduce"]["enable"] is True:
             self.config_dict["tuner"].update({"codeDirectory": "./"})
             self.config_dict["tuner"].update({"className": "atdd_reproducer.ATDDReproducer"})
-            self.config_dict["tuner"]["classArgs"] = {"reproduce": self.config_dict["tuner"]["classArgs"]["reproduce"]}
+            self.config_dict["tuner"]["class_args"] = {
+                "reproduce": self.config_dict["tuner"]["class_args"]["reproduce"]}
 
     def if_atdd_component_in_config(self, name):
         if name in self.config_dict and "name" not in self.config_dict[name]:
@@ -144,7 +145,7 @@ class ATDDAdvisor(MsgDispatcherBase):
                 if is_default(self.config_dict[name]):
                     self.config_dict[name] = default[name].copy()
                     continue
-                ca = "classArgs"
+                ca = "class_args"
                 dca = default[name][ca]  # default class args dict
                 if ca not in self.config_dict[name]:
                     self.config_dict[name][ca] = {}
@@ -156,9 +157,6 @@ class ATDDAdvisor(MsgDispatcherBase):
                             if kk not in self.config_dict[name][ca][k] or is_default(self.config_dict[name][ca][k][kk]):
                                 self.config_dict[name][ca][k][kk] = vv
 
-        if self.if_atdd_component_in_config("tuner"):
-            self.config_dict["tuner"].update({"codeDirectory": "./"})
-            self.config_dict["tuner"].update({"className": "atdd_tuner.ATDDTuner"})
         if self.if_atdd_component_in_config("assessor"):
             self.config_dict["assessor"].update({"codeDirectory": "./"})
             self.config_dict["assessor"].update({"className": "atdd_assessor.ATDDAssessor"})
@@ -170,9 +168,9 @@ class ATDDAdvisor(MsgDispatcherBase):
                 if name in self.config_dict:
                     if name in ["tuner", "assessor"]:
                         if self.if_atdd_component_in_config(name):
-                            self.config_dict[name]["classArgs"].update({"shared": shared})
+                            self.config_dict[name]["class_args"].update({"shared": shared})
                     else:
-                        self.config_dict[name]["classArgs"].update({"shared": shared})
+                        self.config_dict[name]["class_args"].update({"shared": shared})
 
     def load_checkpoint(self):
         self.tuner.load_checkpoint()
@@ -246,7 +244,7 @@ class ATDDAdvisor(MsgDispatcherBase):
             return
         # metrics value is dumped as json string in trial, so we need to decode it here
         if 'value' in data:
-            data['value'] = nni.load(data['value']) ###### not cuda
+            data['value'] = nni.load(data['value'])  ###### not cuda
         if data['type'] == MetricType.FINAL:
             self._handle_final_metric_data(data)
         elif data['type'] == MetricType.PERIODICAL:

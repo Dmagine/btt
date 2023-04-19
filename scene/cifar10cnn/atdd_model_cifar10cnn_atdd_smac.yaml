@@ -23,12 +23,8 @@ advisor:
     tuner:
       name: smac
     inspector: default
-    assessor:
-      classArgs:
-        protect:
-          enable: true
-          optimize_mode: maximize
-          threshold: 0.6
+    assessor: default
+
 
 
 

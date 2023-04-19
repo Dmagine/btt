@@ -14,16 +14,17 @@ training_service:
 
 
 advisor:
-  codeDirectory: ../../atdd_package ###
+  codeDirectory: ../../atdd_package
   className: atdd_advisor.ATDDAdvisor
   classArgs:
     shared:
-      max_epoch: 20 ###
+      max_epoch: 20
     monitor: default
     tuner:
       name: random
     inspector: default
     assessor: default
+
 
 
 

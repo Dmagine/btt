@@ -29,15 +29,12 @@ class ATDDMonitor:
         self.batch_idx = None
 
         #
-        self.acc_list = None
-        self.loss_list = None
-        self.reward_list = None
+        self.train_acc_list = None
+        self.train_loss_list = None
         self.val_acc_list = None
         self.val_loss_list = None
-        self.val_reward_list = None
         self.test_acc = None
         self.test_loss = None
-        self.test_reward = None
 
         self.has_nan_inf_list = None
         self.epoch_has_nan_inf = None
@@ -91,46 +88,34 @@ class ATDDMonitor:
         if if_enable(["val"]) and "val" in self.intermediate_default:  # e.g. "val_acc"
             if if_enable(["acc"]) and "acc" in self.intermediate_default:
                 return self.val_acc_list[-1]
-            if if_enable(["reward"]) and "reward" in self.intermediate_default:
-                return self.val_reward_list[-1]
             if if_enable(["loss"]) and "loss" in self.intermediate_default:
                 return self.val_loss_list[-1]
         else:
             if if_enable(["acc"]) and "acc" in self.intermediate_default:
-                return self.acc_list[-1]
-            if if_enable(["reward"]) and "reward" in self.intermediate_default:
-                return self.reward_list[-1]
+                return self.train_acc_list[-1]
             if if_enable(["loss"]) and "loss" in self.intermediate_default:
-                return self.loss_list[-1]
+                return self.train_loss_list[-1]
         # not fit for self.intermediate_default
         if if_enable(["val"]):  # e.g. "val_acc"
             if if_enable(["acc"]):
                 return self.val_acc_list[-1]
-            if if_enable(["reward"]):
-                return self.val_reward_list[-1]
             if if_enable(["loss"]):
                 return self.val_loss_list[-1]
         else:
             if if_enable(["acc"]):
-                return self.acc_list[-1]
-            if if_enable(["reward"]):
-                return self.reward_list[-1]
+                return self.train_acc_list[-1]
             if if_enable(["loss"]):
-                return self.loss_list[-1]
+                return self.train_loss_list[-1]
 
     def get_final_default_metric_value(self):
         if if_enable(["test"]) and "test" in self.intermediate_default:
             if if_enable(["acc"]) and "acc" in self.intermediate_default:
                 return self.test_acc
-            if if_enable(["reward"]) and "reward" in self.intermediate_default:
-                return self.test_reward
             if if_enable(["loss"]) and "loss" in self.intermediate_default:
                 return self.test_loss
             # not fit for self.intermediate_default
             if if_enable(["acc"]):
                 return self.test_acc
-            if if_enable(["reward"]):
-                return self.test_reward
             if if_enable(["loss"]):
                 return self.test_loss
         else:
@@ -138,18 +123,14 @@ class ATDDMonitor:
 
     def get_basic_v_result(self):
         d = {}
-        if if_enable(["acc"]) and self.acc_list is not None:
-            d.update({"acc": self.acc_list[-1]})
-        if if_enable(["loss"]) and self.loss_list is not None:
-            d.update({"loss": self.loss_list[-1]})
-        if if_enable(["reward"]) and self.reward_list is not None:
-            d.update({"reward": self.reward_list[-1]})
+        if if_enable(["acc"]) and self.train_acc_list is not None:
+            d.update({"train_acc": self.train_acc_list[-1]})
+        if if_enable(["loss"]) and self.train_loss_list is not None:
+            d.update({"train_loss": self.train_loss_list[-1]})
         if if_enable(["acc", "val"]) and self.val_acc_list is not None:
             d.update({"val_acc": self.val_acc_list[-1]})
         if if_enable(["loss", "val"]) and self.val_loss_list is not None:
             d.update({"val_loss": self.val_loss_list[-1]})
-        if if_enable(["reward", "val"]) and self.val_reward_list is not None:
-            d.update({"val_reward": self.val_reward_list[-1]})
         d.update({"epoch_idx": self.epoch_idx})
         return d
 
@@ -164,21 +145,17 @@ class ATDDMonitor:
 
     def get_basic_l_result(self):
         d = {}
-        if if_enable(["acc"]) and self.acc_list is not None:
-            d.update({"acc_list": self.acc_list})
-        if if_enable(["loss"]) and self.loss_list is not None:
-            d.update({"loss_list": self.loss_list})
-        if if_enable(["reward"]) and self.reward_list is not None:
-            d.update({"reward_list": self.reward_list})
+        if if_enable(["acc"]) and self.train_acc_list is not None:
+            d.update({"train_acc_list": self.train_acc_list})
+        if if_enable(["loss"]) and self.train_loss_list is not None:
+            d.update({"train_loss_list": self.train_loss_list})
         if if_enable(["acc", "val"]) and self.val_acc_list is not None:
             d.update({"val_acc_list": self.val_acc_list})
         if if_enable(["loss", "val"]) and self.val_loss_list is not None:
             d.update({"val_loss_list": self.val_loss_list})
-        if if_enable(["reward", "val"]) and self.val_reward_list is not None:
-            d.update({"val_reward_list": self.val_reward_list})
         return d
 
-    def get_result_4_inspector_assessor(self):
+    def get_result_4_assessor(self):
         d = {}
         d.update({"has_nan_inf_list": self.has_nan_inf_list})
         # d.update({"module_name_flow_matrix": self.module_name_flow_matrix})
@@ -211,15 +188,13 @@ class ATDDMonitor:
             d.update({"test_acc": self.test_acc})
         if if_enable(["loss", "test"]):
             d.update({"test_loss": self.test_loss})
-        if if_enable(["reward", "test"]):
-            d.update({"test_reward": self.test_reward})
         return d
 
     def get_intermediate_dict(self):
 
         d = {"default": self.get_intermediate_default_metric_value()}
         d.update(self.get_basic_v_result())
-        d.update(self.get_result_4_inspector_assessor())
+        d.update(self.get_result_4_assessor())
         d.update(self.get_basic_l_result())
         d.update(self.get_statistic_2da_result())
         return d
@@ -423,16 +398,13 @@ class ATDDMonitor:
                 break  # only calculate the first weight
         self.batch_idx += 1
 
-    def collect_after_training(self, acc=None, loss=None, reward=None):
+    def collect_after_training(self, acc=None, loss=None):
         if if_enable(["acc"]) and acc is not None:
-            self.acc_list = [] if self.acc_list is None else self.acc_list
-            self.acc_list.append(acc)
+            self.train_acc_list = [] if self.train_acc_list is None else self.train_acc_list
+            self.train_acc_list.append(acc)
         if if_enable(["loss"]) and loss is not None:
-            self.loss_list = [] if self.loss_list is None else self.loss_list
-            self.loss_list.append(loss)
-        if if_enable(["reward"]) and reward is not None:
-            self.reward_list = [] if self.reward_list is None else self.reward_list
-            self.reward_list.append(reward)
+            self.train_loss_list = [] if self.train_loss_list is None else self.train_loss_list
+            self.train_loss_list.append(loss)
 
     def calculate_after_training(self):
         if if_enable(["model"]):
@@ -446,7 +418,7 @@ class ATDDMonitor:
 
         self.has_nan_inf_list.append(self.epoch_has_nan_inf)
 
-    def collect_after_validating(self, acc=None, loss=None, reward=None):
+    def collect_after_validating(self, acc=None, loss=None):
         if if_enable(["val"]):
             if if_enable(["acc"]) and acc is not None:
                 self.val_acc_list = [] if self.val_acc_list is None else self.val_acc_list
@@ -454,26 +426,14 @@ class ATDDMonitor:
             if if_enable(["loss"]) and loss is not None:
                 self.val_loss_list = [] if self.val_loss_list is None else self.val_loss_list
                 self.val_loss_list.append(loss)
-            if if_enable(["reward"]) and reward is not None:
-                self.val_reward_list = [] if self.val_reward_list is None else self.val_reward_list
-                self.val_reward_list.append(reward)
 
-    def collect_after_testing(self, acc=None, loss=None, reward=None):
+    def collect_after_testing(self, acc=None, loss=None):
         if if_enable(["test"]):
             if if_enable(["acc"]) and acc is not None:
                 self.test_acc = acc
             if if_enable(["loss"]) and loss is not None:
                 self.test_loss = loss
-            if if_enable(["reward"]) and reward is not None:
-                self.test_reward = reward
-
-
-def get_methods(self):
-    lst1 = list(filter(lambda m: not m.startswith("__") and callable(getattr(self, m)), dir(self)))
-    print("关键方法:", lst1)
-    lst2 = list(filter(lambda m: not m.startswith("__"), dir(self)))
-    print("关键变量", lst2)
 
 
 if __name__ == '__main__':
-    get_methods(ATDDMonitor)
+    pass

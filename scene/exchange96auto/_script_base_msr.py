@@ -8,8 +8,8 @@ def main():
     print()
 
     lst = [
-        "atdd_model_exchange96auto_raw_gp_msr.yaml",
-        "atdd_model_exchange96auto_raw_random_msr.yaml",
+        # "atdd_model_exchange96auto_raw_gp_msr.yaml",
+        # "atdd_model_exchange96auto_raw_random_msr.yaml",
         "atdd_model_exchange96auto_raw_smac_msr.yaml",
         "atdd_model_exchange96auto_raw_tpe_msr.yaml",
     ]

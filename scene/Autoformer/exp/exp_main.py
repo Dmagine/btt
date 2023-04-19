@@ -1,22 +1,16 @@
 import sys
-
-from data_provider.data_factory import data_provider
-from exp.exp_basic import Exp_Basic
-from models import Informer, Autoformer, Transformer, Reformer
-from utils.tools import EarlyStopping, adjust_learning_rate, visual
-from utils.metrics import metric
+import time
+import warnings
 
 import numpy as np
 import torch
 import torch.nn as nn
+from data_provider.data_factory import data_provider
+from exp.exp_basic import Exp_Basic
+from models import Informer, Autoformer, Transformer, Reformer
 from torch import optim
-
-import os
-import time
-
-import warnings
-import matplotlib.pyplot as plt
-import numpy as np
+from utils.metrics import metric
+from utils.tools import adjust_learning_rate
 
 warnings.filterwarnings('ignore')
 
@@ -24,6 +18,7 @@ sys.path.append("../../../atdd_package")
 from atdd_manager import ATDDManager
 
 manager = None
+
 
 class Exp_Main(Exp_Basic):
     def __init__(self, args):
@@ -214,6 +209,9 @@ class Exp_Main(Exp_Basic):
 
             adjust_learning_rate(model_optim, epoch + 1, self.args)
 
+        manager.collect_after_testing(None, test_loss)
+        manager.report_final_result(test_loss)
+
         # best_model_path = path + '/' + 'checkpoint.pth'
         # self.model.load_state_dict(torch.load(best_model_path))
 
@@ -300,8 +298,8 @@ class Exp_Main(Exp_Basic):
         # np.save(folder_path + 'true.npy', trues)
 
         #############
-        manager.collect_after_testing(None, mse)
-        manager.report_final_result(mse)
+        # manager.collect_after_testing(None, mse)
+        # manager.report_final_result(mse)
 
         return
 

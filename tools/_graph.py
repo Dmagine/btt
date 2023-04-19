@@ -521,7 +521,7 @@ def plot_testbed():
             # metric_y = np.log10(val)
 
             # 新指标
-            # metric_y = d["param_grad_0rate"]  # (0,1)
+            metric_y = d["param_grad_0rate"]  # (0,1)
             # metric_y = np.log10(clean_val(d["param_grad_abs_ave"]))  # ok
 
             # metric_y = clean_val(d["param_grad_ave"])  # ok hard to scale half...
@@ -858,78 +858,124 @@ def plot_benchmark():
 
 
 def plot_rank():
-    # base_dir = "/Users/admin/Desktop/sqlite_files/cifar10cnn/"
-    # file_lst = ["random/9q6swc3z","smac/i71sdwal", "gp/qid4b7ep", "random_our/f36ope8h"]
-    # label_lst = ["random", "smac", "gp", "random_our"]
-    # loss_flag = False
+    base_dir = "/Users/admin/Desktop/sqlite_files/cifar10cnn/"
+    file_lst = ["random/9q6swc3z", "smac/i71sdwal", "gp/qid4b7ep"]
+    label_lst = ["random", "smac", "gp"]
+    loss_flag = False
 
-    base_dir = "/Users/admin/Desktop/sqlite_files/exchange96auto/"
-    file_lst = ["random/julky8q4", "smac/2eozma0l", "gp/bu7lrjdf", "tpe/0tnp96s3"]
-    label_lst = ["random", "smac", "gp", "tpe"]
-    loss_flag = True
+    # base_dir = "/Users/admin/Desktop/sqlite_files/exchange96auto/"
+    # file_lst = ["random/julky8q4", "gp/bu7lrjdf", "tpe/0tnp96s3", "gp_msr/vg8blops"]
+    # label_lst = ["random", "gp", "tpe", "gp_msr"]
+    # loss_flag = True
 
+    plt.figure(figsize=(8.4, 6.3))
     for idx in range(len(file_lst)):
         db_path = os.path.join(base_dir, file_lst[idx])
         conn = sqlite3.connect(db_path)
         cur = conn.cursor()
-        sql = "SELECT * FROM MetricData WHERE type='FINAL'"
+        sql = "SELECT * FROM MetricData WHERE type='PERIODICAL'"  ###
         cur.execute(sql)
         values = cur.fetchall()
         print("begin to fetch data x:")
-        metric_list = np.zeros((len(values)))
-        for i in range(len(values)):  # final ??? seq include 0
+        id_metric_dict = {}
+        for i in range(len(values)):
+            trial_id = values[i][1]
             d = yaml.load(eval(values[i][5]), Loader=yaml.FullLoader)
             val = float(d["default"]) if type(d) == dict else float(d)
-            val = min(np.log(val), 1) if loss_flag else val
-            metric_list[i] = val
+            # val = min(np.log(val), 0.5) if loss_flag else val
+            id_metric_dict[trial_id] = val
+        metric_list = list(id_metric_dict.values())
+        time_rate = 6 / 6  # 默认字典按照时间排序 取前n%的数据 注意：1/6看前期 3/6看中期 6/6看后期
+        metric_list = metric_list[:int(len(metric_list) * time_rate)]
+
         print("label: ", label_lst[idx], "num: ", len(metric_list))
         print("begin to plot data:")
-        plot_x = np.linspace(0, 6, len(metric_list))
-        plot_y = np.sort(metric_list)
-        if loss_flag:
-            plot_y = plot_y[::-1]
+
+        top_num = 100  # 取排名前n%的数据 -10看整体趋势 +10看最佳配置
+        metric_list = np.sort(metric_list)
+        if not loss_flag:
+            metric_list = metric_list[::-1]
+        metric_list = metric_list[:top_num]
+        plot_y = metric_list
+        plot_x = np.linspace(0, len(metric_list), len(metric_list))
         plt.plot(plot_x, plot_y, label=label_lst[idx])
         plt.legend()
+        plt.xlabel("Sorted Configuration Number")
+        if loss_flag:  # log scale
+            plt.ylabel("MSE Loss (log scale)")
+            plt.yscale("log")
+            plt.y_range = (0.1, 1)
+        else:
+            plt.ylabel("Validation Accuracy")
     plt.show()
 
 
 def plot_time():
     # base_dir = "/Users/admin/Desktop/sqlite_files/cifar10cnn/"
-    # file_lst = ["random/9q6swc3z","smac/i71sdwal", "gp/qid4b7ep", "random_our/f36ope8h"]
-    # label_lst = ["random", "smac", "gp", "random_our"]
+    # file_lst = ["random/9q6swc3z","smac/i71sdwal", "gp/qid4b7ep"]
+    # label_lst = ["random", "smac", "gp"]
     # loss_flag = False
 
     base_dir = "/Users/admin/Desktop/sqlite_files/exchange96auto/"
-    file_lst = ["random/julky8q4", "gp/bu7lrjdf", "tpe/0tnp96s3"]
-    label_lst = ["random", "gp", "tpe"]
+    label_lst = ["random", "gp", "tpe", "gp_msr", "smac_msr"]  # 1 label contain multi files
     loss_flag = True
 
-    for idx in range(len(file_lst)):
-        db_path = os.path.join(base_dir, file_lst[idx])
-        conn = sqlite3.connect(db_path)
-        cur = conn.cursor()
-        sql = "SELECT * FROM MetricData WHERE type='FINAL'"
-        cur.execute(sql)
-        values = cur.fetchall()
-        print("begin to fetch data x:")
-        metric_list = np.zeros((len(values)))
-        for i in range(len(values)):  # final ??? seq include 0
-            d = yaml.load(eval(values[i][5]), Loader=yaml.FullLoader)
-            val = float(d["default"]) if type(d) == dict else float(d)
-            val = min(np.log(val), 1) if loss_flag else val
-            metric_list[i] = val
-        print(len(metric_list))
-        rate = 1
-        metric_list = metric_list[:int(len(metric_list) * rate)]
-        seg_num = 60
-        plot_x = np.linspace(0, 6, seg_num)
-        plot_y = np.zeros((seg_num))
-        for i in range(seg_num):
-            if loss_flag:
-                plot_y[i] = np.min(metric_list[0:int((i + 1) * len(metric_list) / seg_num)])
+    time_rate = 6 / 6 # 6
+    seg_num = 60 # 60
+    start_seg = seg_num // 6
+    top_k = 5  # 5
+    color_dict = {"random": "b", "gp": "g", "tpe": "y","smac":"c"}
+    for idx in range(len(label_lst)):
+        file_name_list = [f_name for f_name in os.listdir(base_dir + label_lst[idx]) if f_name.endswith(".sqlite")]
+        file_num = len(file_name_list)
+        plot_y_2da = np.zeros((file_num, seg_num))  # axis1:file, axis2: metric
+        for file_idx in range(file_num):
+            sqlite_path = os.path.join(base_dir + label_lst[idx], file_name_list[file_idx])
+            txt_path = sqlite_path.replace(".sqlite", ".txt")
+            print(sqlite_path)
+            if os.path.exists(txt_path):
+                metric_list = np.loadtxt(txt_path)
             else:
-                plot_y[i] = np.max(metric_list[0:int((i + 1) * len(metric_list) / seg_num)])
-        plt.plot(plot_x, plot_y, label=label_lst[idx])
+                conn = sqlite3.connect(sqlite_path)
+                cur = conn.cursor()
+                sql = "SELECT * FROM MetricData WHERE type='PERIODICAL'"  ###
+                cur.execute(sql)
+                values = cur.fetchall()
+                id_metric_dict = {}
+                for i in range(len(values)):
+                    trial_id = values[i][1]
+                    d = yaml.load(eval(values[i][5]), Loader=yaml.FullLoader)
+                    val = float(d["default"]) if type(d) == dict else float(d)
+                    id_metric_dict[trial_id] = val
+                metric_list = list(id_metric_dict.values())
+                # save "metric_list" as .txt (replace .sqlite) for quick load next time:
+                np.savetxt(txt_path, metric_list)
+            metric_list = metric_list[:int(len(metric_list) * time_rate)]
+            # np.sort 是从小到大排序
+            plot_y = np.array([np.mean(np.sort(metric_list[:int(len(metric_list) * ((i + 1) / seg_num))])[:top_k])
+                               if loss_flag else
+                               np.mean(np.sort(metric_list[:int(len(metric_list) * ((i + 1) / seg_num))])[::-1][:top_k])
+                               for i in range(seg_num)])
+
+            plot_y_2da[file_idx] = plot_y
+
+        plot_y = np.mean(plot_y_2da, axis=0)
+
+        plot_y = plot_y[start_seg:]
+        plot_x = np.linspace(start_seg / seg_num * 6, 6, seg_num - start_seg)
+        # if "msr" in label plot 虚线
+        # plt.plot(plot_x, plot_y, label=label_lst[idx])
+        # same predix use same color
+        color = color_dict[label_lst[idx].split("_")[0]]
+        line_style = "--" if "msr" not in label_lst[idx] else "-"
+        plt.plot(plot_x, plot_y, label=label_lst[idx], linestyle=line_style, color=color)
+        plt.xlabel("Time (hour)")
+        if loss_flag:  # log scale
+            plt.ylabel("MSE Loss (log scale)")
+            plt.yscale("log")
+            plt.y_range = (0.1, 1)
+        else:
+            plt.ylabel("Validation Accuracy")
         plt.legend()
     plt.show()
 
@@ -948,5 +994,6 @@ if __name__ == '__main__':
     # plot_merge_epoch()
     # plot_last_layer()
     # plot_benchmark()
-    plot_rank()
+
+    # plot_rank()
     plot_time()

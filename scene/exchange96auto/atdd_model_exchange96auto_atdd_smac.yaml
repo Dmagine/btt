@@ -26,12 +26,7 @@ advisor:
       class_args:
         optimize_mode: minimize
     inspector: default
-    assessor:
-      classArgs:
-        protect:
-          enable: true
-          optimize_mode: minimize
-          threshold: 0.2
+    assessor: default
 
 
 

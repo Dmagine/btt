@@ -1,7 +1,6 @@
 import sqlite3
 
 import yaml
-from matplotlib import pyplot as plt
 
 
 def conn():
@@ -12,14 +11,17 @@ def conn():
     # db_path = os.path.join(db_dir, "nni.db")
     # os.system(" ".join(["cp", db_path_old, db_path]))
     db_path = "/Users/admin/Desktop/nni.sqlite"
+
+    # db_path = "/Users/admin/Desktop/sqlite_files/exchange96auto/" + "smac/2eozma0l"
+
     print(db_path)
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
-    # sql = "SELECT tbl_name \
-    #         FROM sqlite_master WHERE type = 'table' "
-    # cur.execute(sql)
-    # values = cur.fetchall()
-    # print(values) #[('TrialJobEvent',), ('MetricData',), ('ExperimentProfile',)]
+    sql = "SELECT tbl_name \
+            FROM sqlite_master WHERE type = 'table' "
+    cur.execute(sql)
+    values = cur.fetchall()
+    print(values) #[('TrialJobEvent',), ('MetricData',), ('ExperimentProfile',)]
 
     # sql = "SELECT * \
     #         FROM ExperimentProfile"
@@ -31,10 +33,10 @@ def conn():
     sql = "SELECT * FROM MetricData"  # final result???
     cur.execute(sql)
     values = cur.fetchall()
-    d = yaml.load(eval(values[110][5]), Loader=yaml.FullLoader)
-    print(d["default"])  # metric
-    print(values[110][2])  # parameterId 'text'
-    print(values[110][4])  # sequence 'integer'
+    # d = yaml.load(eval(values[110][5]), Loader=yaml.FullLoader)
+    # print(d["default"])  # metric
+    # print(values[110][2])  # parameterId 'text'
+    # print(values[110][4])  # sequence 'integer'
 
     # param_id_max_step_dict = {}
     # param_id_metric_list_dict = {}
@@ -69,10 +71,10 @@ def conn():
     #     plt.plot(x2, y2, color='r', marker='o')
     # plt.show()
 
-    sql = "PRAGMA table_info(MetricData)"
-    cur.execute(sql)
-    values = cur.fetchall()
-    print(values)
+    # sql = "PRAGMA table_info(MetricData)"
+    # cur.execute(sql)
+    # values = cur.fetchall()
+    # print(values)
     # [(0, 'timestamp', 'integer', 0, None, 0), (1, 'trialJobId', 'text', 0, None, 0),
     # (2, 'parameterId', 'text', 0, None, 0), (3, 'type', 'text', 0, None, 0),
     # (4, 'sequence', 'integer', 0, None, 0), (5, 'data', 'text', 0, None, 0)]
