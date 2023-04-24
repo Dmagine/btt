@@ -13,12 +13,12 @@
     # EG: (step:half1)
     # eg_rule0: any(has_nan or has_inf)
     # eg_rule1: max(grad_abs_ave) > p_eg1 ||| (p_eg1:10)
-    # eg_rule2: max(adjacent_quotient) > p_eg2 ||| (p_eg2:1000)
+    # eg_rule2: max(adjacent_quotient) > p_eg2 ||| (p_eg2:1.e+4) 已经改大p_eg2
     # eg_rule3: loss >= global_median_loss * p_eg3 ||| (p_eg3:10)
 
     # VG: (step:half1)
     # protect_top_loss: True
-    # vg_rule1: median(grad_abs_ave) < p_vg1 ||| (p_vg1:1.e-7) 。。。有点魔法数
+    # vg_rule1: median(grad_abs_ave) < p_vg1 ||| (p_vg1:1.e-7) 。。。有点魔法数,而且作用很小
     # vg_rule2: median(adjacent_quotient) < p_vg2 ||| (p_vg3:0.01) 逻辑修复+已经改大p_vg3+又改小了些
     # vg_rule3: count(delta_loss=0) / max_epoch >= p_vg3 ||| (p_vg3:0.1) 。。。没有发挥作用
 
@@ -39,9 +39,34 @@
     # NG(no gain): (step:half2) (wd:0.25)
     # protect_top_loss: True
     # ng_rule1: max(acc[-wd:]) != max(acc) 。。。同质acc混，考虑取消
-    # ng_rule2: min(loss[-wd:]) != min(loss)
+    # ng_rule2: min(loss[-wd:]) - min(loss) > min(loss) * p_ng2 ||| (p_ng2:0.1) 已经改逻辑，有待验证，魔法数
 
 
     小结：ng_rule2占比太多 dr很少 sc太少 ho无
 
     二次小结：ng_rule2较多 vg较少（cifar10lstm怪） eg_rule2小多 ho很少
+
+    trans系列的model数据收集存在问题。。。（rate0和abs)
+
+
+    # our_metric 应该只考虑 healthy和ng的实验
+
+    # abstract：
+    # intro：偏里程碑，主要HPO和ETR，前任没做过程诊断，简单介绍诊断，总结诊断加入HPO，加注意
+    # related：更细一些，偏体系，eg：HPO类别，AT规则
+    # method：呼应注意
+        开头：指标和训练效果图和分析（分布图），-》依据吧啦区分"坏实验"
+        后面：介绍我们指标体系（包括症状及其判定标准）（树状分支图，梯度，激活，损失）及其特性
+        实现：指标采集过程（代码怎么做）（Pytorch+流程图）（指标流过的路线）
+    # experiment：
+        intro：data+model+HPO+space
+        time：图+表（1《-》1+1）
+        explain（random+simulate）：1 rank图（说明负面效果并不差）2 指标分布图 3 消融实验（比例图+吧啦表格（eg节约时间））
+    # discussion（weakness）：
+        弱点+难点+挑战（上下文相关）：指标定义难 / 场景通用难 / gcgjv
+    # conclusion：（附带future）
+    # 注意：不是combine，注意区别"坏"和"不好"
+
+    1 保证实验
+    2 各种画图
+    3 intro + related
