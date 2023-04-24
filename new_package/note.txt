@@ -1,35 +1,47 @@
-    # VG EG DR HO SC
-    # top:
-    # cond: (step_cmp_num > 10) and percent > 0.9 -> val_xxx
-    # once and forever
-    # other percentile: 0.5
+    # 减少acc 减少魔法数（人无法理解） 简单+贴切
 
-    # VG: (step:half1)
-    # vg_rule1: median(grad_abs_ave) < p_vg1 ||| (p_vg1:1e-7)
-    # vg_rule2: median(adjacent_quotient) < p_vg2 ||| (p_vg3:0.01)
-    # vg_rule3: count(delta_loss=0) / max_epoch >= p_vg3 ||| (p_vg3:0.1)
+    #
+    # 思考：1 还是应该加上acc规则 （但是loss和acc如何结合成了问题。。。）
+            1.1 acc类似reward或者perplexity，其 排名/震荡程度/趋势 是有一定意义的，但是loss和acc如何结合成了问题。。。
+            1.2 不加acc的规则显得较为单薄？（一共5种症状）
+           2 "魔法数"难以界定（基本都是底层指标，需要先验知识理解），非魔法数跨场景通用可能存在困难
+           3 一些规则的超参数意义相同，数值其实也可以取一样的，是否合并？
+
+
+    # enable_cond: (global) global_cmp_num > min_cmp_num && global_loss_percent < 90%
 
     # EG: (step:half1)
+    # eg_rule0: any(has_nan or has_inf)
     # eg_rule1: max(grad_abs_ave) > p_eg1 ||| (p_eg1:10)
     # eg_rule2: max(adjacent_quotient) > p_eg2 ||| (p_eg2:1000)
-    # eg_rule3: loss >= cmp_median_loss * p_eg3 ||| (p_eg3:100)
+    # eg_rule3: loss >= global_median_loss * p_eg3 ||| (p_eg3:10)
+
+    # VG: (step:half1)
+    # protect_top_loss: True
+    # vg_rule1: median(grad_abs_ave) < p_vg1 ||| (p_vg1:1.e-7) 。。。有点魔法数
+    # vg_rule2: median(adjacent_quotient) < p_vg2 ||| (p_vg3:0.01) 逻辑修复+已经改大p_vg3+又改小了些
+    # vg_rule3: count(delta_loss=0) / max_epoch >= p_vg3 ||| (p_vg3:0.1) 。。。没有发挥作用
 
     # DR: (step:all)
-    # dr_rule1: any(rate0 > p_dr1) ||| (p_dr1:0.5)
-    # dr_rule2: weighted_mean(rate0) > p_dr2 ||| (p_dr2:0.5)
+    # protect_top_loss: True
+    # dr_rule1: median(rate0) < p_dr1 ||| (p_dr1:0.1) 已经改any为median且调小了p_dr1
+    # dr_rule2: weighted_mean(rate0) > p_dr2 ||| (p_dr2:0.5) 。。。同质，考虑取消
 
-    # SC: (step:half1) (wd:0.25)
-    # sc_rule1: no_exist((acc[-1]-acc[0])/(1-acc[0]) > p_sc1) ||| (p_sc1:0.1)
-    # sc_rule2: no_exist((loss[0]-loss[-1])/(loss[0]-0) > p_sc2) ||| (p_sc2:0.1)
+    # SC: (step:all)
+    # protect_top_loss: True
+    # sc_rule1: (acc[0]-acc[-1]) / acc[0] > p_sc1 ||| (p_sc1:0) 。。。同质acc混，考虑取消
+    # sc_rule2: (loss[-1]-loss[0]) / loss[0] > p_sc2 ||| (p_sc2:0) 已经改逻辑，只避免比初始越差
 
-    # HO: (step:half2) (wd:0.25)
-    # heavy oscillation
-    # ho_rule1: std(acc) / mean(acc) > p_ho1 ||| (p_ho1:?)
-    # ho_rule2: std(log_loss) / mean(log_loss) > p_ho2 ||| (p_ho2:?)
+    # HO(heavy oscillation): (step:half2) (wd:0.25) ...不断调整
+    # ho_rule1: std(acc[-wd:]) / mean(acc[-wd:]) > p_ho1 ||| (p_ho1:0) 。。。同质acc混，考虑取消
+    # ho_rule2: MAE(loss[-wd:] - line(loss[-wd:])) > mean(loss[-wd:]) * p_ho2  ||| (p_ho2:0.001) 已经改逻辑，有待验证，魔法数
 
-    # NG: (step:half2) (wd:0.25)
-    # no gain
-    # ng_rule1: max(acc[-wd:]) < max(acc)
-    # ng_rule2: min(loss[-wd:]) < min(loss)
-    # ng_metric1: acc
-    # ng_metric2: loss
+    # NG(no gain): (step:half2) (wd:0.25)
+    # protect_top_loss: True
+    # ng_rule1: max(acc[-wd:]) != max(acc) 。。。同质acc混，考虑取消
+    # ng_rule2: min(loss[-wd:]) != min(loss)
+
+
+    小结：ng_rule2占比太多 dr很少 sc太少 ho无
+
+    二次小结：ng_rule2较多 vg较少（cifar10lstm怪） eg_rule2小多 ho很少

@@ -8,7 +8,7 @@ diagnose_params = namedtuple("diagnose_params", {
     "p_vg1", "p_vg2", "p_vg3",
     "p_eg1", "p_eg2", "p_eg3",
     "p_dr1", "p_dr2",
-    # "start_step_sc", "end_step_sc",
+    "p_sc1", "p_sc2",
     "p_ho1", "p_ho2",
     "p_ng1", "p_ng2",
     "wd"

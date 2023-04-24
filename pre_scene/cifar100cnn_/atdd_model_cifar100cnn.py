@@ -62,20 +62,6 @@ def choose_act():
         return nn.LeakyReLU()
 
 
-def choose_opt():
-    opt_func = params["opt"]
-    if opt_func == 0:
-        return optim.SGD
-    elif opt_func == 1:
-        return optim.Adam
-    elif opt_func == 2:
-        return optim.RMSprop
-    elif opt_func == 3:
-        return optim.Adagrad
-    elif opt_func == 4:
-        return optim.Adadelta
-
-
 class CNN(nn.Module):
     def __init__(self):
         super(CNN, self).__init__()
@@ -89,7 +75,7 @@ class CNN(nn.Module):
         self.feature_num = self.num_flat_features_()
         self.fc1 = nn.Linear(self.feature_num, params["mlp_f_num"])  # 5*5 from image dimension
         self.fc2 = nn.Linear(params["mlp_f_num"], params["mlp_f_num"])
-        self.fc3 = nn.Linear(params["mlp_f_num"], 10)
+        self.fc3 = nn.Linear(params["mlp_f_num"], 100)
         self.drop = nn.Dropout(params["drop_rate"])
         self.act = choose_act()
         self.bn1 = nn.BatchNorm2d(params["conv1_k_num"])
@@ -114,7 +100,7 @@ class CNN(nn.Module):
         return x
 
     def num_flat_features_(self):
-        r = 32  # cifar10
+        r = 224  # cifar100
         r = r - params["conv_k_size"] + 1
         r = r - params["conv_k_size"] + 1
         r = (r - 2) // 2 + 1
@@ -176,7 +162,7 @@ def validate(dataloader, model, loss_fn):
 
 
 def main():
-    global manager, params
+    global manager,params
     manager = ATDDManager(seed=seed)
     print("experiment_id: ", nni.get_experiment_id())
     print("trial_id: ", nni.get_trial_id())
@@ -193,22 +179,16 @@ def main():
         train_kwargs.update(cuda_kwargs)
         test_kwargs.update(cuda_kwargs)
 
-    transform_train = transforms.Compose([
-        transforms.RandomCrop(32, padding=4),
-        transforms.Resize(32),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-    ])
-    transform_test = transforms.Compose([
-        transforms.Resize(32),
-        transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-    ])
-    import ssl
-    ssl._create_default_https_context = ssl._create_unverified_context
-    train_data = datasets.CIFAR10('../../../data', train=True, download=True, transform=transform_train)
-    test_data = datasets.CIFAR10('../../../data', train=False, transform=transform_test)
+    transform = transforms.Compose(
+        [transforms.Resize(256),  # transforms.Scale(256)
+         transforms.CenterCrop(224),
+         transforms.ToTensor(),
+         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+    # cifar100
+    # import ssl
+    # ssl._create_default_https_context = ssl._create_unverified_context
+    train_data = datasets.CIFAR100('../../../data', train=True, download=True, transform=transform)
+    test_data = datasets.CIFAR100('../../../data', train=False, transform=transform)
     train_data, validate_data = torch.utils.data.random_split(train_data, [40000, 10000])
     train_dataloader = torch.utils.data.DataLoader(train_data, **train_kwargs)
     test_dataloader = torch.utils.data.DataLoader(test_data, **test_kwargs)
@@ -216,7 +196,7 @@ def main():
 
     model = CNN().to(device)
 
-    optimizer = choose_opt()(model.parameters(), lr=params["lr"], weight_decay=params["weight_decay"])
+    optimizer = optim.Adadelta(model.parameters(), lr=params["lr"], weight_decay=params["weight_decay"])
     scheduler = StepLR(optimizer, step_size=1, gamma=0.7)
     loss_fn = nn.CrossEntropyLoss()
     epochs = 20

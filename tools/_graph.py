@@ -912,19 +912,21 @@ def plot_rank():
 
 def plot_time():
     # base_dir = "/Users/admin/Desktop/sqlite_files/cifar10cnn/"
-    # file_lst = ["random/9q6swc3z","smac/i71sdwal", "gp/qid4b7ep"]
-    # label_lst = ["random", "smac", "gp"]
-    # loss_flag = False
+    # label_lst = ["random", "random_lce", "gp", "gp_lce", "tpe", "tpe_lce", "smac", "smac_lce"]  # 1 -> n
 
     base_dir = "/Users/admin/Desktop/sqlite_files/exchange96auto/"
-    label_lst = ["random", "gp", "tpe", "gp_msr", "smac_msr"]  # 1 label contain multi files
-    loss_flag = True
+    # label_lst = ["random", "random_msr", "gp", "gp_msr", "tpe", "tpe_msr","smac","smac_msr"]  # 1 -> n
 
-    time_rate = 6 / 6 # 6
-    seg_num = 60 # 60
+    label_lst = ["random", "gp", "tpe", "smac"]  # 1 -> n
+
+    loss_flag = True if "96" in base_dir else False
+
+    time_rate = 6 / 6  # 6
+    seg_num = 60  # 60
     start_seg = seg_num // 6
-    top_k = 5  # 5
-    color_dict = {"random": "b", "gp": "g", "tpe": "y","smac":"c"}
+    top_k = 3  # 5
+    color_dict = {"random": "b", "gp": "g", "tpe": "y", "smac": "c"}
+    plt.figure(figsize=(10, 7.5))
     for idx in range(len(label_lst)):
         file_name_list = [f_name for f_name in os.listdir(base_dir + label_lst[idx]) if f_name.endswith(".sqlite")]
         file_num = len(file_name_list)
@@ -946,6 +948,7 @@ def plot_time():
                     trial_id = values[i][1]
                     d = yaml.load(eval(values[i][5]), Loader=yaml.FullLoader)
                     val = float(d["default"]) if type(d) == dict else float(d)
+                    val = 0 if not loss_flag and val > 1 else val  ## 奇怪的数据 5u3hlz0b 10*5
                     id_metric_dict[trial_id] = val
                 metric_list = list(id_metric_dict.values())
                 # save "metric_list" as .txt (replace .sqlite) for quick load next time:
@@ -967,7 +970,7 @@ def plot_time():
         # plt.plot(plot_x, plot_y, label=label_lst[idx])
         # same predix use same color
         color = color_dict[label_lst[idx].split("_")[0]]
-        line_style = "--" if "msr" not in label_lst[idx] else "-"
+        line_style = "--" if "_" not in label_lst[idx] else "-"
         plt.plot(plot_x, plot_y, label=label_lst[idx], linestyle=line_style, color=color)
         plt.xlabel("Time (hour)")
         if loss_flag:  # log scale
