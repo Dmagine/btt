@@ -1,11 +1,11 @@
     # 减少acc 减少魔法数（人无法理解） 简单+贴切
 
     #
-    # 思考：1 还是应该加上acc规则 （但是loss和acc如何结合成了问题。。。）
-            1.1 acc类似reward或者perplexity，其 排名/震荡程度/趋势 是有一定意义的，但是loss和acc如何结合成了问题。。。
-            1.2 不加acc的规则显得较为单薄？（一共5种症状）
-           2 "魔法数"难以界定（基本都是底层指标，需要先验知识理解），非魔法数跨场景通用可能存在困难
-           3 一些规则的超参数意义相同，数值其实也可以取一样的，是否合并？
+    # 思考：1 不加入acc规则 （loss和acc如何结合是个问题。。。）
+            1.1 acc类似reward或者perplexity，其 排名/震荡程度/趋势 是有一定意义的。但是loss和acc如何结合成了问题。。。
+            1.2 不加acc的规则显得较为单薄？（一共5种症状，其实还行）
+           2 "魔法数"难以界定（基本都是底层指标，需要先验知识理解），非魔法数跨场景通用可能存在困难 "魔法效果"
+           3 一些规则的超参数意义相同，数值其实也可以取一样的，是否合并？已取消
 
 
     # enable_cond: (global) global_cmp_num > min_cmp_num && global_loss_percent < 90%
@@ -13,7 +13,7 @@
     # EG: (step:half1)
     # eg_rule0: any(has_nan or has_inf)
     # eg_rule1: max(grad_abs_ave) > p_eg1 ||| (p_eg1:10)
-    # eg_rule2: max(adjacent_quotient) > p_eg2 ||| (p_eg2:1.e+4) 已经改大p_eg2
+    # eg_rule2: max(adjacent_quotient) > p_eg2 ||| (p_eg2:1.e+5) 已经改大p_eg2
     # eg_rule3: loss >= global_median_loss * p_eg3 ||| (p_eg3:10)
 
     # VG: (step:half1)
@@ -30,23 +30,22 @@
     # SC: (step:all)
     # protect_top_loss: True
     # sc_rule1: (acc[0]-acc[-1]) / acc[0] > p_sc1 ||| (p_sc1:0) 。。。同质acc混，考虑取消
-    # sc_rule2: (loss[-1]-loss[0]) / loss[0] > p_sc2 ||| (p_sc2:0) 已经改逻辑，只避免比初始越差
+    # sc_rule2: (loss[-1]-loss[0]) / loss[0] > p_sc2 ||| (p_sc2:0) 已经改逻辑，只检测比初始还差的
 
     # HO(heavy oscillation): (step:half2) (wd:0.25) ...不断调整
     # ho_rule1: std(acc[-wd:]) / mean(acc[-wd:]) > p_ho1 ||| (p_ho1:0) 。。。同质acc混，考虑取消
-    # ho_rule2: MAE(loss[-wd:] - line(loss[-wd:])) > mean(loss[-wd:]) * p_ho2  ||| (p_ho2:0.001) 已经改逻辑，有待验证，魔法数
+    # ho_rule2: MAE(loss[-wd:] - line(loss[-wd:])) > mean(loss[-wd:]) * p_ho2  ||| (p_ho2:0.01) 已经改逻辑，验证ok，魔法数
 
-    # NG(no gain): (step:half2) (wd:0.25)
+    # NMG(no more gain): (step:half2) (wd:0.25)
     # protect_top_loss: True
-    # ng_rule1: max(acc[-wd:]) != max(acc) 。。。同质acc混，考虑取消
-    # ng_rule2: min(loss[-wd:]) - min(loss) > min(loss) * p_ng2 ||| (p_ng2:0.1) 已经改逻辑，有待验证，魔法数
+    # nmg_rule1: max(acc[-wd:]) != max(acc) 。。。同质acc混，考虑取消
+    # nmg_rule2: min(loss[-wd:]) - min(loss) > min(loss) * p_nmg2 ||| (p_nmg2:0) 已经改逻辑，验证ok
 
 
     小结：ng_rule2占比太多 dr很少 sc太少 ho无
-
     二次小结：ng_rule2较多 vg较少（cifar10lstm怪） eg_rule2小多 ho很少
-
-    trans系列的model数据收集存在问题。。。（rate0和abs)
+    trans系列的model数据收集存在问题。。。（rate0和abs) 虚晃一枪
+    三小结：ok
 
 
     # our_metric 应该只考虑 healthy和ng的实验

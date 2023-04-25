@@ -15,9 +15,9 @@ class ATDDAssessor(Assessor):
         self.etr = MyAssessor(shared, basic, compare, diagnose, seed)
 
     def assess_trial(self, trial_id, result_dict_list):
-        has_symptom = self.etr.assess_trial(trial_id, result_dict_list)
+        early_stop = self.etr.assess_trial(trial_id, result_dict_list)
         ATDDMessenger().write_assessor_info(self.etr.info_dict)
-        return AssessResult.Bad if has_symptom else AssessResult.Good
+        return AssessResult.Bad if early_stop else AssessResult.Good
 
 
 class MyAssessor:
@@ -33,7 +33,7 @@ class MyAssessor:
         self.quick_calc = self.shared["quick_calc"]
         self.start_step_float = self.basic["start_step_float"]
         self.end_step_float = self.basic["end_step_float"]
-        self.symptom_name_list = self.basic["symptom_name_list"]  # ["VG", "EG", "DR", "SC", "HO", "NG"]
+        self.symptom_name_list = self.basic["symptom_name_list"]  # ["VG", "EG", "DR", "SC", "HO", "NMG"]
         self.cmp_mode = self.compare["cmp_mode"]
         self.cmp_percent = self.compare["cmp_percent"]
         self.cmp_metric_name = self.compare["cmp_metric_name"]
@@ -49,9 +49,9 @@ class MyAssessor:
         self.result_dict = None
         self.epoch_idx = None
 
-        self.top_id_set = set()
+        # self.top_id_set = set()
         self.info_dict = None
-        # "VG", "EG", "DR", "SC", "HO", "NG",(all list), "symptom_flag"(bool) or None
+        # "VG", "EG", "DR", "SC", "HO", "NMG",(all list), "symptom_flag"(bool) or None
 
         ###
         self.module_metric_2da = None
@@ -60,6 +60,7 @@ class MyAssessor:
         self.weight_grad_rate0_1da = None
         self.weight_grad_abs_avg_1da = None
         self.module_nele_list = None
+        self.module_name_list = None
         self.has_nan_inf_list = None
 
         self.has_nan_inf = None
@@ -80,7 +81,7 @@ class MyAssessor:
         d = {}
         for symptom_name in self.symptom_name_list:
             d[symptom_name] = None
-        d["has_symptom"] = False
+        d["early_stop"] = False
         return d
 
     def top_performance(self):
@@ -130,8 +131,6 @@ class MyAssessor:
         for symptom_name in self.symptom_name_list:
             if self.info_dict[symptom_name] is not None:  ###
                 symptom_flag = True
-        if self.trial_id in self.top_id_set:
-            symptom_flag = False
         self.info_dict.update({"symptom_flag": symptom_flag})
 
         train_loss = self.get_metric("train_loss")
@@ -146,6 +145,7 @@ class MyAssessor:
 
         d = self.result_dict
         self.epoch_idx = self.result_dict["epoch_idx"]
+        self.module_name_list = d["module_name_list"]
         self.module_nele_list = d["module_nele_list"]
         self.has_nan_inf_list = d["has_nan_inf_list"]
         if self.quick_calc:
@@ -161,6 +161,9 @@ class MyAssessor:
         if type(self.weight_grad_abs_avg_1da) is dict:
             self.weight_grad_abs_avg_1da = np.array(self.weight_grad_abs_avg_1da["__ndarray__"])
             self.weight_grad_rate0_1da = np.array(self.weight_grad_rate0_1da["__ndarray__"])
+        # print(len(self.weight_grad_abs_avg_1da), len(self.weight_grad_rate0_1da),
+        #       len(self.module_nele_list), len(self.module_name_list))
+        # print(self.trial_id, self.module_name_list)
 
     def if_loss_vulnerable(self, loss):
         global_loss_list = self.finished_loss_list
@@ -180,7 +183,7 @@ class MyAssessor:
         self.diagnose_dr()
         self.diagnose_sc()
         self.diagnose_ho()
-        self.diagnose_ng()
+        self.diagnose_nmg()
 
     def diagnose_eg(self):
         # EG: (step:half1)
@@ -222,11 +225,15 @@ class MyAssessor:
         if self.enable_dict["model"] is False:
             return
         symptom_flag = False
+        if 0 in self.weight_grad_abs_avg_1da:
+            return  # vg
         adjacent_quotient_list = self.weight_grad_abs_avg_1da[:-1] / self.weight_grad_abs_avg_1da[1:]  ####
         if True in np.isnan(adjacent_quotient_list) or True in np.isinf(adjacent_quotient_list):
-            print("adjacent_quotient_list:", adjacent_quotient_list)
             symptom_flag = True
         elif np.max(adjacent_quotient_list) > self.dp.p_eg2:
+            # print("self.weight_grad_abs_avg_1da:", self.weight_grad_abs_avg_1da)
+            # print("adjacent_quotient_list:", adjacent_quotient_list)
+            # print("max(adjacent_quotient_list):", np.max(adjacent_quotient_list))
             symptom_flag = True
         if symptom_flag:
             self.info_dict["EG"].append("eg_rule2")
@@ -271,11 +278,14 @@ class MyAssessor:
         if self.enable_dict["model"] is False:
             return
         symptom_flag = False
-        adjacent_quotient_list = self.weight_grad_abs_avg_1da[:-1] / self.weight_grad_abs_avg_1da[1:]  ####
-        if True in np.isnan(adjacent_quotient_list) or True in np.isinf(adjacent_quotient_list):
+        if 0 in self.weight_grad_abs_avg_1da:
             symptom_flag = True
-        elif np.median(adjacent_quotient_list) < self.dp.p_vg2:
-            symptom_flag = True
+        else:
+            adjacent_quotient_list = self.weight_grad_abs_avg_1da[:-1] / self.weight_grad_abs_avg_1da[1:]  ####
+            if True in np.isnan(adjacent_quotient_list) or True in np.isinf(adjacent_quotient_list):
+                symptom_flag = True
+            elif np.median(adjacent_quotient_list) < self.dp.p_vg2:
+                symptom_flag = True
         if symptom_flag:
             self.info_dict["VG"].append("vg_rule2")
 
@@ -377,30 +387,30 @@ class MyAssessor:
         if self.enable_dict["loss"] is False:
             return
         loss_list = np.array(self.result_dict["train_loss_list"])
-        window_size = int(round(self.dp.wd * self.max_epoch))
+        window_size = int(round(self.dp.wd_ho * self.max_epoch))
         start_step = int(self.max_epoch / 2)
         end_step = self.max_epoch
         if len(loss_list) > end_step or len(loss_list) < start_step:
             return
         sub_list = loss_list[-window_size:]
-        line = np.polyfit(np.arange(len(sub_list)), sub_list, 1)
-        mae = np.mean(np.abs(sub_list - np.polyval(line, np.arange(len(sub_list)))))
-        # print(mae, np.mean(sub_list), np.polyval(line, np.arange(len(sub_list))), sub_list)
+        x = np.arange(len(sub_list))
+        line = np.polyfit(x, sub_list, 1)
+        mae = np.mean(np.abs(sub_list - np.polyval(line, x)))
         if mae > np.mean(sub_list) * self.dp.p_ho2:
             self.info_dict["HO"].append("ho_rule2")
 
-    def diagnose_ng(self):
+    def diagnose_nmg(self):
         # NG(no gain): (step:half2) (wd:0.25)
         # protect_top_loss: True
-        # ng_rule1: max(acc[-wd:]) != max(acc) 。。。同质acc混，考虑取消
-        # ng_rule2: min(loss[-wd:]) != min(loss)
-        self.info_dict["NG"] = []
+        # nmg_rule1: max(acc[-wd:]) != max(acc) 。。。同质acc混，考虑取消
+        # nmg_rule2: min(loss[-wd:]) - min(loss) > min(loss) * p_ng2 ||| (p_ng2:0.1) 已经改逻辑，有待验证，魔法数
+        self.info_dict["NMG"] = []
         if self.if_loss_vulnerable(self.get_metric("train_loss")):
-            # self.ng_rule1()
-            self.ng_rule2()
-        self.info_dict["NG"] = self.info_dict["NG"] if len(self.info_dict["NG"]) != 0 else None
+            # self.nmg_rule1()
+            self.nmg_rule2()
+        self.info_dict["NMG"] = self.info_dict["NMG"] if len(self.info_dict["NMG"]) != 0 else None
 
-    def ng_rule1(self):
+    def nmg_rule1(self):
         # if self.enable_dict["acc"] is False:
         #     return
         # acc_list = np.array(self.result_dict["train_acc_list"])
@@ -410,17 +420,20 @@ class MyAssessor:
         # if len(acc_list) > end_step or len(acc_list) < start_step:
         #     return
         # if np.max(acc_list[-window_size:]) != np.max(acc_list):
-        #     self.info_dict["NG"].append("ng_rule1")
+        #     self.info_dict["NG"].append("nmg_rule1")
         pass
 
-    def ng_rule2(self):
+    def nmg_rule2(self):
         if self.enable_dict["loss"] is False:
             return
         loss_list = np.array(self.result_dict["train_loss_list"])
         start_step = int(self.max_epoch / 2)
         end_step = self.max_epoch
-        window_size = int(round(self.dp.wd * self.max_epoch))
+        window_size = int(round(self.dp.wd_nmg * self.max_epoch))
         if len(loss_list) > end_step or len(loss_list) < start_step:
             return
-        if np.min(loss_list[-window_size:]) != np.min(loss_list):
-            self.info_dict["NG"].append("ng_rule2")
+        min_loss = np.min(loss_list)
+        min_wd_loss = np.min(loss_list[-window_size:])
+        # print(min_loss, min_wd_loss, min_loss * self.dp.p_ng2) if min_loss != min_wd_loss else None
+        if min_wd_loss - min_loss > min_loss * self.dp.p_nmg2:
+            self.info_dict["NMG"].append("nmg_rule2")

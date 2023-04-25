@@ -26,6 +26,8 @@ class Exp_Main(Exp_Basic):
         seed = 529
         global manager
         manager = ATDDManager(seed=seed)
+        train_loader = self._get_data('train')[1]
+        manager.init_basic(self.model, train_loader)
 
     def _build_model(self):
         model_dict = {
@@ -104,9 +106,6 @@ class Exp_Main(Exp_Basic):
         train_data, train_loader = self._get_data(flag='train')
         vali_data, vali_loader = self._get_data(flag='val')
         test_data, test_loader = self._get_data(flag='test')
-
-        ##################### ok
-        manager.init_basic(self.model, train_loader)
 
         # path = os.path.join(self.args.checkpoints, setting)
         # if not os.path.exists(path):

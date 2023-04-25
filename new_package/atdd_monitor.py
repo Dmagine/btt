@@ -74,7 +74,7 @@ class ATDDMonitor:
         self.batch_module_weight_grad_rate0_2da = None  # dim1:batch_idx, dim2:module_idx
 
         # [nn.Conv2d, nn.Linear, nn.Conv1d, nn.LSTMCell]
-        self.support_module_type_list = [nn.Conv2d, nn.Linear, nn.Conv1d, nn.LSTMCell]
+        self.support_module_type_list = [nn.Conv2d, nn.Linear, nn.Conv1d, nn.LSTM]
 
     def complete_config_by_default(self):
         pass

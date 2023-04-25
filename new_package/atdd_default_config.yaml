@@ -22,7 +22,7 @@ assessor:
     basic:
       start_step_float: 0.0
       end_step_float: 0.5
-      symptom_name_list: [ "VG","EG","DR","SC","HO","NG" ]
+      symptom_name_list: [ "VG","EG","DR","SC","HO","NMG" ]
     compare:
       cmp_mode: minimize
       cmp_percent: 10
@@ -30,7 +30,7 @@ assessor:
       min_cmp_num: 10
     diagnose:
       p_eg1: 10
-      p_eg2: 1000
+      p_eg2: 1.e+5 ## ok
       p_eg3: 10
       p_vg1: 1.e-7
       p_vg2: 0.01
@@ -41,17 +41,10 @@ assessor:
       p_sc2: 0
       p_ho1: -1
       p_ho2: 0.01 # okk
-      p_ng1: -1
-      p_ng2: -1
-      wd: 0.25
-# diagnose_params = namedtuple("diagnose_params", {
-#    "p_vg1", "p_vg2", "p_vg3",
-#    "p_eg1", "p_eg2", "p_eg3",
-#    "p_dr1", "p_dr2",
-#    "p_ho1", "p_ho2",
-#    "p_ng1", "p_ng2",
-#    "wd"
-#})
+      p_nmg1: -1
+      p_nmg2: 0
+      wd_ho: 0.25
+      wd_nmg: 0.25
 
 
 
