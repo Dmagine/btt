@@ -1005,7 +1005,7 @@ def plot_phenomenon():
         plt.figure(figsize=fig_size)
 
     def get_bin_num(loss_flag):
-        return 10 if loss_flag else 30
+        return 20 if loss_flag else 20
 
     def get_metric(result_dict, metric_name):
         if metric_name == "val_acc":
@@ -1088,9 +1088,10 @@ def plot_phenomenon():
 
     def plot_p2():
         early_idx = 10
-        percent = 50
+        percent = 30
         density = True
-        scene_name = "traffic96trans"
+        # scene_name = "traffic96trans"
+        scene_name = "exchange96auto"
         final_metric_name = "val_loss"
         early_metric_name = "active_layer_ratio"
         _plot_early_feature_distribution(early_metric_name, final_metric_name, scene_name, early_idx, percent,density)
