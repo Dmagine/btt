@@ -338,8 +338,8 @@ def plot_triangle(raw_id_metric_list_dict, our_id_epoch_dict, scene_name, loss_f
 
 def plot_distribution(raw_metric_list, healthy_metric_list, not_ill_metric_list, ill_metric_list,
                       symptom_metric_list_dict, scene_name, loss_flag):
-    bins = 20 if loss_flag else 20
-    density = False ###
+    bins = 10 if loss_flag else 20
+    density = True #if loss_flag else False
     loss_max = 3 ###
 
     fontsize = 30
@@ -357,17 +357,20 @@ def plot_distribution(raw_metric_list, healthy_metric_list, not_ill_metric_list,
             symptom_metric_list_dict[symptom] = metric_list
     # same column width
     # plt.hist(raw_metric_list, bins=bins, color="b", alpha=0.1, label="original",density=density)
-    plt.hist(ill_metric_list, bins=bins, color="r", alpha=0.5, label="ill", density=density)
+    if loss_flag:
+        plt.hist(raw_metric_list, bins=bins, color="b", alpha=0.5, label="all", density=density)
+    else:
+        plt.hist(ill_metric_list, bins=bins, color="r", alpha=0.5, label="ill", density=density)
     plt.hist(healthy_metric_list, bins=bins, color="g", alpha=0.5, label="healthy", density=density)
     # plt.hist(not_ill_metric_list, bins=bins, color="g", alpha= 0.5, label="healthy+NMG",density=density)
     if loss_flag:
         plt.xlabel("Validation MSE Loss (Ascending)", fontsize=fontsize)
-        plt.ylabel("Number of Trials", fontsize=fontsize)
     else:
         plt.xlabel("Validation Accuracy (Ascending)", fontsize=fontsize)
         lst = healthy_metric_list+ill_metric_list
         plt.xlim(np.min(lst),np.max(lst))
-        plt.ylabel("Number of Trials", fontsize=fontsize)
+    y_label = "Density of Trials" if density else "Number of Trials"
+    plt.ylabel(y_label, fontsize=fontsize)
     plt.legend(fontsize=fontsize)
     plt.title(scene_name,fontsize=fontsize)
     fig_path = os.path.join("figs", "distribution", scene_name + ".png")
@@ -436,10 +439,10 @@ def _test(scene_idx, data_limit, top_k, use_pre):
         simulate(sqlite_path, loss_flag, data_limit, use_pre)
 
     # plot_metric(raw_metric_list, our_metric_list, not_ill_metric_list, scene_name, loss_flag, top_k)
-    plot_pie(count_dict, overview_pie_name_list, symptom_pie_name_list, rule_pie_name_list, scene_name)
+    # plot_pie(count_dict, overview_pie_name_list, symptom_pie_name_list, rule_pie_name_list, scene_name)
     # plot_triangle(raw_id_metric_list_dict, our_id_epoch_dict, scene_name, loss_flag)
     plot_distribution(raw_metric_list,healthy_metric_list, not_ill_metric_list,ill_metric_list, symptom_metric_list_dict, scene_name, loss_flag)
-    plot_epoch_distribution(raw_metric_list,our_metric_list, raw_id_metric_list_dict, our_id_epoch_dict, scene_name, loss_flag)
+    # plot_epoch_distribution(raw_metric_list,our_metric_list, raw_id_metric_list_dict, our_id_epoch_dict, scene_name, loss_flag)
     print(np.mean(list(our_id_epoch_dict.values())))
 
 
@@ -453,7 +456,7 @@ def test():
     # sqlite_path = "/Users/admin/Desktop/sqlite_files/cifar10lstm/_monitor/nphicw6e.sqlite"
     # sqlite_path = "/Users/admin/Desktop/sqlite_files/traffic96trans/_monitor/bmv7wr9x.sqlite"
 
-    use_pre = False
+    use_pre = True
     data_limit = 6000
     top_k_list = [-1, -1, -1, -1]  # [50,50,20,20]
     for idx in range(len(scene_name_list)):
