@@ -911,28 +911,28 @@ def plot_rank():
 
 
 def plot_time():
-    # base_dir = "/Users/admin/Desktop/sqlite_files/cifar10cnn/"
     # label_lst = ["random", "random_lce", "gp", "gp_lce", "tpe", "tpe_lce", "smac", "smac_lce"]  # 1 -> n
-
-    base_dir = "/Users/admin/Desktop/sqlite_files/exchange96auto/"
     # label_lst = ["random", "random_msr", "gp", "gp_msr", "tpe", "tpe_msr","smac","smac_msr"]  # 1 -> n
+    scene_idx = 0
 
+    scene_lst = ["cifar10cnn", "cifar10lstm", "traffic96trans", "exchange96auto"]
+    base_dir = os.path.join("/Users/admin/Desktop/sqlite_files/", scene_lst[scene_idx])
     label_lst = ["random", "gp", "tpe", "smac"]  # 1 -> n
-
     loss_flag = True if "96" in base_dir else False
 
     time_rate = 6 / 6  # 6
-    seg_num = 60  # 60
-    start_seg = seg_num // 6
-    top_k = 3  # 5
+    seg_num = 30   # 60
+    start_seg = 0  # seg_num // 6
+    top_k = 3  # 3,10
     color_dict = {"random": "b", "gp": "g", "tpe": "y", "smac": "c"}
     plt.figure(figsize=(10, 7.5))
-    for idx in range(len(label_lst)):
-        file_name_list = [f_name for f_name in os.listdir(base_dir + label_lst[idx]) if f_name.endswith(".sqlite")]
+    for hpo_idx in range(len(label_lst)):
+        file_name_list = [f_name for f_name in os.listdir(os.path.join(base_dir, label_lst[hpo_idx])) if
+                          f_name.endswith(".sqlite")]
         file_num = len(file_name_list)
         plot_y_2da = np.zeros((file_num, seg_num))  # axis1:file, axis2: metric
         for file_idx in range(file_num):
-            sqlite_path = os.path.join(base_dir + label_lst[idx], file_name_list[file_idx])
+            sqlite_path = os.path.join(base_dir, label_lst[hpo_idx], file_name_list[file_idx])
             txt_path = sqlite_path.replace(".sqlite", ".txt")
             print(sqlite_path)
             if os.path.exists(txt_path):
@@ -969,9 +969,9 @@ def plot_time():
         # if "msr" in label plot 虚线
         # plt.plot(plot_x, plot_y, label=label_lst[idx])
         # same predix use same color
-        color = color_dict[label_lst[idx].split("_")[0]]
-        line_style = "--" if "_" not in label_lst[idx] else "-"
-        plt.plot(plot_x, plot_y, label=label_lst[idx], linestyle=line_style, color=color)
+        color = color_dict[label_lst[hpo_idx].split("_")[0]]
+        line_style = "--" if "_" not in label_lst[hpo_idx] else "-"
+        plt.plot(plot_x, plot_y, label=label_lst[hpo_idx], linestyle=line_style, color=color)
         plt.xlabel("Time (hour)")
         if loss_flag:  # log scale
             plt.ylabel("MSE Loss (log scale)")

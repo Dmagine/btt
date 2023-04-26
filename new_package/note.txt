@@ -13,28 +13,29 @@
     # EG: (step:half1)
     # eg_rule0: any(has_nan or has_inf)
     # eg_rule1: max(grad_abs_ave) > p_eg1 ||| (p_eg1:10)
-    # eg_rule2: max(adjacent_quotient) > p_eg2 ||| (p_eg2:1.e+5) 已经改大p_eg2
-    # eg_rule3: loss >= global_median_loss * p_eg3 ||| (p_eg3:10)
+    # eg_rule2: median(adjacent_quotient) > p_eg2 ||| (p_eg2:100) 改为median
+    # eg_rule3: loss >= global_median_loss * p_eg3 ||| (p_eg3:5) 稍微改小
 
     # VG: (step:half1)
     # protect_top_loss: True
-    # vg_rule1: median(grad_abs_ave) < p_vg1 ||| (p_vg1:1.e-7) 。。。有点魔法数,而且作用很小。。。改相对和数量级形式！！！！！！！！！
-    # vg_rule2: median(adjacent_quotient) < p_vg2 ||| (p_vg3:0.01) 逻辑修复+已经改大p_vg3+又改小了些
+    # vg_rule1: median(grad_abs_ave) < p_vg1 ||| (p_vg1:1.e-7) 。。。魔法数且作用小，已去掉
+    # vg_rule2: median(adjacent_quotient) < p_vg2 ||| (p_vg3:0.01) 逻辑修复，验证ok
     # vg_rule3: count(delta_loss=0) / max_epoch >= p_vg3 ||| (p_vg3:0.1) 。。。没有发挥作用
+    # vg_rule4: enough(cmp_num) && percent(global_median_grad_abs_ave) < p_vg4 ||| (p_vg4:0.1) 新加入相对，验证ok
 
     # DR: (step:all)
     # protect_top_loss: True
     # dr_rule1: median(rate0) < p_dr1 ||| (p_dr1:0.1) 已经改any为median且调小了p_dr1
-    # dr_rule2: weighted_mean(rate0) > p_dr2 ||| (p_dr2:0.5) 。。。同质，考虑取消
-    # dr_rule3: 。。。改相对值rate0！！！！！！！！！！
+    # dr_rule2: weighted_mean(rate0) > p_dr2 ||| (p_dr2:0.5) 。。。同质，已经取消
+    # dr_rule3: enough(cmp_num) && percent(global_median_rate0) > p_dr3 ||| (p_dr3:0.9) 新加入相对，验证ok
 
     # SC: (step:half1)
     # protect_top_loss: True
-    # sc_rule1: (acc[0]-acc[-1]) / acc[0] > p_sc1 ||| (p_sc1:0) 。。。同质acc混，考虑取消
+    # sc_rule1: (acc[0]-acc[-1]) / acc[0] > p_sc1 ||| (p_sc1:0) 。。。同质acc混，已经取消
     # sc_rule2: (loss[-1]-loss[0]) / loss[0] > p_sc2 ||| (p_sc2:0) 已经改逻辑，只检测比初始还差的
-    # sc_rule3: percentile(loss) > p_sc3 * 100 ||| (p_sc3:0.5) ...新增，为了三角。。。先尽量不要！！！！！！！！！！！-》三角一起去掉
+    # sc_rule3: percentile(loss) > p_sc3 * 100 ||| (p_sc3:0.9) ！！！！！保留，也算相对比较，力度轻即可(0.9)
 
-    # HO(heavy oscillation): (step:half2) (wd:0.25) ...不断调整
+    # HO(heavy oscillation): (step:half2) (wd:0.25)
     # ho_rule1: std(acc[-wd:]) / mean(acc[-wd:]) > p_ho1 ||| (p_ho1:0) 。。。同质acc混，考虑取消
     # ho_rule2: MAE(loss[-wd:] - line(loss[-wd:])) > mean(loss[-wd:]) * p_ho2  ||| (p_ho2:0.01) 已经改逻辑，验证ok，魔法数
 
@@ -43,15 +44,7 @@
     # nmg_rule1: max(acc[-wd:]) != max(acc) 。。。同质acc混，考虑取消
     # nmg_rule2: min(loss[-wd:]) - min(loss) > min(loss) * p_nmg2 ||| (p_nmg2:0) 已经改逻辑，验证ok
 
-
-    小结：ng_rule2占比太多 dr很少 sc太少 ho无
-    二次小结：ng_rule2较多 vg较少（cifar10lstm怪） eg_rule2小多 ho很少
-    trans系列的model数据收集存在问题。。。（rate0和abs) 虚晃一枪
-    三小结：ok
-
-
-    # our_metric 应该只考虑 healthy和ng的实验
-
+    # 行文思路
     # abstract：
     # intro：偏里程碑，主要HPO和ETR，前任没做过程诊断，简单介绍诊断，总结诊断加入HPO，加注意
     # related：更细一些，偏体系，eg：HPO类别，AT规则
@@ -74,38 +67,44 @@
     3 intro + related
 
     画图内容细化
-    1 时间图：
+    1 时间图：wait
         目的：展示our和不同HPO的topN随时间变化 (our: R+1)
         分图：1 先分4场景(不同行) 2 再分topN(1,5,10)(不同列) 3 再分our和不同HPO(同图不同线)
         期望：期望our一直领先所有其他HPO,特别是在前期(3/6之前)
-    2 效果分布图：ing
+    2 效果分布图：ok
         目的：表明our训练诊断和最终效果有很大关系 (...目的有点类似rank图，形式不同：rank限定trial数量，效果分布图限定trial比例，过程都是simulate)
         形式：x验证集效果值|y个数或比率|s划分方法 (s: raw | our(healthy+NMG) | ill) (按照数量画柱子更清晰？)
         分图：4图对应4场景 3颜色对应三种划分方法
-    3 特征分布图： ing
+    3 特征分布图：ing easy
         目的：展示"好/坏"超参数的DNN底层特征分布存在差异（不需要线性相关和明确的分界线）
         形式：x特征值|y个数或比率|s划分方法|r划分比率默认10% (s包含验证集acc和loss，x包含梯度激活损失，场景和HPO无所谓，选一默认)-》难点：x分布诡异，柱子难分，考虑取对数
         分图：1 训练损失值x|验证正确率s 2 梯度均值x|正确率y 3 首步训练损失差值x|验证损失值s 4 梯度均值x|损失值s
         期望："好/坏"的分布显著不同，最好是好的更集中，坏的更分散
-    4 rank图：
+    4 rank图：。。。取消
         目的：表明our训练诊断和最终效果有很大关系(能做到"保留好，排除坏")
         分列：raw | our(healthy+NMG) | ill
         期望：our接近raw，ill远离raw
-    5 pie图：
+    5 pie图：ok
         目的：表明各个诊断规则的使用情况（half 看不到"误杀"情况）-》考虑 效果分布图+饼图缩小或合并 (或：仅用一个场景做细节展示,其他用表格)
         分列：1 (healthy | NMG | ill) 2 (EG | VG | DR | SC | HO | NMG) 3 (rules)
         期望：每个症状至少出现在两个场景，各个场景比例相同
+    6 epoch图(训练迭代数图): ok
+        目的：表明时间节省的效果 (限定时间内能尝试更多超参组合)
+        形式：x验证集效果值|y个数或比率
+        分列：original(raw) | our(healthy+NMG)
+        期望：our低于original,一方面能减少验证集效果值不好的试验训练时间，另一方面对于验证集效果值好的试验训练时间影响不大
+
 
 
     表格内容细化
-    1 时间表：
+    1 时间表：wait
         目的：准确展示Our方法再不同场景下，效果随时间变化情况
         横行：1 先分效果指标(acc/loss) 2 再分具体场景(4)
         纵列：1 先分HPO和Our 2 再分topN(1,5,10)
-    2 效率表：
+    2 效率表：ing easy
         目的：展示Our方法在不同场景下，不同规则节约时间的比例（N epoch/trial）
         。。。
-    3 场景表：
+    3 场景表：ing easy
         目的：展示不同场景的配置（数据集，模型，超参数类型，空间大小）
         。。。
 
@@ -113,18 +112,23 @@
     核心思考：需要用什么图表展现Our的什么方面？ ！！！！！！！！
     前期提示：训练过程指标和最终效果是否相关？-》特征分布图 (分:x/y/s/r)
     中期展示：使用工具之后效果提升如何？-》时间效果图+时间效果表 (分:x/y/s/r)+rank效果值图(横坐标topK)
-    后期解释：1 Our工具提升调参效果的直接原因？-》 提前停止"不健康"的实验，限定时间内能尝试更多参数组合-》三角双色图
-            2 Our工具诊断结果跟最终效果的关系？-》效果分布图(分：all/ill/healthy+NMG)
+    后期解释：1 Our工具提升调参效果的直接原因？-》 提前停止"不健康"的实验，限定时间内能尝试更多参数组合-》训练迭代数图ok
+            2 Our工具诊断结果跟最终效果的关系？-》效果分布图(分：ill/healthy)
             3 Our工具不同症状规则的贡献程度(消融)？-》饼状图+效率表（替代消融表(难simulate效果提升)）
             4 其他(选放讨论)  4.1 工具规则的鲁棒性？-》不同场景适配不同。。。(工具参数控制变量法，不同场景归一化画线)
                             4.2 X+1实验，不只Random，怕效果不好/泛化性说明
                             4.3 R+1+1实验，横向比较或增幅其他ETR
 
 
-    讨论：
-    1 规则敲定，之后开始时间实验
-    2 图表输出，面向问题后做修改和取舍
-    3 风险提示 先X+1后做筛选
+    下一步：
+    1 改指标：加相对 ok
+    1 画图：特征图easy 分布图ok 训练迭代数图ok
+
+    注意：exchange "过拟合" Our无法分辨 Our效果就一般
+
+    风险提示：
+    HPO本身可能比random+our好。
+    考虑X+1实验？或取最佳试验效果即可
 
 
 

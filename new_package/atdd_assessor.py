@@ -43,6 +43,8 @@ class MyAssessor:
         # self.epoch_metric_3d_list = None
         # self.init_()
         self.finished_loss_list = []  # finished trial loss
+        self.finished_vg_metric_list = []  # finished trial vg_metric
+        self.finished_dr_metric_list = []  # finished trial eg_metric
 
         self.trial_id = None
         self.result_dict_list = None
@@ -118,13 +120,29 @@ class MyAssessor:
         pass
 
     def get_metric(self, metric_name):
-        if metric_name == "train_acc":
-            return self.result_dict["train_acc"] if type(self.result_dict["train_acc"]) is float else None
-        elif metric_name == "train_loss":
+        if metric_name == "train_loss":
             return self.result_dict["train_loss"] if type(self.result_dict["train_loss"]) is float else None
-        else:
-            return 0
-        pass
+        if metric_name == "median_grad_abs_avg":
+            lst = self.weight_grad_abs_avg_1da
+            return np.median(lst) if type(lst[0]) is np.float64 else None
+        if metric_name == "median_grad_rate0":
+            lst = self.weight_grad_rate0_1da
+            return np.median(lst) if type(lst[0]) is np.float64 else None
+        return 0
+
+    def record_finished_metric(self):
+        # train_loss
+        train_loss = self.get_metric("train_loss")
+        if train_loss is not None:
+            self.finished_loss_list.append(train_loss)
+        # median_grad_abs_avg
+        median_grad_abs_avg = self.get_metric("median_grad_abs_avg")
+        if median_grad_abs_avg is not None:
+            self.finished_vg_metric_list.append(median_grad_abs_avg)
+        # median_grad_rate0
+        median_grad_rate0 = self.get_metric("median_grad_rate0")
+        if median_grad_rate0 is not None:
+            self.finished_dr_metric_list.append(median_grad_rate0)
 
     def assess_trial_end(self):
         symptom_flag = False
@@ -132,10 +150,8 @@ class MyAssessor:
             if self.info_dict[symptom_name] is not None:  ###
                 symptom_flag = True
         self.info_dict.update({"symptom_flag": symptom_flag})
-
-        train_loss = self.get_metric("train_loss")
-        if train_loss is not None and (symptom_flag or len(self.result_dict_list) == self.max_epoch):
-            self.finished_loss_list.append(train_loss)
+        if symptom_flag or len(self.result_dict_list) == self.max_epoch:
+            self.record_finished_metric()
         return symptom_flag
 
     def receive_monitor_result(self):
@@ -230,7 +246,7 @@ class MyAssessor:
         adjacent_quotient_list = self.weight_grad_abs_avg_1da[:-1] / self.weight_grad_abs_avg_1da[1:]  ####
         if True in np.isnan(adjacent_quotient_list) or True in np.isinf(adjacent_quotient_list):
             symptom_flag = True
-        elif np.max(adjacent_quotient_list) > self.dp.p_eg2:
+        elif np.median(adjacent_quotient_list) > self.dp.p_eg2:
             # print("self.weight_grad_abs_avg_1da:", self.weight_grad_abs_avg_1da)
             # print("adjacent_quotient_list:", adjacent_quotient_list)
             # print("max(adjacent_quotient_list):", np.max(adjacent_quotient_list))
@@ -255,14 +271,16 @@ class MyAssessor:
     def diagnose_vg(self):
         # VG: (step:half1)
         # protect_top_loss: True
-        # vg_rule1: median(grad_abs_ave) < p_vg1 ||| (p_vg1:1.e-7) 。。。魔法数，考虑取消half？？？
-        # vg_rule2: median(adjacent_quotient) < p_vg2 ||| (p_vg3:0.001) 逻辑修复+已经改大p_vg3
-        # vg_rule3: count(delta_loss=0) / max_epoch >= p_vg3 ||| (p_vg3:0.1)
+        # vg_rule1: median(grad_abs_ave) < p_vg1 ||| (p_vg1:1.e-7) 。。。有点魔法数,而且作用很小。。。
+        # vg_rule2: median(adjacent_quotient) < p_vg2 ||| (p_vg3:0.01) 逻辑修复+已经改大p_vg3+又改小了些
+        # vg_rule3: count(delta_loss=0) / max_epoch >= p_vg3 ||| (p_vg3:0.1) 。。。没有发挥作用
+        # vg_rule4: enough(cmp_num) && percent(global_vg_metric_list) < p_vg4 ||| (p_vg4:0.1) 新加入！！！！！
         self.info_dict["VG"] = []
         if self.if_loss_vulnerable(self.get_metric("train_loss")):
-            self.vg_rule1()
+            # self.vg_rule1()
             self.vg_rule2()
             self.vg_rule3()
+            self.vg_rule4() ########## 小心！！！效果ok
         self.info_dict["VG"] = self.info_dict["VG"] if len(self.info_dict["VG"]) != 0 else None
 
     def vg_rule1(self):
@@ -302,15 +320,27 @@ class MyAssessor:
         if symptom_flag:
             self.info_dict["VG"].append("vg_rule3")
 
+    def vg_rule4(self):
+        if self.enable_dict["model"] is False:
+            return
+        median_grad_abs_avg = np.median(self.weight_grad_abs_avg_1da)  # "越大越好"
+        finished_grad_abs_avg_list = self.finished_vg_metric_list
+        if len(finished_grad_abs_avg_list) < self.min_cmp_num:
+            return
+        if median_grad_abs_avg < np.percentile(finished_grad_abs_avg_list, self.dp.p_vg4 * 100):  # 保守 0.1
+            self.info_dict["VG"].append("vg_rule4")
+
     def diagnose_dr(self):
         # DR: (step:all)
         # protect_top_loss: True
         # dr_rule1: median(rate0) < p_dr1 ||| (p_dr1:0.1) 已经改any为median且调小了p_dr1
         # dr_rule2: weighted_mean(rate0) > p_dr2 ||| (p_dr2:0.5) 。。。同质，考虑取消
+        # dr_rule3: enough(cmp_num) && percent(global_median_rate0) > p_dr3 ||| (p_dr3:0.9) 新加入！！！！！
         self.info_dict["DR"] = []
         if self.if_loss_vulnerable(self.get_metric("train_loss")):
             self.dr_rule1()
             # self.dr_rule2()
+            self.dr_rule3() # 影响 traffic
         self.info_dict["DR"] = self.info_dict["DR"] if len(self.info_dict["DR"]) != 0 else None
 
     def dr_rule1(self):
@@ -326,15 +356,27 @@ class MyAssessor:
         #     self.info_dict["DR"].append("dr_rule2")
         pass
 
+    def dr_rule3(self):
+        if self.enable_dict["model"] is False:
+            return
+        median_rate0 = np.median(self.weight_grad_rate0_1da)  # "越小越好"
+        finished_rate0_list = self.finished_dr_metric_list
+        if len(finished_rate0_list) < self.min_cmp_num:
+            return
+        if median_rate0 > np.percentile(finished_rate0_list, self.dp.p_dr3 * 100):  # 保守 0.9
+            self.info_dict["DR"].append("dr_rule3")
+
     def diagnose_sc(self):
-        # SC: (step:all)
+        # SC: (step:half1)
         # protect_top_loss: True
         # sc_rule1: (acc[0]-acc[-1]) / acc[0] > p_sc1 ||| (p_sc1:0) 。。。同质acc混，考虑取消
-        # sc_rule2: (loss[-1]-loss[0]) / loss[0] > p_sc2 ||| (p_sc2:0) 已经改逻辑，只避免比初始越差
+        # sc_rule2: (loss[-1]-loss[0]) / loss[0] > p_sc2 ||| (p_sc2:0) 已经改逻辑，只检测比初始还差的
+        # sc_rule3: percentile(loss) < p_sc3 * 100 ||| (p_sc3:0.5) ...新增，为了三角
         self.info_dict["SC"] = []
-        if self.if_loss_vulnerable(self.get_metric("train_loss")):
+        if self.if_loss_vulnerable(self.get_metric("train_loss")) or True: #######
             # self.sc_rule1()
             self.sc_rule2()
+            self.sc_rule3() #######
         self.info_dict["SC"] = self.info_dict["SC"] if len(self.info_dict["SC"]) != 0 else None
 
     def sc_rule1(self):
@@ -359,6 +401,19 @@ class MyAssessor:
             return
         if (loss_list[-1] - loss_list[0]) / loss_list[0] > self.dp.p_sc2:
             self.info_dict["SC"].append("sc_rule2")
+
+    def sc_rule3(self):
+        if self.enable_dict["loss"] is False:
+            return
+        start_step = 2 ###
+        end_step = int(self.max_epoch / 2)
+        loss_list = np.array(self.result_dict["train_loss_list"])
+        if len(loss_list) > end_step or len(loss_list) < start_step:
+            return
+        if len(self.finished_loss_list) < self.min_cmp_num:
+            return
+        if self.result_dict["train_loss"] > np.percentile(self.finished_loss_list, self.dp.p_sc3 * 100):
+            self.info_dict["SC"].append("sc_rule3")
 
     def diagnose_ho(self):
         # HO(heavy oscillation): (step:half2) (wd:0.25) 。。。。斜率配合MAE
@@ -387,7 +442,7 @@ class MyAssessor:
         if self.enable_dict["loss"] is False:
             return
         loss_list = np.array(self.result_dict["train_loss_list"])
-        window_size = int(round(self.dp.wd_ho * self.max_epoch))
+        window_size = int(round(self.dp.wd_ho * self.max_epoch)) ###
         start_step = int(self.max_epoch / 2)
         end_step = self.max_epoch
         if len(loss_list) > end_step or len(loss_list) < start_step:
@@ -429,7 +484,7 @@ class MyAssessor:
         loss_list = np.array(self.result_dict["train_loss_list"])
         start_step = int(self.max_epoch / 2)
         end_step = self.max_epoch
-        window_size = int(round(self.dp.wd_nmg * self.max_epoch))
+        window_size = int(round(self.dp.wd_nmg * self.max_epoch)) + 1  ###
         if len(loss_list) > end_step or len(loss_list) < start_step:
             return
         min_loss = np.min(loss_list)
