@@ -1,4 +1,4 @@
-experiment_name: "cifar10cnn_atdd_gp"
+experiment_name: "cifar10cnn_our_gp"
 searchSpaceFile: search_space_cifar10cnn.json
 
 
@@ -14,7 +14,7 @@ trialGpuNumber: 1
 
 
 advisor:
-  codeDirectory: ../../atdd_package
+  codeDirectory: ../../new_package ###
   className: atdd_advisor.ATDDAdvisor
   classArgs:
     shared:

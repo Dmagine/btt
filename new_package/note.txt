@@ -14,35 +14,35 @@
     # eg_rule0: any(has_nan or has_inf)
     # eg_rule1: max(grad_abs_ave) > p_eg1 ||| (p_eg1:10)
     # eg_rule2: median(adjacent_quotient) > p_eg2 ||| (p_eg2:100) 改为median
-    # eg_rule3: loss >= global_median_loss * p_eg3 ||| (p_eg3:5) 稍微改小
+    # eg_rule3: train_loss >= global_median_train_loss * p_eg3 ||| (p_eg3:5) 稍微改小
 
     # VG: (step:half1)
-    # protect_top_loss: True
+    # protect_top_train_loss: True
     # vg_rule1: median(grad_abs_ave) < p_vg1 ||| (p_vg1:1.e-7) 。。。魔法数且作用小，已去掉
     # vg_rule2: median(adjacent_quotient) < p_vg2 ||| (p_vg3:0.01) 逻辑修复，验证ok
-    # vg_rule3: count(delta_loss=0) / max_epoch >= p_vg3 ||| (p_vg3:0.1) 。。。没有发挥作用
+    # vg_rule3: mean(abs_delta_train_loss) < train_loss[0] * p_vg3 ||| (p_vg3:0.001) 逻辑已修改！！！！！！!!!!!!!!!!!
     # vg_rule4: enough(cmp_num) && percent(global_median_grad_abs_ave) < p_vg4 ||| (p_vg4:0.1) 新加入相对，验证ok
 
     # DR: (step:all)
-    # protect_top_loss: True
+    # protect_top_train_loss: True
     # dr_rule1: median(rate0) < p_dr1 ||| (p_dr1:0.1) 已经改any为median且调小了p_dr1
     # dr_rule2: weighted_mean(rate0) > p_dr2 ||| (p_dr2:0.5) 。。。同质，已经取消
     # dr_rule3: enough(cmp_num) && percent(global_median_rate0) > p_dr3 ||| (p_dr3:0.9) 新加入相对，验证ok
 
     # SC: (step:half1)
-    # protect_top_loss: True
+    # protect_top_train_loss: True
     # sc_rule1: (acc[0]-acc[-1]) / acc[0] > p_sc1 ||| (p_sc1:0) 。。。同质acc混，已经取消
-    # sc_rule2: (loss[-1]-loss[0]) / loss[0] > p_sc2 ||| (p_sc2:0) 已经改逻辑，只检测比初始还差的
-    # sc_rule3: percentile(loss) > p_sc3 * 100 ||| (p_sc3:0.9) ！！！！！保留，也算相对比较，力度轻即可(0.9)
+    # sc_rule2: (train_loss[-1]-train_loss[0]) / train_loss[0] > p_sc2 ||| (p_sc2:0) 已经改逻辑，只检测比初始还差的
+    # sc_rule3: percentile(train_loss) > p_sc3 * 100 ||| (p_sc3:0.9) ！！！！！保留，也算相对比较，力度轻即可(0.9)
 
     # HO(heavy oscillation): (step:half2) (wd:0.25)
     # ho_rule1: std(acc[-wd:]) / mean(acc[-wd:]) > p_ho1 ||| (p_ho1:0) 。。。同质acc混，考虑取消
-    # ho_rule2: MAE(loss[-wd:] - line(loss[-wd:])) > mean(loss[-wd:]) * p_ho2  ||| (p_ho2:0.01) 已经改逻辑，验证ok，魔法数
+    # ho_rule2: MAE(train_loss[-wd:] - line(train_loss[-wd:])) > mean(train_loss[-wd:]) * p_ho2  ||| (p_ho2:0.01) 已经改逻辑，验证ok，魔法数
 
     # NMG(no more gain): (step:half2) (wd:0.25)
-    # protect_top_loss: True
+    # protect_top_train_loss: True
     # nmg_rule1: max(acc[-wd:]) != max(acc) 。。。同质acc混，考虑取消
-    # nmg_rule2: min(loss[-wd:]) - min(loss) > min(loss) * p_nmg2 ||| (p_nmg2:0) 已经改逻辑，验证ok
+    # nmg_rule2: min(train_loss[-wd:]) - min(train_loss) > min(train_loss) * p_nmg2 ||| (p_nmg2:0) 已经改逻辑，验证ok
 
     # 行文思路
     # abstract：
@@ -144,6 +144,11 @@
         1.3 早期的激活覆盖率x (active_layer_ratio) | 最终的验证集损失值y  (validate_loss)-> traffic96aoto
         (early stage) ||| (last epoch)
         good: top10% | bad: bottom10%
+
+    调整两图：
+    1 迭代数图：蓝色红色柱子并列 ok
+    2 特征分布图/效果指标分布图：柱子大小一致 ok
+    3 转png为pdf？为了写作？...
 
 
 

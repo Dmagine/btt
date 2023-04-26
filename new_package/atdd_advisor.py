@@ -93,6 +93,8 @@ class ATDDAdvisor(MsgDispatcherBase):
 
         ATDDMessenger().write_advisor_config(self.config_dict)
 
+        # _logger.info(self.config_dict["assessor"])
+
         self.tuner = _create_algo(self.config_dict["tuner"], 'tuner')
         self.assessor = _create_algo(self.config_dict["assessor"], 'assessor') \
             if "assessor" in self.config_dict else None
@@ -107,13 +109,13 @@ class ATDDAdvisor(MsgDispatcherBase):
         self.recovered_trial_params = {}
 
     def reproduce_config(self):
-        if "tuner" in self.config_dict and "class_args" in self.config_dict["tuner"] \
-                and "reproduce" in self.config_dict["tuner"]["class_args"] \
-                and self.config_dict["tuner"]["class_args"]["reproduce"]["enable"] is True:
+        if "tuner" in self.config_dict and "classArgs" in self.config_dict["tuner"] \
+                and "reproduce" in self.config_dict["tuner"]["classArgs"] \
+                and self.config_dict["tuner"]["classArgs"]["reproduce"]["enable"] is True:
             self.config_dict["tuner"].update({"codeDirectory": "./"})
             self.config_dict["tuner"].update({"className": "atdd_reproducer.ATDDReproducer"})
-            self.config_dict["tuner"]["class_args"] = {
-                "reproduce": self.config_dict["tuner"]["class_args"]["reproduce"]}
+            self.config_dict["tuner"]["classArgs"] = {
+                "reproduce": self.config_dict["tuner"]["classArgs"]["reproduce"]}
 
     def if_atdd_component_in_config(self, name):
         if name in self.config_dict and "name" not in self.config_dict[name]:
@@ -123,6 +125,15 @@ class ATDDAdvisor(MsgDispatcherBase):
     def complete_config_by_default(self):
         _logger.info(" ".join(["cur dir:", os.path.abspath("./")]))
         default = ATDDMessenger().read_default_config_info()
+        # import sys
+        # d = "./"
+        # for p in sys.path:
+        #     if "new_package" in p:  ###
+        #         d = p
+        #         break
+        # file_path = os.path.join(d, "atdd_default_config.yaml")
+        # _logger.info("sys.path:",sys.path)
+        # _logger.info("default config file_path: {}".format(file_path))
         # default = default_json
         # shared
         shared_d = default["shared"]
@@ -145,7 +156,7 @@ class ATDDAdvisor(MsgDispatcherBase):
                 if is_default(self.config_dict[name]):
                     self.config_dict[name] = default[name].copy()
                     continue
-                ca = "class_args"
+                ca = "classArgs"
                 dca = default[name][ca]  # default class args dict
                 if ca not in self.config_dict[name]:
                     self.config_dict[name][ca] = {}
@@ -159,7 +170,7 @@ class ATDDAdvisor(MsgDispatcherBase):
 
         if self.if_atdd_component_in_config("assessor"):
             self.config_dict["assessor"].update({"codeDirectory": "./"})
-            self.config_dict["assessor"].update({"className": "atdd_assessor.ATDDAssessor"})
+            self.config_dict["assessor"].update({"className": "atdd_assessor.ATDDAssessor"}) ####
 
     def share_config(self):
         if "shared" in self.config_dict:
@@ -168,9 +179,9 @@ class ATDDAdvisor(MsgDispatcherBase):
                 if name in self.config_dict:
                     if name in ["tuner", "assessor"]:
                         if self.if_atdd_component_in_config(name):
-                            self.config_dict[name]["class_args"].update({"shared": shared})
+                            self.config_dict[name]["classArgs"].update({"shared": shared})
                     else:
-                        self.config_dict[name]["class_args"].update({"shared": shared})
+                        self.config_dict[name]["classArgs"].update({"shared": shared})
 
     def load_checkpoint(self):
         self.tuner.load_checkpoint()
@@ -198,17 +209,22 @@ class ATDDAdvisor(MsgDispatcherBase):
         ids = [_create_parameter_id() for _ in range(data)]
         _logger.debug("requesting for generating params of %s", ids)
 
-        info = ATDDMessenger().read_tuner_info()
-        if info is not None and info["reproducer_info"] == "stop":
+        # info = ATDDMessenger().read_tuner_info()
+        # if info is not None and info["reproducer_info"] == "stop":
+        #     self.send(CommandType.NoMoreTrialJobs, _pack_parameter(ids[0], ''))
+        # elif info is None or info["reproducer_info"] == "continue":
+        #     params_list = self.tuner.generate_multiple_parameters(ids, st_callback=self.send_trial_callback)
+        #     for i, _ in enumerate(params_list):
+        #         self.send(CommandType.NewTrialJob, _pack_parameter(ids[i], params_list[i]))
+        #     # when parameters is None.
+        #     if len(params_list) < len(ids):
+        #         self.send(CommandType.NoMoreTrialJobs, _pack_parameter(ids[0], ''))
+        params_list = self.tuner.generate_multiple_parameters(ids, st_callback=self.send_trial_callback)
+        for i, _ in enumerate(params_list):
+            self.send(CommandType.NewTrialJob, _pack_parameter(ids[i], params_list[i]))
+        # when parameters is None.
+        if len(params_list) < len(ids):
             self.send(CommandType.NoMoreTrialJobs, _pack_parameter(ids[0], ''))
-        elif info is None or info["reproducer_info"] == "continue":
-            params_list = self.tuner.generate_multiple_parameters(ids, st_callback=self.send_trial_callback)
-
-            for i, _ in enumerate(params_list):
-                self.send(CommandType.NewTrialJob, _pack_parameter(ids[i], params_list[i]))
-            # when parameters is None.
-            if len(params_list) < len(ids):
-                self.send(CommandType.NoMoreTrialJobs, _pack_parameter(ids[0], ''))
 
     def handle_update_search_space(self, data):
         self.tuner.update_search_space(data)
@@ -388,3 +404,5 @@ class ATDDAdvisor(MsgDispatcherBase):
 
     def get_previous_param(self, param_id: int) -> dict:
         return self.recovered_trial_params[param_id]
+
+    ####

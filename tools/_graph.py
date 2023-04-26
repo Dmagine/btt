@@ -1,4 +1,5 @@
 import os.path
+import pickle
 import sqlite3
 
 import matplotlib.pyplot as plt
@@ -910,79 +911,6 @@ def plot_rank():
     plt.show()
 
 
-def plot_time():
-    # label_lst = ["random", "random_lce", "gp", "gp_lce", "tpe", "tpe_lce", "smac", "smac_lce"]  # 1 -> n
-    # label_lst = ["random", "random_msr", "gp", "gp_msr", "tpe", "tpe_msr","smac","smac_msr"]  # 1 -> n
-    scene_idx = 0
-
-    scene_lst = ["cifar10cnn", "cifar10lstm", "traffic96trans", "exchange96auto"]
-    base_dir = os.path.join("/Users/admin/Desktop/sqlite_files/", scene_lst[scene_idx])
-    label_lst = ["random", "gp", "tpe", "smac"]  # 1 -> n
-    loss_flag = True if "96" in base_dir else False
-
-    time_rate = 6 / 6  # 6
-    seg_num = 30  # 60
-    start_seg = 0  # seg_num // 6
-    top_k = 3  # 3,10
-    color_dict = {"random": "b", "gp": "g", "tpe": "y", "smac": "c"}
-    plt.figure(figsize=(10, 7.5))
-    for hpo_idx in range(len(label_lst)):
-        file_name_list = [f_name for f_name in os.listdir(os.path.join(base_dir, label_lst[hpo_idx])) if
-                          f_name.endswith(".sqlite")]
-        file_num = len(file_name_list)
-        plot_y_2da = np.zeros((file_num, seg_num))  # axis1:file, axis2: metric
-        for file_idx in range(file_num):
-            sqlite_path = os.path.join(base_dir, label_lst[hpo_idx], file_name_list[file_idx])
-            txt_path = sqlite_path.replace(".sqlite", ".txt")
-            print(sqlite_path)
-            if os.path.exists(txt_path):
-                metric_list = np.loadtxt(txt_path)
-            else:
-                conn = sqlite3.connect(sqlite_path)
-                cur = conn.cursor()
-                sql = "SELECT * FROM MetricData WHERE type='PERIODICAL'"  ###
-                cur.execute(sql)
-                values = cur.fetchall()
-                id_metric_dict = {}
-                for i in range(len(values)):
-                    trial_id = values[i][1]
-                    d = yaml.load(eval(values[i][5]), Loader=yaml.FullLoader)
-                    val = float(d["default"]) if type(d) == dict else float(d)
-                    val = 0 if not loss_flag and val > 1 else val  ## 奇怪的数据 5u3hlz0b 10*5
-                    id_metric_dict[trial_id] = val
-                metric_list = list(id_metric_dict.values())
-                # save "metric_list" as .txt (replace .sqlite) for quick load next time:
-                np.savetxt(txt_path, metric_list)
-            metric_list = metric_list[:int(len(metric_list) * time_rate)]
-            # np.sort 是从小到大排序
-            plot_y = np.array([np.mean(np.sort(metric_list[:int(len(metric_list) * ((i + 1) / seg_num))])[:top_k])
-                               if loss_flag else
-                               np.mean(np.sort(metric_list[:int(len(metric_list) * ((i + 1) / seg_num))])[::-1][:top_k])
-                               for i in range(seg_num)])
-
-            plot_y_2da[file_idx] = plot_y
-
-        plot_y = np.mean(plot_y_2da, axis=0)
-
-        plot_y = plot_y[start_seg:]
-        plot_x = np.linspace(start_seg / seg_num * 6, 6, seg_num - start_seg)
-        # if "msr" in label plot 虚线
-        # plt.plot(plot_x, plot_y, label=label_lst[idx])
-        # same predix use same color
-        color = color_dict[label_lst[hpo_idx].split("_")[0]]
-        line_style = "--" if "_" not in label_lst[hpo_idx] else "-"
-        plt.plot(plot_x, plot_y, label=label_lst[hpo_idx], linestyle=line_style, color=color)
-        plt.xlabel("Time (hour)")
-        if loss_flag:  # log scale
-            plt.ylabel("MSE Loss (log scale)")
-            plt.yscale("log")
-            plt.y_range = (0.1, 1)
-        else:
-            plt.ylabel("Validation Accuracy")
-        plt.legend()
-    plt.show()
-
-
 def plot_phenomenon():
     #     细化特征现象图
     #     1 三张图展示三种类型的特征： 类似distribution
@@ -991,10 +919,9 @@ def plot_phenomenon():
     #         1.3 最终的验证集损失值x  (validate_loss) | 早期的激活覆盖率y (active_layer_ratio) -> traffic96aoto
     #         (early stage) ||| (last epoch)
     use_pre = True
-    data_limit = 6000 # good: percent%, bad: percent%
+    data_limit = 6000  # good: percent%, bad: percent%
 
     font_size = 30
-
     from _simulate import simulate
     sqlite_files_dir = "/Users/admin/Desktop/sqlite_files"
 
@@ -1005,7 +932,8 @@ def plot_phenomenon():
         plt.figure(figsize=fig_size)
 
     def get_bin_num(loss_flag):
-        return 20 if loss_flag else 20
+        return 10
+        # return 20 if loss_flag else 20
 
     def get_metric(result_dict, metric_name):
         if metric_name == "val_acc":
@@ -1014,7 +942,7 @@ def plot_phenomenon():
             return result_dict["val_loss"]
         elif metric_name == "train_loss":
             return result_dict["train_loss"]
-        elif metric_name == "median_abs_grad":
+        elif metric_name == "absolute_gradient_value":
             lst = result_dict["weight_grad_abs_avg_1da"]
             if type(lst) is dict:
                 lst = np.array(lst["__ndarray__"])
@@ -1029,7 +957,7 @@ def plot_phenomenon():
                 return None
             return np.count_nonzero(lst) / len(lst)
 
-    def _plot_early_feature_distribution(early_metric_name, final_metric_name, scene_name,early_idx,percent,density):
+    def _plot_early_feature_distribution(early_metric_name, final_metric_name, scene_name, early_idx, percent, density):
         loss_flag = True if "96" in scene_name else False
 
         file_name = \
@@ -1039,6 +967,7 @@ def plot_phenomenon():
         not_ill_id_epoch_dict, symptom_metric_list_dict, ill_metric_list, healthy_metric_list, id_result_dict_list_dict = \
             simulate(sqlite_path, loss_flag, data_limit, use_pre)
         bin_num = get_bin_num(loss_flag)
+        interval = 2
         if loss_flag:
             good_split_val = np.percentile(raw_metric_list, percent)
             bad_split_val = np.percentile(raw_metric_list, 100 - percent)
@@ -1049,7 +978,7 @@ def plot_phenomenon():
         for _id in raw_id_metric_list_dict:
             final_metric = get_metric(id_result_dict_list_dict[_id][-1], final_metric_name)
             early_metric = get_metric(id_result_dict_list_dict[_id][early_idx], early_metric_name)
-            print(early_metric,final_metric)
+            print(early_metric, final_metric)
             if None in [final_metric, early_metric]:
                 continue
             if loss_flag:
@@ -1066,10 +995,18 @@ def plot_phenomenon():
         print("good: {}, bad: {}".format(len(good_val_list), len(bad_val_list)))
         good_label = "Good Trial (Top {}%)".format(percent)
         bad_label = "Bad Trial (Bottom {}%)".format(percent)
-        plt.hist(good_val_list, bins=bin_num, label=good_label, color="g", alpha=0.5, density=density)
-        plt.hist(bad_val_list, bins=bin_num, label=bad_label, color="r", alpha=0.5, density=density)
-        plt.xlabel("{} (early stage: epoch {})".format(early_metric_name,early_idx), fontsize=font_size)
-        y_label = " ".join(["density" if density else "count"])
+        lst = good_val_list + bad_val_list
+        val_min, val_max = min(lst), max(lst)
+        y_good, _ = np.histogram(good_val_list, bins=bin_num, range=(val_min, val_max), density=density)
+        y_bad, _ = np.histogram(bad_val_list, bins=bin_num, range=(val_min, val_max), density=density)
+        x = np.arange(bin_num)
+        plt.bar(x, y_good, color="g", alpha=0.5, label=good_label)
+        plt.bar(x, y_bad, color="r", alpha=0.5, label=bad_label)
+        xticks = np.linspace(val_min, val_max, bin_num).round(2)
+        xticks = [str(xticks[i]) if i % interval == 0 else "" for i in range(bin_num)]
+        plt.xticks(x, xticks)
+        plt.xlabel("{} (at epoch {})".format(early_metric_name, early_idx), fontsize=font_size)
+        y_label = " ".join(["Density" if density else "count"])
         plt.ylabel(y_label, fontsize=font_size)
         plt.legend(fontsize=font_size)
         plt.title("{}".format(scene_name), fontsize=font_size)
@@ -1079,22 +1016,22 @@ def plot_phenomenon():
 
     def plot_p1():
         early_idx = 5
-        percent = 50
+        percent = 10
         density = True
         scene_name = "cifar10cnn"
         final_metric_name = "val_acc"
-        early_metric_name = "median_abs_grad"  # "train_loss"
-        _plot_early_feature_distribution(early_metric_name, final_metric_name, scene_name, early_idx, percent,density)
+        early_metric_name = "absolute_gradient_value"  # "train_loss"
+        _plot_early_feature_distribution(early_metric_name, final_metric_name, scene_name, early_idx, percent, density)
 
     def plot_p2():
-        early_idx = 10
-        percent = 30
+        early_idx = 5
+        percent = 10
         density = True
         # scene_name = "traffic96trans"
         scene_name = "exchange96auto"
         final_metric_name = "val_loss"
         early_metric_name = "active_layer_ratio"
-        _plot_early_feature_distribution(early_metric_name, final_metric_name, scene_name, early_idx, percent,density)
+        _plot_early_feature_distribution(early_metric_name, final_metric_name, scene_name, early_idx, percent, density)
 
     def plot_p3():
         early_idx = 5
@@ -1103,12 +1040,83 @@ def plot_phenomenon():
         scene_name = "cifar10lstm"
         final_metric_name = "val_acc"
         early_metric_name = "train_loss"
-        _plot_early_feature_distribution(early_metric_name, final_metric_name, scene_name, early_idx, percent,density)
+        _plot_early_feature_distribution(early_metric_name, final_metric_name, scene_name, early_idx, percent, density)
 
     plot_p1()
     plot_p2()
     plot_p3()
     pass
+
+
+def plot_time():
+    # label_lst = ["random", "random_lce", "gp", "gp_lce", "tpe", "tpe_lce", "smac", "smac_lce"]  # 1 -> n
+    # label_lst = ["random", "random_msr", "gp", "gp_msr", "tpe", "tpe_msr","smac","smac_msr"]  # 1 -> n
+
+    scene_name_list = ["cifar10cnn", "cifar10lstm", "exchange96auto", "traffic96trans"]
+    hpo_name_lst = ["random", "gp", "tpe", "smac"]  # 1 -> n
+    color_dict = {"random": "b", "gp": "g", "tpe": "y", "smac": "c"}
+    top_k_list = [1, 3, 5]
+    seg_num_list = [60, 30, 15]
+
+    time_rate = 6 / 6  # 6
+    start_seg = 0  # seg_num // 6
+
+    fontsize = 30
+
+    def set_fig():
+        plt.rcParams.update({'font.size': 16})  ###
+        fig_size_base = [8, 6]
+        fig_size = tuple([i * 2 for i in fig_size_base])
+        plt.figure(figsize=fig_size)
+
+    def _plot_time(scene_idx, top_k, seg_num):
+        set_fig()
+        plot_x = np.linspace(start_seg / seg_num * 6, 6, seg_num - start_seg)
+        base_dir = os.path.join("/Users/admin/Desktop/sqlite_files/", scene_name_list[scene_idx])
+        loss_flag = True if "96" in base_dir else False
+        for hpo_idx in range(len(hpo_name_lst)):
+            file_name_list = [f_name for f_name in os.listdir(os.path.join(base_dir, hpo_name_lst[hpo_idx])) if
+                              f_name.endswith(".sqlite")]
+            file_num = len(file_name_list)
+            plot_y_2da = np.zeros((file_num, seg_num))  # axis1:file, axis2: metric
+            for file_idx in range(file_num):
+                sqlite_path = os.path.join(base_dir, hpo_name_lst[hpo_idx], file_name_list[file_idx])
+                pkl_path = sqlite_path.replace(".sqlite", "_metric_list.pkl")
+
+                if os.path.exists(pkl_path):
+                    metric_list = pickle.load(open(pkl_path, "rb"))
+                else:
+                    from _simulate import get_default_metric_list
+                    metric_list = get_default_metric_list(sqlite_path, None)
+                    pickle.dump(metric_list, open(pkl_path, "wb"))
+                metric_list = metric_list[:int(len(metric_list) * time_rate)]
+                plot_y = np.array([np.mean(np.sort(metric_list[:int(len(metric_list) * ((i + 1) / seg_num))])[:top_k])
+                                   if loss_flag else
+                                   np.mean(
+                                       np.sort(metric_list[:int(len(metric_list) * ((i + 1) / seg_num))])[::-1][:top_k])
+                                   for i in range(seg_num)])
+                plot_y_2da[file_idx] = plot_y
+            plot_y = np.mean(plot_y_2da, axis=0)
+            plot_y = plot_y[start_seg:]
+            line_style = "--" if "_" not in hpo_name_lst[hpo_idx] else "-"
+            color = color_dict[hpo_name_lst[hpo_idx].split("_")[0]]
+            plt.plot(plot_x, plot_y, label=hpo_name_lst[hpo_idx], linestyle=line_style, color=color)
+            plt.title(scene_name_list[scene_idx], fontsize=fontsize)
+            plt.xlabel("Time (hour)",fontsize=fontsize)
+            if loss_flag:  # log scale
+                plt.ylabel("Validation MSE Loss (log scale)",fontsize=fontsize)
+                plt.yscale("log")
+            else:
+                plt.ylabel("Validation Accuracy",fontsize=fontsize)
+            plt.legend(fontsize=fontsize)
+        fig_path = os.path.join("figs", "time", "top" + str(top_k), scene_name_list[scene_idx] + ".png")
+        plt.savefig(fig_path)
+        plt.show()
+
+    for scene_idx in range(len(scene_name_list)):
+        for top_k, seg_num in zip(top_k_list, seg_num_list):
+            _plot_time(scene_idx, top_k, seg_num)
+    _plot_time(0, 3,60)
 
 
 if __name__ == '__main__':

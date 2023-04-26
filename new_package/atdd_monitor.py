@@ -18,7 +18,6 @@ class ATDDMonitor:
         # self.calc = calc
         self.complete_config_by_default()
 
-        self.model_num = self.shared["model_num"]
         self.enable_dict = self.shared["enable_dict"]
         self.max_epoch = self.shared["max_epoch"]
         self.quick_calc = self.shared["quick_calc"]

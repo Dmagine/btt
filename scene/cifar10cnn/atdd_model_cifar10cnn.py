@@ -11,8 +11,10 @@ from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
-sys.path.append("../../atdd_package")
-from atdd_manager import ATDDManager
+# sys.path.append("../../atdd_package")
+sys.path.append("../../")
+sys.path.append("../../new_package")
+from new_package.atdd_manager import ATDDManager
 
 # log_dir = os.path.join(os.environ["NNI_OUTPUT_DIR"], 'tensorboard')
 # writer = SummaryWriter(log_dir)

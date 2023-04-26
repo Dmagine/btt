@@ -1,4 +1,4 @@
-experiment_name: "cifar10cnn_atdd_smac"
+experiment_name: "cifar10cnn_our_random"
 searchSpaceFile: search_space_cifar10cnn.json
 
 
@@ -14,14 +14,14 @@ trialGpuNumber: 1
 
 
 advisor:
-  codeDirectory: ../../atdd_package
+  codeDirectory: ../../new_package ###
   className: atdd_advisor.ATDDAdvisor
   classArgs:
     shared:
       max_epoch: 20
     monitor: default
     tuner:
-      name: smac
+      name: random
     inspector: default
     assessor: default
 

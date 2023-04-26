@@ -33,7 +33,6 @@ class ATDDMessenger:
         ctx = get_nni_context()
         if get_nni_context() == "platform":
             dispatcher_env_vars = _load_env_vars(_dispatcher_env_var_names)
-            platform_log_dir = dispatcher_env_vars.NNI_LOG_DIRECTORY
             ver = nni.__version__
             if True in [ver.startswith("2.99"), ver.startswith("3.")]:
                 path_to_new_trial = "../environments/local-env/trials/"
@@ -56,6 +55,7 @@ class ATDDMessenger:
             if get_nni_context() == "platform":
                 dispatcher_env_vars = _load_env_vars(_dispatcher_env_var_names)
                 platform_log_dir = dispatcher_env_vars.NNI_LOG_DIRECTORY
+
                 trial_system_dir = os.path.join(platform_log_dir, '../trials/', path_to_new_trial, self.trial_id)
             else:
                 trial_env_vars = _load_env_vars(_trial_env_var_names)
@@ -83,10 +83,11 @@ class ATDDMessenger:
         if key == "default_config":
             d = "./"
             for p in sys.path:
-                if "atdd_package" in p:
+                if "new_package" in p: ###
                     d = p
                     break
-            file_path = os.path.join(d, "atdd_default_config.yaml")  # .../atdd_package/default_soft.yaml
+            file_path = os.path.join(d, "atdd_default_config.yaml")
+            logger.info("default config file_path: {}".format(file_path))
         if key == "tuner":
             dispatcher_env_vars = _load_env_vars(_dispatcher_env_var_names)
             platform_log_dir = dispatcher_env_vars.NNI_LOG_DIRECTORY

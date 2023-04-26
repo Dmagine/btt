@@ -2,7 +2,7 @@ experiment_name: "cifar10cnn_local_test"
 searchSpaceFile: search_space_cifar10cnn.json
 
 
-trial_command: python3.8 atdd_model_cifar10cnn.py
+trial_command: python3 atdd_model_cifar10cnn.py
 trial_code_directory: .
 
 trial_concurrency: 2
@@ -14,7 +14,7 @@ training_service:
 
 
 advisor:
-  codeDirectory: ../../atdd_package
+  codeDirectory: ../../new_package ###
   className: atdd_advisor.ATDDAdvisor
   classArgs:
     shared:

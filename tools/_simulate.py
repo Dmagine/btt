@@ -18,9 +18,9 @@ def get_assessor_config(loss_flag):
     file_obj.close()
     d = {}
     d.update({"shared": info_dict["shared"]})
-    d.update({"basic": info_dict["assessor"]["class_args"]["basic"]})
-    d.update({"compare": info_dict["assessor"]["class_args"]["compare"]})
-    d.update({"diagnose": info_dict["assessor"]["class_args"]["diagnose"]})
+    d.update({"basic": info_dict["assessor"]["classArgs"]["basic"]})
+    d.update({"compare": info_dict["assessor"]["classArgs"]["compare"]})
+    d.update({"diagnose": info_dict["assessor"]["classArgs"]["diagnose"]})
     if loss_flag:
         d["shared"]["enable_dict"]["acc"] = False
     else:
@@ -46,10 +46,11 @@ def get_periodical_values(sqlite_path, data_limit):
     return values
 
 
-def get_raw_metric_list(sqlite_path, data_limit):
+def get_default_metric_list(sqlite_path, data_limit):
     conn = sqlite3.connect(sqlite_path)
     cur = conn.cursor()
-    sql = "SELECT * FROM MetricData WHERE type='PERIODICAL' limit " + str(data_limit)
+    sql = "SELECT * FROM MetricData WHERE type='PERIODICAL' limit " + str(data_limit) \
+        if data_limit is not None else "SELECT * FROM MetricData WHERE type='PERIODICAL'"
     cur.execute(sql)
     values = cur.fetchall()
     id_metric_dict = {}
@@ -287,6 +288,7 @@ def plot_pie(count_dict, overview_pie_name_list, symptom_pie_name_list, rule_pie
         # legend too left
         plt.legend(loc="upper right", fontsize=fontsize, bbox_to_anchor=(1.4, 1.0))
         fig_path = os.path.join("figs", fig_dir_list[i], scene_name + ".png")
+        # transform png to pdf
         plt.savefig(fig_path)
         plt.show()
 
@@ -294,7 +296,7 @@ def plot_pie(count_dict, overview_pie_name_list, symptom_pie_name_list, rule_pie
 def plot_triangle(raw_id_metric_list_dict, our_id_epoch_dict, scene_name, loss_flag):
     def set_plot():
         fontsize = 16
-        plt.rcParams.update({'font.size': fontsize})
+        plt.rcParams.update({'font.size': int(fontsize * 2 / 3)})
         fig_size_base = [8, 6]
         fig_size = tuple([i * 1.5 for i in fig_size_base])
         plt.figure(figsize=fig_size)
@@ -353,12 +355,14 @@ def plot_triangle(raw_id_metric_list_dict, our_id_epoch_dict, scene_name, loss_f
 
 def plot_distribution(raw_metric_list, healthy_metric_list, not_ill_metric_list, ill_metric_list,
                       symptom_metric_list_dict, scene_name, loss_flag):
-    bins = 10 if loss_flag else 20
+    # bin_num = 10 if loss_flag else 20
+    bin_num = 10 if loss_flag else 20
+    interval_num = 2
     density = True  # if loss_flag else False
     loss_max = 3  ###
 
     fontsize = 30
-    plt.rcParams.update({'font.size': 16})  ###
+    plt.rcParams.update({'font.size': int(fontsize*2/3)})
     fig_size_base = [8, 6]
     fig_size = tuple([i * 1.5 for i in fig_size_base])
     plt.figure(figsize=fig_size)
@@ -370,22 +374,35 @@ def plot_distribution(raw_metric_list, healthy_metric_list, not_ill_metric_list,
         for symptom, metric_list in symptom_metric_list_dict.items():
             metric_list = [i if i < loss_max else loss_max for i in metric_list]
             symptom_metric_list_dict[symptom] = metric_list
-    # same column width
-    # plt.hist(raw_metric_list, bins=bins, color="b", alpha=0.1, label="original",density=density)
     if loss_flag:
-        plt.hist(raw_metric_list, bins=bins, color="b", alpha=0.5, label="all", density=density)
+        raw_metric_list = np.log(raw_metric_list).tolist()
+        healthy_metric_list = np.log(healthy_metric_list).tolist()
+        not_ill_metric_list = np.log(not_ill_metric_list).tolist()
+        ill_metric_list = np.log(ill_metric_list).tolist()
+    total_lst = raw_metric_list + healthy_metric_list + ill_metric_list
+    val_min, val_max = np.min(total_lst), np.max(total_lst)
+    x = np.arange(bin_num)
+
+    y_ill, _ = np.histogram(ill_metric_list, bins=bin_num, range=(val_min, val_max), density=density)
+    y_healthy, _ = np.histogram(healthy_metric_list, bins=bin_num, range=(val_min, val_max), density=density)
+    y_all, _ = np.histogram(raw_metric_list, bins=bin_num, range=(val_min, val_max), density=density)
+
+    if loss_flag and False:
+        # plt.bar(x, y_all, color="b", alpha=0.2, label="all")
+        # plt.bar(x, y_healthy, color="g", alpha=0.5, label="healthy")
+        pass
     else:
-        plt.hist(ill_metric_list, bins=bins, color="r", alpha=0.5, label="ill", density=density)
-    plt.hist(healthy_metric_list, bins=bins, color="g", alpha=0.5, label="healthy", density=density)
-    # plt.hist(not_ill_metric_list, bins=bins, color="g", alpha= 0.5, label="healthy+NMG",density=density)
-    if loss_flag:
-        plt.xlabel("Validation MSE Loss (Ascending)", fontsize=fontsize)
-    else:
-        plt.xlabel("Validation Accuracy (Ascending)", fontsize=fontsize)
-        lst = healthy_metric_list + ill_metric_list
-        plt.xlim(np.min(lst), np.max(lst))
-    y_label = "Density of Trials" if density else "Number of Trials"
+        plt.bar(x, y_ill, color="r", alpha=0.5, label="ill")
+        plt.bar(x, y_healthy, color="g", alpha=0.5, label="healthy")
+
+    y_label = "Density" if density else "Number of Trials"
     plt.ylabel(y_label, fontsize=fontsize)
+    x_label = "Validation MSE Loss (log scale)" if loss_flag else "Validation Accuracy"
+    plt.xlabel(x_label, fontsize=fontsize)
+    # 设置xticks间隔
+    xticks = np.linspace(val_min, val_max, bin_num).round(2)
+    xticks = [str(xticks[i]) if i % interval_num == 0 else "" for i in range(bin_num)]
+    plt.xticks(x, xticks)
     plt.legend(fontsize=fontsize)
     plt.title(scene_name, fontsize=fontsize)
     fig_path = os.path.join("figs", "distribution", scene_name + ".png")
@@ -395,45 +412,48 @@ def plot_distribution(raw_metric_list, healthy_metric_list, not_ill_metric_list,
     for symptom, metric_list in symptom_metric_list_dict.items():
         if symptom == "NMG":
             continue
-        plt.hist(metric_list, bins=bins, alpha=0.5, label=symptom)
+        plt.hist(metric_list, bins=bin_num, alpha=0.5, label=symptom)
     plt.legend()
+    fig_path = os.path.join("figs", "_distribution_rule", scene_name + ".png")
+    plt.savefig(fig_path)
     plt.show()
 
 
 def plot_epoch_distribution(raw_metric_list, our_metric_list, raw_id_metric_list_dict, our_id_epoch_dict, scene_name,
                             loss_flag):
     fontsize = 30
-    # plt.rcParams.update({'font.size': fontsize})
+    plt.rcParams.update({'font.size': int(fontsize*2/3)})
     fig_size_base = [8, 6]
     fig_size = tuple([i * 1.5 for i in fig_size_base])
 
     # hist: x -> metric rank, y -> epoch
 
-    bin_num = 10
-    val_max, val_min = max(our_metric_list), min(our_metric_list)
-    if "exchange" in scene_name:
-        val_max, val_min = 10, 0
-    plt.figure(figsize=fig_size)
-    x = np.arange(bin_num)
-    y_our = [[] for i in range(bin_num)]
-    for k, v in our_id_epoch_dict.items():
-        # val = raw_id_metric_list_dict[k][-1]
-        val = raw_id_metric_list_dict[k][our_id_epoch_dict[k]]  #
-        # val = np.log10(val) if loss_flag else val #
-        idx = int(round((val - val_min) / (val_max - val_min) * bin_num))
-        idx = min(max(idx, 0), bin_num - 1)
-        y_our[idx].append(v)
-    y_our = [np.mean(lst) + 1 if len(lst) > 0 else 0 for lst in y_our]
-    y_raw = [20 if y_our[i] != 0 else 0 for i in range(bin_num)]
-    plt.bar(x, y_raw, label="original", width=0.5, color="b", alpha=0.5)
-    plt.bar(x, y_our, label="our", width=0.5, color="r")
-    plt.xlabel("Validation Accuracy (Ascending)", fontsize=fontsize) if not loss_flag \
-        else plt.xlabel("Validation MSE Loss (Ascending)", fontsize=fontsize)
-    plt.ylabel("Average Training Epoch", fontsize=fontsize)
+    bin_num = 5 if loss_flag else 10
+    width = 0.4
+    shift = width * 1.1
 
-    # x: 0,1,2,3
-    print(x)
-    plt.xticks(x, [i for i in np.linspace(val_min, val_max, bin_num).round(2)])
+    lst = raw_metric_list + our_metric_list
+    val_max, val_min = max(lst), min(lst)
+    if "exchange" in scene_name:
+        val_max = 10
+    plt.figure(figsize=fig_size)
+    y_our = [[] for _ in range(bin_num)]
+    for k in our_id_epoch_dict.keys():
+        epoch = our_id_epoch_dict[k]
+        metric = raw_id_metric_list_dict[k][epoch]
+        idx = int((metric - val_min) / (val_max - val_min) * bin_num)
+        idx = min(max(idx, 0), bin_num - 1)
+        y_our[idx].append(epoch)
+    y_our = [np.mean(i) if len(i) > 0 else 0 for i in y_our]
+    y_raw = [20 if y_our[i] != 0 else 0 for i in range(bin_num)]
+
+    x = np.arange(bin_num)
+    plt.bar(x, y_raw, label="original", width=width, color="b", alpha=0.5)
+    plt.bar(x + shift, y_our, label="our", width=width, color="r")
+    plt.xlabel("Validation Accuracy", fontsize=fontsize) if not loss_flag \
+        else plt.xlabel("Validation MSE Loss", fontsize=fontsize)
+    plt.ylabel("Average Training Epoch", fontsize=fontsize)
+    plt.xticks(x + shift/2, [i for i in np.linspace(val_min, val_max, bin_num).round(2)])
     plt.legend(fontsize=fontsize)
     plt.title(scene_name, fontsize=fontsize)
     fig_path = os.path.join("figs", "epoch", scene_name + ".png")
@@ -454,11 +474,13 @@ def _test(scene_idx, data_limit, top_k, use_pre):
         simulate(sqlite_path, loss_flag, data_limit, use_pre)
 
     # plot_metric(raw_metric_list, our_metric_list, not_ill_metric_list, scene_name, loss_flag, top_k)
-    # plot_pie(count_dict, overview_pie_name_list, symptom_pie_name_list, rule_pie_name_list, scene_name)
     # plot_triangle(raw_id_metric_list_dict, our_id_epoch_dict, scene_name, loss_flag)
+
+    # plot_pie(count_dict, overview_pie_name_list, symptom_pie_name_list, rule_pie_name_list, scene_name)
     plot_distribution(raw_metric_list, healthy_metric_list, not_ill_metric_list, ill_metric_list,
                       symptom_metric_list_dict, scene_name, loss_flag)
-    # plot_epoch_distribution(raw_metric_list,our_metric_list, raw_id_metric_list_dict, our_id_epoch_dict, scene_name, loss_flag)
+    # plot_epoch_distribution(raw_metric_list, our_metric_list, raw_id_metric_list_dict, our_id_epoch_dict, scene_name,
+    #                         loss_flag)
     print(np.mean(list(our_id_epoch_dict.values())))
 
 
@@ -478,7 +500,7 @@ def test():
     for idx in range(len(scene_name_list)):
         _test(idx, data_limit, top_k_list[idx], use_pre)
         print("=====================================")
-    # _test(2, data_limit, -1, use_pre)
+    # _test(0, data_limit, -1, use_pre)
 
 
 if __name__ == '__main__':
