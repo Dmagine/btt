@@ -38,6 +38,10 @@ def get_periodical_values(sqlite_path, data_limit):
     for i in range(len(values)):
         values[i] = list(values[i])
         d = yaml.load(eval(values[i][5]), Loader=yaml.FullLoader)
+        weight_grad_abs_avg_1da = d["weight_grad_abs_avg_1da"]
+        if type(weight_grad_abs_avg_1da) is dict:
+            d["weight_grad_abs_avg_1da"] = np.array(d["weight_grad_abs_avg_1da"]["__ndarray__"])
+            d["weight_grad_rate0_1da"] = np.array(d["weight_grad_rate0_1da"]["__ndarray__"])
         values[i][5] = d
     return values
 
@@ -109,6 +113,7 @@ def simulate(sqlite_path, loss_flag, data_limit, use_pre=False):
     path8 = sqlite_path.replace(".sqlite", "_symptom_metric_list_dict.pkl")
     path9 = sqlite_path.replace(".sqlite", "_ill_metric_list.pkl")
     path10 = sqlite_path.replace(".sqlite", "_healthy_metric_list.pkl")
+    path11 = sqlite_path.replace(".sqlite", "_id_result_dict_list_dict.pkl")
 
     max_epoch = 20
     conf = get_assessor_config(loss_flag)
@@ -120,7 +125,7 @@ def simulate(sqlite_path, loss_flag, data_limit, use_pre=False):
 
     if use_pre and os.path.exists(path1) and os.path.exists(path2) and os.path.exists(path3) and os.path.exists(path4) \
             and os.path.exists(path5) and os.path.exists(path6) and os.path.exists(path7) and os.path.exists(path8) and \
-            os.path.exists(path9) and os.path.exists(path10):
+            os.path.exists(path9) and os.path.exists(path10) and os.path.exists(path11):
         raw_metric_list = pickle.load(open(path1, "rb"))
         our_metric_list = pickle.load(open(path2, "rb"))
         count_dict = pickle.load(open(path3, "rb"))
@@ -131,8 +136,10 @@ def simulate(sqlite_path, loss_flag, data_limit, use_pre=False):
         symptom_metric_list_dict = pickle.load(open(path8, "rb"))
         ill_metric_list = pickle.load(open(path9, "rb"))
         healthy_metric_list = pickle.load(open(path10, "rb"))
+        id_result_dict_list_dict = pickle.load(open(path11, "rb"))
         return raw_metric_list, our_metric_list, count_dict, not_ill_metric_list, raw_id_metric_list_dict, \
-               our_id_epoch_dict, not_ill_id_epoch_dict, symptom_metric_list_dict, ill_metric_list, healthy_metric_list
+               our_id_epoch_dict, not_ill_id_epoch_dict, symptom_metric_list_dict, ill_metric_list, healthy_metric_list, \
+               id_result_dict_list_dict
 
     if os.path.exists(path0) and (len(pickle.load(open(path0, "rb"))) >= data_limit or loss_flag):
         values = pickle.load(open(path0, "rb"))[:data_limit]
@@ -200,6 +207,12 @@ def simulate(sqlite_path, loss_flag, data_limit, use_pre=False):
             our_metric_list.append(result_dict["default"])
             our_id_epoch_dict[trial_id] = step_idx - 1
     print()
+    del_id_list = [k for k, v in id_result_dict_list_dict.items() if len(v) < 20]
+    id_result_dict_list_dict = {k: v for k, v in id_result_dict_list_dict.items() if k not in del_id_list}
+    raw_id_metric_list_dict = {k: v for k, v in raw_id_metric_list_dict.items() if k not in del_id_list}
+    our_id_epoch_dict = {k: v for k, v in our_id_epoch_dict.items() if k not in del_id_list}
+    not_ill_id_epoch_dict = {k: v for k, v in not_ill_id_epoch_dict.items() if k not in del_id_list}
+    symptom_metric_list_dict = {k: v for k, v in symptom_metric_list_dict.items() if len(v) > 0}
 
     count_dict["total_trial"] = len(finished_id_set)
     pickle.dump(raw_metric_list, open(path1, "wb"))
@@ -212,8 +225,10 @@ def simulate(sqlite_path, loss_flag, data_limit, use_pre=False):
     pickle.dump(symptom_metric_list_dict, open(path8, "wb"))
     pickle.dump(ill_metric_list, open(path9, "wb"))
     pickle.dump(healthy_metric_list, open(path10, "wb"))
+    pickle.dump(id_result_dict_list_dict, open(path11, "wb"))
     return raw_metric_list, our_metric_list, count_dict, not_ill_metric_list, raw_id_metric_list_dict, \
-           our_id_epoch_dict, not_ill_id_epoch_dict, symptom_metric_list_dict, ill_metric_list, healthy_metric_list
+           our_id_epoch_dict, not_ill_id_epoch_dict, symptom_metric_list_dict, ill_metric_list, healthy_metric_list, \
+           id_result_dict_list_dict
 
 
 def plot_metric(raw_metric_list, our_metric_list, not_ill_metric_list, scene_name, loss_flag, top_k):
@@ -267,7 +282,7 @@ def plot_pie(count_dict, overview_pie_name_list, symptom_pie_name_list, rule_pie
         k_list = [k if v > 0 else "" for k, v in d.items()]
         plt.pie(v_list, labels=k_list, autopct=lambda p: '{:.0f}%'.format(p) if p > 0 else "", colors=c_list)
 
-        plt.title(" ".join([title_list[i],"of",scene_name]), fontsize=fontsize)
+        plt.title(" ".join([title_list[i], "of", scene_name]), fontsize=fontsize)
         # fixed legend position
         # legend too left
         plt.legend(loc="upper right", fontsize=fontsize, bbox_to_anchor=(1.4, 1.0))
@@ -339,11 +354,11 @@ def plot_triangle(raw_id_metric_list_dict, our_id_epoch_dict, scene_name, loss_f
 def plot_distribution(raw_metric_list, healthy_metric_list, not_ill_metric_list, ill_metric_list,
                       symptom_metric_list_dict, scene_name, loss_flag):
     bins = 10 if loss_flag else 20
-    density = True #if loss_flag else False
-    loss_max = 3 ###
+    density = True  # if loss_flag else False
+    loss_max = 3  ###
 
     fontsize = 30
-    plt.rcParams.update({'font.size': 16}) ###
+    plt.rcParams.update({'font.size': 16})  ###
     fig_size_base = [8, 6]
     fig_size = tuple([i * 1.5 for i in fig_size_base])
     plt.figure(figsize=fig_size)
@@ -367,12 +382,12 @@ def plot_distribution(raw_metric_list, healthy_metric_list, not_ill_metric_list,
         plt.xlabel("Validation MSE Loss (Ascending)", fontsize=fontsize)
     else:
         plt.xlabel("Validation Accuracy (Ascending)", fontsize=fontsize)
-        lst = healthy_metric_list+ill_metric_list
-        plt.xlim(np.min(lst),np.max(lst))
+        lst = healthy_metric_list + ill_metric_list
+        plt.xlim(np.min(lst), np.max(lst))
     y_label = "Density of Trials" if density else "Number of Trials"
     plt.ylabel(y_label, fontsize=fontsize)
     plt.legend(fontsize=fontsize)
-    plt.title(scene_name,fontsize=fontsize)
+    plt.title(scene_name, fontsize=fontsize)
     fig_path = os.path.join("figs", "distribution", scene_name + ".png")
     plt.savefig(fig_path)
     plt.show()
@@ -385,7 +400,8 @@ def plot_distribution(raw_metric_list, healthy_metric_list, not_ill_metric_list,
     plt.show()
 
 
-def plot_epoch_distribution(raw_metric_list,our_metric_list, raw_id_metric_list_dict, our_id_epoch_dict, scene_name, loss_flag):
+def plot_epoch_distribution(raw_metric_list, our_metric_list, raw_id_metric_list_dict, our_id_epoch_dict, scene_name,
+                            loss_flag):
     fontsize = 30
     # plt.rcParams.update({'font.size': fontsize})
     fig_size_base = [8, 6]
@@ -402,19 +418,18 @@ def plot_epoch_distribution(raw_metric_list,our_metric_list, raw_id_metric_list_
     y_our = [[] for i in range(bin_num)]
     for k, v in our_id_epoch_dict.items():
         # val = raw_id_metric_list_dict[k][-1]
-        val = raw_id_metric_list_dict[k][our_id_epoch_dict[k]]#
+        val = raw_id_metric_list_dict[k][our_id_epoch_dict[k]]  #
         # val = np.log10(val) if loss_flag else val #
-        idx = int(round((val - val_min) / (val_max-val_min) * bin_num))
-        idx = min(max(idx,0),bin_num-1)
+        idx = int(round((val - val_min) / (val_max - val_min) * bin_num))
+        idx = min(max(idx, 0), bin_num - 1)
         y_our[idx].append(v)
-    y_our = [np.mean(lst) +1 if len(lst) > 0 else 0 for lst in y_our]
+    y_our = [np.mean(lst) + 1 if len(lst) > 0 else 0 for lst in y_our]
     y_raw = [20 if y_our[i] != 0 else 0 for i in range(bin_num)]
-    plt.bar(x, y_raw, label="original", width=0.5,color="b",alpha=0.5)
-    plt.bar(x, y_our, label="our", width=0.5,color="r")
+    plt.bar(x, y_raw, label="original", width=0.5, color="b", alpha=0.5)
+    plt.bar(x, y_our, label="our", width=0.5, color="r")
     plt.xlabel("Validation Accuracy (Ascending)", fontsize=fontsize) if not loss_flag \
         else plt.xlabel("Validation MSE Loss (Ascending)", fontsize=fontsize)
     plt.ylabel("Average Training Epoch", fontsize=fontsize)
-
 
     # x: 0,1,2,3
     print(x)
@@ -435,13 +450,14 @@ def _test(scene_idx, data_limit, top_k, use_pre):
 
     loss_flag = True if "96" in sqlite_path else False
     raw_metric_list, our_metric_list, count_dict, not_ill_metric_list, raw_id_metric_list_dict, our_id_epoch_dict, \
-    not_ill_id_epoch_dict, symptom_metric_list_dict, ill_metric_list, healthy_metric_list = \
+    not_ill_id_epoch_dict, symptom_metric_list_dict, ill_metric_list, healthy_metric_list, id_result_dict_list_dict = \
         simulate(sqlite_path, loss_flag, data_limit, use_pre)
 
     # plot_metric(raw_metric_list, our_metric_list, not_ill_metric_list, scene_name, loss_flag, top_k)
     # plot_pie(count_dict, overview_pie_name_list, symptom_pie_name_list, rule_pie_name_list, scene_name)
     # plot_triangle(raw_id_metric_list_dict, our_id_epoch_dict, scene_name, loss_flag)
-    plot_distribution(raw_metric_list,healthy_metric_list, not_ill_metric_list,ill_metric_list, symptom_metric_list_dict, scene_name, loss_flag)
+    plot_distribution(raw_metric_list, healthy_metric_list, not_ill_metric_list, ill_metric_list,
+                      symptom_metric_list_dict, scene_name, loss_flag)
     # plot_epoch_distribution(raw_metric_list,our_metric_list, raw_id_metric_list_dict, our_id_epoch_dict, scene_name, loss_flag)
     print(np.mean(list(our_id_epoch_dict.values())))
 

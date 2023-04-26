@@ -130,6 +130,22 @@
     HPO本身可能比random+our好。
     考虑X+1实验？或取最佳试验效果即可
 
+    下一步：
+    1 细化特征现象图
+    2 风险排查估计
+    3 讨论画图和规则
+    4 论文写作
+
+
+    细化特征现象图
+    1 三张图展示三种类型的特征：
+        1.1 早期的训练损失值x (train_loss) | 最终的验证集正确率y (validate_acc) -> cifar10cnn
+        1.2 早期的梯度中值x (median_abs_grad) | 最终的验证集正确率y (validate_acc) -> cifar10lstm
+        1.3 早期的激活覆盖率x (active_layer_ratio) | 最终的验证集损失值y  (validate_loss)-> traffic96aoto
+        (early stage) ||| (last epoch)
+        good: top10% | bad: bottom10%
+
+
 
 
 

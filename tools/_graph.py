@@ -921,7 +921,7 @@ def plot_time():
     loss_flag = True if "96" in base_dir else False
 
     time_rate = 6 / 6  # 6
-    seg_num = 30   # 60
+    seg_num = 30  # 60
     start_seg = 0  # seg_num // 6
     top_k = 3  # 3,10
     color_dict = {"random": "b", "gp": "g", "tpe": "y", "smac": "c"}
@@ -982,6 +982,131 @@ def plot_time():
         plt.legend()
     plt.show()
 
+
+def plot_phenomenon():
+    #     细化特征现象图
+    #     1 三张图展示三种类型的特征： 类似distribution
+    #         1.1 最终的验证集正确率x (validate_acc) | 早期的训练损失值y (train_loss) -> cifar10cnn
+    #         1.2 最终的验证集正确率x (validate_acc) | 早期的梯度中值y (median_abs_grad) -> cifar10lstm
+    #         1.3 最终的验证集损失值x  (validate_loss) | 早期的激活覆盖率y (active_layer_ratio) -> traffic96aoto
+    #         (early stage) ||| (last epoch)
+    use_pre = True
+    data_limit = 6000 # good: percent%, bad: percent%
+
+    font_size = 30
+
+    from _simulate import simulate
+    sqlite_files_dir = "/Users/admin/Desktop/sqlite_files"
+
+    def set_fig():
+        plt.rcParams.update({'font.size': 16})  ###
+        fig_size_base = [8, 6]
+        fig_size = tuple([i * 1.5 for i in fig_size_base])
+        plt.figure(figsize=fig_size)
+
+    def get_bin_num(loss_flag):
+        return 10 if loss_flag else 30
+
+    def get_metric(result_dict, metric_name):
+        if metric_name == "val_acc":
+            return result_dict["val_acc"]
+        elif metric_name == "val_loss":
+            return result_dict["val_loss"]
+        elif metric_name == "train_loss":
+            return result_dict["train_loss"]
+        elif metric_name == "median_abs_grad":
+            lst = result_dict["weight_grad_abs_avg_1da"]
+            if type(lst) is dict:
+                lst = np.array(lst["__ndarray__"])
+            if type(lst[0]) is not np.float64:
+                return None
+            return np.median(lst)
+        elif metric_name == "active_layer_ratio":
+            lst = result_dict["weight_grad_rate0_1da"]
+            if type(lst) is dict:
+                lst = np.array(lst["__ndarray__"])
+            if type(lst[0]) is not np.float64:
+                return None
+            return np.count_nonzero(lst) / len(lst)
+
+    def _plot_early_feature_distribution(early_metric_name, final_metric_name, scene_name,early_idx,percent,density):
+        loss_flag = True if "96" in scene_name else False
+
+        file_name = \
+            [i for i in os.listdir(os.path.join(sqlite_files_dir, scene_name, "_monitor")) if i.endswith(".sqlite")][0]
+        sqlite_path = os.path.join(sqlite_files_dir, scene_name, "_monitor", file_name)
+        raw_metric_list, our_metric_list, count_dict, not_ill_metric_list, raw_id_metric_list_dict, our_id_epoch_dict, \
+        not_ill_id_epoch_dict, symptom_metric_list_dict, ill_metric_list, healthy_metric_list, id_result_dict_list_dict = \
+            simulate(sqlite_path, loss_flag, data_limit, use_pre)
+        bin_num = get_bin_num(loss_flag)
+        if loss_flag:
+            good_split_val = np.percentile(raw_metric_list, percent)
+            bad_split_val = np.percentile(raw_metric_list, 100 - percent)
+        else:
+            good_split_val = np.percentile(raw_metric_list, 100 - percent)
+            bad_split_val = np.percentile(raw_metric_list, percent)
+        good_val_list, bad_val_list = [], []
+        for _id in raw_id_metric_list_dict:
+            final_metric = get_metric(id_result_dict_list_dict[_id][-1], final_metric_name)
+            early_metric = get_metric(id_result_dict_list_dict[_id][early_idx], early_metric_name)
+            print(early_metric,final_metric)
+            if None in [final_metric, early_metric]:
+                continue
+            if loss_flag:
+                if final_metric <= good_split_val:
+                    good_val_list.append(early_metric)
+                if final_metric >= bad_split_val:
+                    bad_val_list.append(early_metric)
+            else:
+                if final_metric >= good_split_val:
+                    good_val_list.append(early_metric)
+                if final_metric <= bad_split_val:
+                    bad_val_list.append(early_metric)
+        set_fig()
+        print("good: {}, bad: {}".format(len(good_val_list), len(bad_val_list)))
+        good_label = "Good Trial (Top {}%)".format(percent)
+        bad_label = "Bad Trial (Bottom {}%)".format(percent)
+        plt.hist(good_val_list, bins=bin_num, label=good_label, color="g", alpha=0.5, density=density)
+        plt.hist(bad_val_list, bins=bin_num, label=bad_label, color="r", alpha=0.5, density=density)
+        plt.xlabel("{} (early stage: epoch {})".format(early_metric_name,early_idx), fontsize=font_size)
+        y_label = " ".join(["density" if density else "count"])
+        plt.ylabel(y_label, fontsize=font_size)
+        plt.legend(fontsize=font_size)
+        plt.title("{}".format(scene_name), fontsize=font_size)
+        fig_path = os.path.join("figs", "feature", early_metric_name + ".png")
+        plt.savefig(fig_path)
+        plt.show()
+
+    def plot_p1():
+        early_idx = 5
+        percent = 50
+        density = True
+        scene_name = "cifar10cnn"
+        final_metric_name = "val_acc"
+        early_metric_name = "median_abs_grad"  # "train_loss"
+        _plot_early_feature_distribution(early_metric_name, final_metric_name, scene_name, early_idx, percent,density)
+
+    def plot_p2():
+        early_idx = 10
+        percent = 50
+        density = True
+        scene_name = "traffic96trans"
+        final_metric_name = "val_loss"
+        early_metric_name = "active_layer_ratio"
+        _plot_early_feature_distribution(early_metric_name, final_metric_name, scene_name, early_idx, percent,density)
+
+    def plot_p3():
+        early_idx = 5
+        percent = 10
+        density = True
+        scene_name = "cifar10lstm"
+        final_metric_name = "val_acc"
+        early_metric_name = "train_loss"
+        _plot_early_feature_distribution(early_metric_name, final_metric_name, scene_name, early_idx, percent,density)
+
+    plot_p1()
+    plot_p2()
+    plot_p3()
     pass
 
 
@@ -999,4 +1124,5 @@ if __name__ == '__main__':
     # plot_benchmark()
 
     # plot_rank()
-    plot_time()
+    # plot_time()
+    plot_phenomenon()
