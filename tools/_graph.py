@@ -1058,18 +1058,19 @@ def plot_time():
     # label_lst = ["random", "random_lce", "gp", "gp_lce", "tpe", "tpe_lce", "smac", "smac_lce"]  # 1 -> n
     # label_lst = ["random", "random_msr", "gp", "gp_msr", "tpe", "tpe_msr","smac","smac_msr"]  # 1 -> n
 
-    scene_name_list = ["cifar10cnn", "cifar10lstm", "exchange96auto", "traffic96trans"] # ["cifar10cnn"]
+    scene_name_list = ["cifar10cnn", "cifar10lstm", "exchange96auto", "traffic96trans"]  # ["cifar10cnn"]
     hpo_name_lst = ["random", "gp", "tpe", "smac"]
     hpo_prefix = ["", "lce_", "msr_", "our_"]
     color_dict = {"random": "b", "gp": "g", "tpe": "y", "smac": "c"}
     line_style_dict = {"": 'dotted', "lce": 'dashdot', "msr": 'dashdot', "our": "solid"}
     top_k_list = [1, 3, 5, 10]
-    seg_num_list = [180, 90, 45, 20]  # ok
+    seg_num_list1 = [120, 120, 30, 30]  # acc
+    seg_num_list2 = [30, 30, 12, 12]  # loss
 
     hpo_name_lst = [prefix + name for prefix in hpo_prefix for name in hpo_name_lst]
 
-    time_rate = 2 / 6  # 6
-    start_seg = 1  # seg_num // 6
+    time_rate = 6 / 6  # 6
+    start_seg = 0  # seg_num // 6
 
     fontsize = 30
 
@@ -1081,7 +1082,6 @@ def plot_time():
 
     def _plot_time(scene_name, top_k, seg_num):
         set_fig()
-        plot_x = np.linspace(start_seg / seg_num * 6, 6, seg_num - start_seg)
         base_dir = os.path.join("/Users/admin/Desktop/sqlite_files/", scene_name)
         loss_flag = True if "96" in base_dir else False
         for hpo_idx in range(len(hpo_name_lst)):
@@ -1113,7 +1113,13 @@ def plot_time():
                                    for i in range(seg_num)])
                 plot_y_2da[file_idx] = plot_y
             plot_y = np.mean(plot_y_2da, axis=0)
-            plot_y = plot_y[start_seg:]
+            # delta_list = (list((plot_y[:-1] - plot_y[1:]) >= 0) if loss_flag else list((plot_y[1:] - plot_y[:-1]) <= 0))
+            # delta_list.reverse()
+            # tmp_start_seg = len(plot_y) - delta_list.index(True) - 1
+            tmp_start_seg = start_seg
+            plot_y = plot_y[tmp_start_seg:]
+            plot_x = np.linspace(tmp_start_seg / seg_num * 6, 6, seg_num - tmp_start_seg)
+
             line_style = line_style_dict[""] if "_" not in hpo_name else None
             line_style = line_style_dict[hpo_name.split("_")[-2]] if line_style is None else line_style
             color = color_dict[hpo_name.split("_")[-1]]
@@ -1139,8 +1145,9 @@ def plot_time():
 
     for scene_idx in range(len(scene_name_list)):
         scene_name = scene_name_list[scene_idx]
-        for top_k, seg_num in zip(top_k_list, seg_num_list):
-            _plot_time(scene_name, top_k, seg_num)
+        loss_flag = True if "96" in scene_name else False
+        for top_k, seg_num1,seg_num2 in zip(top_k_list, seg_num_list1,seg_num_list2):
+            _plot_time(scene_name, top_k, seg_num2 if loss_flag else seg_num1)
 
 
 if __name__ == '__main__':

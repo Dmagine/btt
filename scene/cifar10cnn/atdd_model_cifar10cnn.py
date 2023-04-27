@@ -12,10 +12,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 sys.path.append("../../new_package")
-from new_package.atdd_manager import ATDDManager
-
-# log_dir = os.path.join(os.environ["NNI_OUTPUT_DIR"], 'tensorboard')
-# writer = SummaryWriter(log_dir)
+from atdd_manager import ATDDManager
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using {device} device")

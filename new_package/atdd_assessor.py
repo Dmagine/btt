@@ -193,14 +193,14 @@ class MyAssessor:
         return False
 
     def diagnose_symptom(self):
-        self.diagnose_eg()
+        self.diagnose_eg() if "EG" in self.symptom_name_list else None
         if self.has_nan_inf:
             return
-        self.diagnose_vg()
-        self.diagnose_dr()
-        self.diagnose_sc()
-        self.diagnose_ho()
-        self.diagnose_nmg()
+        self.diagnose_vg() if "VG" in self.symptom_name_list else None
+        self.diagnose_dr() if "DR" in self.symptom_name_list else None
+        self.diagnose_sc() if "SC" in self.symptom_name_list else None
+        self.diagnose_ho() if "HO" in self.symptom_name_list else None
+        self.diagnose_nmg() if "NMG" in self.symptom_name_list else None
 
     def diagnose_eg(self):
         # EG: (step:half1)
