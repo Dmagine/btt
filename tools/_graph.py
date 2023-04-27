@@ -1058,7 +1058,7 @@ def plot_time():
     # label_lst = ["random", "random_lce", "gp", "gp_lce", "tpe", "tpe_lce", "smac", "smac_lce"]  # 1 -> n
     # label_lst = ["random", "random_msr", "gp", "gp_msr", "tpe", "tpe_msr","smac","smac_msr"]  # 1 -> n
 
-    scene_name_list = ["cifar10cnn"]  # ["cifar10cnn", "cifar10lstm", "exchange96auto", "traffic96trans"]
+    scene_name_list = ["cifar10cnn", "cifar10lstm", "exchange96auto", "traffic96trans"] # ["cifar10cnn"]
     hpo_name_lst = ["random", "gp", "tpe", "smac"]
     hpo_prefix = ["", "lce_", "msr_", "our_"]
     color_dict = {"random": "b", "gp": "g", "tpe": "y", "smac": "c"}
@@ -1158,5 +1158,5 @@ if __name__ == '__main__':
 
     # plot_rank()
 
-    # plot_time()
-    plot_phenomenon()
+    plot_time()
+    # plot_phenomenon()

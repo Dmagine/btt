@@ -1,10 +1,11 @@
 # new
 ### 核心代码在new_package文件夹里
 
-### early
-![image](https://github.com/cennn/atdd/blob/master/tools/figs/early/absolute_gradient_value.png)
-![image](https://github.com/cennn/atdd/blob/master/tools/figs/early/active_layer_ratio.png)
-![image](https://github.com/cennn/atdd/blob/master/tools/figs/early/train_loss.png)
+### time/top3
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/time/top3/cifar10cnn.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/time/top3/cifar10lstm.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/time/top3/exchange96auto.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/time/top3/traffic96trans.png)
 
 ### epoch
 ![image](https://github.com/cennn/atdd/blob/master/tools/figs/epoch/cifar10cnn.png)
@@ -41,5 +42,10 @@
 ![image](https://github.com/cennn/atdd/blob/master/tools/figs/_distribution_rule/cifar10lstm.png)
 ![image](https://github.com/cennn/atdd/blob/master/tools/figs/_distribution_rule/exchange96auto.png)
 ![image](https://github.com/cennn/atdd/blob/master/tools/figs/_distribution_rule/traffic96trans.png)
+
+### early
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/early/absolute_gradient_value.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/early/active_layer_ratio.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/early/train_loss.png)
 
 
