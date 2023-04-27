@@ -1,17 +1,52 @@
-# atdd
-## 核心代码
-### 在package文件夹里
-#### atdd_tuner:
-##### nni自定义，决定下一个trial的参数组合，包含at等模型修复逻辑 (nni侧面)
-#### atdd_assessor: 
-##### nni自定义，比较当前运行的trial和历史的trial在当前epoch的一些指标，可以提前停止trial (nni侧)
-#### atdd_manager: 
-##### 包装用户侧的所有操作，初始化monitor和inspector  (用户侧)
-#### atdd_monitor: 
-##### 收集和简单计算单个模型运行时的各种指标，以文件形式传递给assessor和tuner (用户侧)
-#### atdd_inspector:
-##### 用at等规则诊断模型训练时问题，可以提前停止trial (用户侧)
-#### atdd_messenger:
-##### 以文件形式传递组件之间的信息 (nni侧/用户侧)
-## 其他内容
-### 场景相关的模型代码model和配置文件yaml以及辅助测试脚本py
+# new
+### 核心代码在new_package文件夹里
+
+#### early
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/early/absolute_gradient_value.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/early/active_layer_ratio.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/early/train_loss.png)
+
+
+#### early
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/early/absolute_gradient_value.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/early/active_layer_ratio.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/early/train_loss.png)
+
+
+#### epoch
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/epoch/cifar10cnn.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/epoch/cifar10lstm.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/epoch/exchange96auto.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/epoch/traffic96trans.png)
+
+#### distribution
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/distribution/cifar10cnn.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/distribution/cifar10lstm.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/distribution/exchange96auto.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/distribution/traffic96trans.png)
+
+#### overview
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/overview/cifar10cnn.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/overview/cifar10lstm.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/overview/exchange96auto.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/overview/traffic96trans.png)
+
+#### symptom
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/symptom/cifar10cnn.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/symptom/cifar10lstm.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/symptom/exchange96auto.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/symptom/traffic96trans.png)
+
+#### rule
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/rule/cifar10cnn.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/rule/cifar10lstm.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/rule/exchange96auto.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/rule/traffic96trans.png)
+
+#### _distribution_rule
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/_distribution_rule/cifar10cnn.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/_distribution_rule/cifar10lstm.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/_distribution_rule/exchange96auto.png)
+![image](https://github.com/cennn/atdd/blob/master/tools/figs/_distribution_rule/traffic96trans.png)
+
+
