@@ -83,7 +83,7 @@ class ATDDMessenger:
         if key == "default_config":
             d = "./"
             for p in sys.path:
-                if "new_package" in p: ###
+                if "new_package" in p:  ###
                     d = p
                     break
             file_path = os.path.join(d, "atdd_default_config.yaml")
@@ -158,9 +158,8 @@ class ATDDMessenger:
         info_dict = self.read_assessor_info()
         if info_dict is None:
             return False
-        for k, v in info_dict.items():
-            if "cmp_" in k and v is not None:
-                return True
+        if info_dict["early_stop"] is True:
+            return True
         return False
 
 

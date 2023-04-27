@@ -22,7 +22,6 @@ advisor:
     monitor: default
     tuner:
       name: tpe
-    inspector: default
     assessor: default
 
 

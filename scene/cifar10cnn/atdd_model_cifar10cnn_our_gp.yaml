@@ -22,7 +22,7 @@ advisor:
     monitor: default
     tuner:
       name: gp
-    inspector: default
+#    inspector: default
     assessor: default
 
 

@@ -25,8 +25,6 @@ class ATDDManager:
 
         self.raw_mode = False if self.shared_config is not None and self.monitor_config is not None else True  # no inspect/assess maybe tuner
 
-        self.assessor_stop = False
-
     def init_configs(self):
         if self.advisor_config is None:
             return
@@ -102,7 +100,6 @@ class ATDDManager:
                 d3 = ATDDMessenger().read_assessor_info()
                 os.system("sleep 1")
             d.update(d3)
-        d.update({"assessor_stop": self.assessor_stop})
         if self.raw_mode is True:
             d = self.get_raw_dict(rd)
         logger.info(" ".join(["final_result_dict:", str(d)]))
@@ -111,9 +108,9 @@ class ATDDManager:
 
     def if_atdd_send_stop(self):
         if self.assessor_config is not None:
-            flag_ = ATDDMessenger().if_atdd_assessor_send_stop()
-            if flag_ is True:
+            early_stop = ATDDMessenger().if_atdd_assessor_send_stop()
+            if early_stop:
                 info_dict = ATDDMessenger().read_assessor_info()
                 logger.info(" ".join(["assessor_info_dict ", str(info_dict)]))
-                self.assessor_stop = True
-        return self.assessor_stop
+            return early_stop
+        return False

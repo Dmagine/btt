@@ -17,7 +17,8 @@ class ATDDAssessor(Assessor):
     def assess_trial(self, trial_id, result_dict_list):
         early_stop = self.etr.assess_trial(trial_id, result_dict_list)
         ATDDMessenger(trial_id).write_assessor_info(self.etr.info_dict)
-        return AssessResult.Bad if early_stop else AssessResult.Good
+        # return AssessResult.Bad if early_stop else AssessResult.Good
+        return AssessResult.Good  # 用户侧自己听
 
 
 class MyAssessor:
@@ -145,14 +146,14 @@ class MyAssessor:
             self.finished_dr_metric_list.append(median_grad_rate0)
 
     def assess_trial_end(self):
-        symptom_flag = False
+        early_stop = False
         for symptom_name in self.symptom_name_list:
             if self.info_dict[symptom_name] is not None:  ###
-                symptom_flag = True
-        self.info_dict.update({"symptom_flag": symptom_flag})
-        if symptom_flag or len(self.result_dict_list) == self.max_epoch:
+                early_stop = True
+        self.info_dict.update({"early_stop": early_stop})
+        if early_stop or len(self.result_dict_list) == self.max_epoch:
             self.record_finished_metric()
-        return symptom_flag
+        return early_stop
 
     def receive_monitor_result(self):
         def get_metric_array(p, s):
@@ -438,7 +439,7 @@ class MyAssessor:
         if self.enable_dict["loss"] is False:
             return
         train_loss_list = np.array(self.result_dict["train_loss_list"])
-        window_size = int(round(self.dp.wd_ho * self.max_epoch)) +1  ###
+        window_size = int(round(self.dp.wd_ho * self.max_epoch)) + 1  ###
         start_step = int(self.max_epoch / 2)
         end_step = self.max_epoch
         if len(train_loss_list) > end_step or len(train_loss_list) < start_step:

@@ -11,15 +11,18 @@ training_service:
   platform: local
 
 advisor:
-  codeDirectory: atdd_package
+  codeDirectory: ../../new_package ###
   className: atdd_advisor.ATDDAdvisor
   classArgs:
     shared:
-      max_epoch: 10
+      max_epoch: 20
+      enable_dict:
+        acc: false
     monitor: default
     tuner:
       name: random
-    inspector: default
+      class_args:
+        optimize_mode: minimize
     assessor: default
 
 

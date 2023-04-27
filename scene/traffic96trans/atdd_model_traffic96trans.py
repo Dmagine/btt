@@ -6,7 +6,6 @@ import nni
 import numpy as np
 import torch
 
-sys.path.append("../../atdd_package")
 sys.path.append("../Autoformer")
 from exp.exp_main import Exp_Main
 

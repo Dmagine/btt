@@ -22,7 +22,6 @@ advisor:
     monitor: default
     tuner:
       name: smac
-    inspector: default
     assessor: default
 
 

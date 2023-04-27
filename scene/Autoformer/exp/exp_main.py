@@ -7,14 +7,14 @@ import torch
 import torch.nn as nn
 from data_provider.data_factory import data_provider
 from exp.exp_basic import Exp_Basic
-from models import Informer, Autoformer, Transformer, Reformer
+from models_ import Informer, Autoformer, Transformer, Reformer
 from torch import optim
 from utils.metrics import metric
 from utils.tools import adjust_learning_rate
 
 warnings.filterwarnings('ignore')
 
-sys.path.append("../../../atdd_package")
+sys.path.append("../../new_package")
 from atdd_manager import ATDDManager
 
 manager = None

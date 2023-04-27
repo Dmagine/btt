@@ -22,7 +22,6 @@ advisor:
     monitor: default
     tuner:
       name: random
-    inspector: default
     assessor: default
 
 

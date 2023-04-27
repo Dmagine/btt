@@ -5,8 +5,8 @@ import sqlite3
 import matplotlib.pyplot as plt
 import numpy as np
 import yaml
-from scipy.stats import gaussian_kde, stats
 from matplotlib.backends.backend_pdf import PdfPages
+from scipy.stats import gaussian_kde, stats
 
 
 def plot():
@@ -965,8 +965,8 @@ def plot_phenomenon():
             [i for i in os.listdir(os.path.join(sqlite_files_dir, scene_name, "_monitor")) if i.endswith(".sqlite")][0]
         sqlite_path = os.path.join(sqlite_files_dir, scene_name, "_monitor", file_name)
         raw_metric_list, our_metric_list, count_dict, not_ill_metric_list, raw_id_metric_list_dict, our_id_epoch_dict, \
-        not_ill_id_epoch_dict, symptom_metric_list_dict, ill_metric_list, healthy_metric_list, id_result_dict_list_dict = \
-            simulate(sqlite_path, loss_flag, data_limit, use_pre)
+        not_ill_id_epoch_dict, symptom_metric_list_dict, ill_metric_list, healthy_metric_list, id_result_dict_list_dict, \
+        id_timestamp_list_dict = simulate(sqlite_path, loss_flag, data_limit, use_pre)
         bin_num = get_bin_num(loss_flag)
         interval = 2
         if loss_flag:
@@ -1013,6 +1013,11 @@ def plot_phenomenon():
         plt.title("{}".format(scene_name), fontsize=font_size)
         fig_path = os.path.join("figs", "feature", early_metric_name + ".png")
         plt.savefig(fig_path)
+        fig_path_list = fig_path.split("/")
+        pdf_path = "/".join(["/".join(fig_path_list[:-1]), "pdf", fig_path_list[-1].replace(".png", ".pdf")])
+        pdf = PdfPages(pdf_path)
+        pdf.savefig()
+        pdf.close()
         plt.show()
 
     def plot_p1():
@@ -1053,14 +1058,18 @@ def plot_time():
     # label_lst = ["random", "random_lce", "gp", "gp_lce", "tpe", "tpe_lce", "smac", "smac_lce"]  # 1 -> n
     # label_lst = ["random", "random_msr", "gp", "gp_msr", "tpe", "tpe_msr","smac","smac_msr"]  # 1 -> n
 
-    scene_name_list = ["cifar10cnn", "cifar10lstm", "exchange96auto", "traffic96trans"]
-    hpo_name_lst = ["random", "gp", "tpe", "smac"]  # 1 -> n
+    scene_name_list = ["cifar10cnn"]  # ["cifar10cnn", "cifar10lstm", "exchange96auto", "traffic96trans"]
+    hpo_name_lst = ["random", "gp", "tpe", "smac"]
+    hpo_prefix = ["", "lce_", "msr_", "our_"]
     color_dict = {"random": "b", "gp": "g", "tpe": "y", "smac": "c"}
-    top_k_list = [1, 3, 5]
-    seg_num_list = [60, 30, 15]
+    line_style_dict = {"": 'dotted', "lce": 'dashdot', "msr": 'dashdot', "our": "solid"}
+    top_k_list = [1, 3, 5, 10]
+    seg_num_list = [180, 90, 45, 20]  # ok
 
-    time_rate = 6 / 6  # 6
-    start_seg = 0  # seg_num // 6
+    hpo_name_lst = [prefix + name for prefix in hpo_prefix for name in hpo_name_lst]
+
+    time_rate = 2 / 6  # 6
+    start_seg = 1  # seg_num // 6
 
     fontsize = 30
 
@@ -1070,18 +1079,24 @@ def plot_time():
         fig_size = tuple([i * 2 for i in fig_size_base])
         plt.figure(figsize=fig_size)
 
-    def _plot_time(scene_idx, top_k, seg_num):
+    def _plot_time(scene_name, top_k, seg_num):
         set_fig()
         plot_x = np.linspace(start_seg / seg_num * 6, 6, seg_num - start_seg)
-        base_dir = os.path.join("/Users/admin/Desktop/sqlite_files/", scene_name_list[scene_idx])
+        base_dir = os.path.join("/Users/admin/Desktop/sqlite_files/", scene_name)
         loss_flag = True if "96" in base_dir else False
         for hpo_idx in range(len(hpo_name_lst)):
-            file_name_list = [f_name for f_name in os.listdir(os.path.join(base_dir, hpo_name_lst[hpo_idx])) if
-                              f_name.endswith(".sqlite")]
+            hpo_name = hpo_name_lst[hpo_idx]
+            hpo_dir = os.path.join(base_dir, hpo_name)
+            if not os.path.exists(hpo_dir):
+                continue
+            print(hpo_dir, os.listdir(hpo_dir))
+            file_name_list = [f_name for f_name in os.listdir(hpo_dir) if f_name.endswith(".sqlite")]
+            if len(file_name_list) == 0:
+                continue
             file_num = len(file_name_list)
             plot_y_2da = np.zeros((file_num, seg_num))  # axis1:file, axis2: metric
             for file_idx in range(file_num):
-                sqlite_path = os.path.join(base_dir, hpo_name_lst[hpo_idx], file_name_list[file_idx])
+                sqlite_path = os.path.join(base_dir, hpo_name, file_name_list[file_idx])
                 pkl_path = sqlite_path.replace(".sqlite", "_metric_list.pkl")
 
                 if os.path.exists(pkl_path):
@@ -1099,25 +1114,33 @@ def plot_time():
                 plot_y_2da[file_idx] = plot_y
             plot_y = np.mean(plot_y_2da, axis=0)
             plot_y = plot_y[start_seg:]
-            line_style = "--" if "_" not in hpo_name_lst[hpo_idx] else "-"
-            color = color_dict[hpo_name_lst[hpo_idx].split("_")[0]]
-            plt.plot(plot_x, plot_y, label=hpo_name_lst[hpo_idx], linestyle=line_style, color=color)
-            plt.title(scene_name_list[scene_idx], fontsize=fontsize)
-            plt.xlabel("Time (hour)",fontsize=fontsize)
+            line_style = line_style_dict[""] if "_" not in hpo_name else None
+            line_style = line_style_dict[hpo_name.split("_")[-2]] if line_style is None else line_style
+            color = color_dict[hpo_name.split("_")[-1]]
+            if "our" in hpo_name:
+                plt.plot(plot_x, plot_y, label=hpo_name, linestyle=line_style, color=color, linewidth=3)
+            else:
+                plt.plot(plot_x, plot_y, label=hpo_name, linestyle=line_style, color=color, alpha=0.8)
+            plt.title(scene_name + " (top{})".format(top_k), fontsize=fontsize)
+            plt.xlabel("Time (hour)", fontsize=fontsize)
             if loss_flag:  # log scale
-                plt.ylabel("Validation MSE Loss (log scale)",fontsize=fontsize)
+                plt.ylabel("Validation MSE Loss (log scale)", fontsize=fontsize)
                 plt.yscale("log")
             else:
-                plt.ylabel("Validation Accuracy",fontsize=fontsize)
-            plt.legend(fontsize=fontsize)
-        fig_path = os.path.join("figs", "time", "top" + str(top_k), scene_name_list[scene_idx] + ".png")
+                plt.ylabel("Validation Accuracy", fontsize=fontsize)
+            plt.legend(fontsize=20)  ###
+        fig_path = os.path.join("figs", "time", "top" + str(top_k), scene_name + ".png")
         plt.savefig(fig_path)
+        pdf_path = os.path.join("figs", "time", "top" + str(top_k), "pdf", scene_name + ".pdf")
+        pdf = PdfPages(pdf_path)
+        pdf.savefig()
+        pdf.close()
         plt.show()
 
     for scene_idx in range(len(scene_name_list)):
+        scene_name = scene_name_list[scene_idx]
         for top_k, seg_num in zip(top_k_list, seg_num_list):
-            _plot_time(scene_idx, top_k, seg_num)
-    _plot_time(0, 3,60)
+            _plot_time(scene_name, top_k, seg_num)
 
 
 if __name__ == '__main__':
@@ -1134,5 +1157,6 @@ if __name__ == '__main__':
     # plot_benchmark()
 
     # plot_rank()
+
     # plot_time()
     plot_phenomenon()
