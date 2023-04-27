@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import yaml
 from scipy.stats import gaussian_kde, stats
+from matplotlib.backends.backend_pdf import PdfPages
 
 
 def plot():

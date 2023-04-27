@@ -6,6 +6,7 @@ import sys
 import numpy as np
 import yaml
 from matplotlib import pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
 sys.path.append("../new_package")
 from new_package.atdd_assessor import MyAssessor
@@ -115,6 +116,7 @@ def simulate(sqlite_path, loss_flag, data_limit, use_pre=False):
     path9 = sqlite_path.replace(".sqlite", "_ill_metric_list.pkl")
     path10 = sqlite_path.replace(".sqlite", "_healthy_metric_list.pkl")
     path11 = sqlite_path.replace(".sqlite", "_id_result_dict_list_dict.pkl")
+    path12 = sqlite_path.replace(".sqlite", "_id_timestamp_list_dict.pkl")
 
     max_epoch = 20
     conf = get_assessor_config(loss_flag)
@@ -126,7 +128,7 @@ def simulate(sqlite_path, loss_flag, data_limit, use_pre=False):
 
     if use_pre and os.path.exists(path1) and os.path.exists(path2) and os.path.exists(path3) and os.path.exists(path4) \
             and os.path.exists(path5) and os.path.exists(path6) and os.path.exists(path7) and os.path.exists(path8) and \
-            os.path.exists(path9) and os.path.exists(path10) and os.path.exists(path11):
+            os.path.exists(path9) and os.path.exists(path10) and os.path.exists(path11) and os.path.exists(path12):
         raw_metric_list = pickle.load(open(path1, "rb"))
         our_metric_list = pickle.load(open(path2, "rb"))
         count_dict = pickle.load(open(path3, "rb"))
@@ -138,9 +140,10 @@ def simulate(sqlite_path, loss_flag, data_limit, use_pre=False):
         ill_metric_list = pickle.load(open(path9, "rb"))
         healthy_metric_list = pickle.load(open(path10, "rb"))
         id_result_dict_list_dict = pickle.load(open(path11, "rb"))
+        id_timestamp_list_dict = pickle.load(open(path12, "rb"))
         return raw_metric_list, our_metric_list, count_dict, not_ill_metric_list, raw_id_metric_list_dict, \
                our_id_epoch_dict, not_ill_id_epoch_dict, symptom_metric_list_dict, ill_metric_list, healthy_metric_list, \
-               id_result_dict_list_dict
+               id_result_dict_list_dict, id_timestamp_list_dict
 
     if os.path.exists(path0) and (len(pickle.load(open(path0, "rb"))) >= data_limit or loss_flag):
         values = pickle.load(open(path0, "rb"))[:data_limit]
@@ -161,9 +164,11 @@ def simulate(sqlite_path, loss_flag, data_limit, use_pre=False):
     symptom_metric_list_dict = {k: [] for k in symptom_name_list}
     ill_metric_list = []
     healthy_metric_list = []
+    id_timestamp_list_dict = {}
     for i in range(len(values)):
         if i % int(len(values) / 10) == 0:
             print(i, "/", len(values), end=" ||| ")
+        timestamp = values[i][0]
         trial_id = values[i][1]
         tmp = values[i][5]
         result_dict = yaml.load(tmp, Loader=yaml.FullLoader) if type(values[i][5]) == str else tmp  #
@@ -172,6 +177,8 @@ def simulate(sqlite_path, loss_flag, data_limit, use_pre=False):
         id_result_dict_list_dict[trial_id].append(result_dict) \
             if trial_id in id_result_dict_list_dict else id_result_dict_list_dict.update({trial_id: [result_dict]})
         result_dict_list = id_result_dict_list_dict[trial_id]
+        id_timestamp_list_dict[trial_id].append(timestamp) \
+            if trial_id in id_timestamp_list_dict else id_timestamp_list_dict.update({trial_id: [timestamp]})
         step_idx = len(result_dict_list)
         raw_id_metric_list_dict[trial_id].append(result_dict["default"]) \
             if trial_id in raw_id_metric_list_dict else raw_id_metric_list_dict.update(
@@ -214,6 +221,7 @@ def simulate(sqlite_path, loss_flag, data_limit, use_pre=False):
     our_id_epoch_dict = {k: v for k, v in our_id_epoch_dict.items() if k not in del_id_list}
     not_ill_id_epoch_dict = {k: v for k, v in not_ill_id_epoch_dict.items() if k not in del_id_list}
     symptom_metric_list_dict = {k: v for k, v in symptom_metric_list_dict.items() if len(v) > 0}
+    id_timestamp_list_dict = {k: v for k, v in id_timestamp_list_dict.items() if k not in del_id_list}
 
     count_dict["total_trial"] = len(finished_id_set)
     pickle.dump(raw_metric_list, open(path1, "wb"))
@@ -227,9 +235,10 @@ def simulate(sqlite_path, loss_flag, data_limit, use_pre=False):
     pickle.dump(ill_metric_list, open(path9, "wb"))
     pickle.dump(healthy_metric_list, open(path10, "wb"))
     pickle.dump(id_result_dict_list_dict, open(path11, "wb"))
+    pickle.dump(id_timestamp_list_dict, open(path12, "wb"))
     return raw_metric_list, our_metric_list, count_dict, not_ill_metric_list, raw_id_metric_list_dict, \
            our_id_epoch_dict, not_ill_id_epoch_dict, symptom_metric_list_dict, ill_metric_list, healthy_metric_list, \
-           id_result_dict_list_dict
+           id_result_dict_list_dict, id_timestamp_list_dict
 
 
 def plot_metric(raw_metric_list, our_metric_list, not_ill_metric_list, scene_name, loss_flag, top_k):
@@ -289,6 +298,10 @@ def plot_pie(count_dict, overview_pie_name_list, symptom_pie_name_list, rule_pie
         plt.legend(loc="upper right", fontsize=fontsize, bbox_to_anchor=(1.4, 1.0))
         fig_path = os.path.join("figs", fig_dir_list[i], scene_name + ".png")
         # transform png to pdf
+        pdf_path = os.path.join("figs", fig_dir_list[i],"pdf", scene_name + ".pdf")
+        pdf = PdfPages(pdf_path)
+        pdf.savefig()
+        pdf.close()
         plt.savefig(fig_path)
         plt.show()
 
@@ -362,7 +375,7 @@ def plot_distribution(raw_metric_list, healthy_metric_list, not_ill_metric_list,
     loss_max = 3  ###
 
     fontsize = 30
-    plt.rcParams.update({'font.size': int(fontsize*2/3)})
+    plt.rcParams.update({'font.size': int(fontsize * 2 / 3)})
     fig_size_base = [8, 6]
     fig_size = tuple([i * 1.5 for i in fig_size_base])
     plt.figure(figsize=fig_size)
@@ -406,6 +419,10 @@ def plot_distribution(raw_metric_list, healthy_metric_list, not_ill_metric_list,
     plt.legend(fontsize=fontsize)
     plt.title(scene_name, fontsize=fontsize)
     fig_path = os.path.join("figs", "distribution", scene_name + ".png")
+    pdf_path = os.path.join("figs", "distribution", "pdf", scene_name + ".pdf")
+    pdf = PdfPages(pdf_path)
+    pdf.savefig()
+    pdf.close()
     plt.savefig(fig_path)
     plt.show()
 
@@ -415,14 +432,18 @@ def plot_distribution(raw_metric_list, healthy_metric_list, not_ill_metric_list,
         plt.hist(metric_list, bins=bin_num, alpha=0.5, label=symptom)
     plt.legend()
     fig_path = os.path.join("figs", "_distribution_rule", scene_name + ".png")
+    # pdf_path = os.path.join("figs", "_distribution_rule", "pdf", scene_name + ".pdf")
+    # pdf = PdfPages(pdf_path)
+    # pdf.savefig()
+    # pdf.close()
     plt.savefig(fig_path)
     plt.show()
 
 
-def plot_epoch_distribution(raw_metric_list, our_metric_list, raw_id_metric_list_dict, our_id_epoch_dict, scene_name,
-                            loss_flag):
+def plot_duration_distribution(raw_metric_list, our_metric_list, raw_id_metric_list_dict, our_id_epoch_dict,
+                               id_timestamp_list_dict, scene_name, loss_flag):
     fontsize = 30
-    plt.rcParams.update({'font.size': int(fontsize*2/3)})
+    plt.rcParams.update({'font.size': int(fontsize * 2 / 3)})
     fig_size_base = [8, 6]
     fig_size = tuple([i * 1.5 for i in fig_size_base])
 
@@ -431,32 +452,53 @@ def plot_epoch_distribution(raw_metric_list, our_metric_list, raw_id_metric_list
     bin_num = 5 if loss_flag else 10
     width = 0.4
     shift = width * 1.1
+    loss_max = 5
 
     lst = raw_metric_list + our_metric_list
-    val_max, val_min = max(lst), min(lst)
-    if "exchange" in scene_name:
-        val_max = 10
+    val_max, val_min = min(max(lst),loss_max), min(lst)
     plt.figure(figsize=fig_size)
+
     y_our = [[] for _ in range(bin_num)]
-    for k in our_id_epoch_dict.keys():
-        epoch = our_id_epoch_dict[k]
-        metric = raw_id_metric_list_dict[k][epoch]
+    y_raw = [[] for _ in range(bin_num)]
+    for trial_id, epoch in our_id_epoch_dict.items():
+        # (0, 'timestamp', 'integer', 0, None, 0)
+        start = id_timestamp_list_dict[trial_id][0]
+
+        metric = raw_id_metric_list_dict[trial_id][-1] ###
+        metric = min(metric, loss_max) if loss_flag else metric
         idx = int((metric - val_min) / (val_max - val_min) * bin_num)
         idx = min(max(idx, 0), bin_num - 1)
-        y_our[idx].append(epoch)
-    y_our = [np.mean(i) if len(i) > 0 else 0 for i in y_our]
-    y_raw = [20 if y_our[i] != 0 else 0 for i in range(bin_num)]
+
+        our_duration = (id_timestamp_list_dict[trial_id][epoch] - start) / 10**3
+        y_our[idx].append(our_duration)
+
+        metric = raw_id_metric_list_dict[trial_id][-1]
+        metric = min(metric, loss_max) if loss_flag else metric
+        idx = int((metric - val_min) / (val_max - val_min) * bin_num)
+        idx = min(max(idx, 0), bin_num - 1)
+
+        raw_duration = (id_timestamp_list_dict[trial_id][-1] - start) / 10**3
+        y_raw[idx].append(raw_duration)
+
+
+
+    y_our = [np.mean(y_our[i]) if len(y_our[i]) != 0 else 0 for i in range(bin_num)]
+    y_raw = [np.mean(y_raw[i]) if len(y_raw[i]) != 0 else 0 for i in range(bin_num)]
 
     x = np.arange(bin_num)
-    plt.bar(x, y_raw, label="original", width=width, color="b", alpha=0.5)
-    plt.bar(x + shift, y_our, label="our", width=width, color="r")
-    plt.xlabel("Validation Accuracy", fontsize=fontsize) if not loss_flag \
+    plt.bar(x, y_raw, label="Random", width=width, color="b", alpha=0.5)
+    plt.bar(x + shift, y_our, label="Random+Our", width=width, color="r")
+    plt.xlabel("Final Validation Accuracy", fontsize=fontsize) if not loss_flag \
         else plt.xlabel("Validation MSE Loss", fontsize=fontsize)
-    plt.ylabel("Average Training Epoch", fontsize=fontsize)
-    plt.xticks(x + shift/2, [i for i in np.linspace(val_min, val_max, bin_num).round(2)])
+    plt.ylabel("Average Training Duration (s)", fontsize=fontsize)
+    plt.xticks(x + shift / 2, [i for i in np.linspace(val_min, val_max, bin_num).round(2)])
     plt.legend(fontsize=fontsize)
     plt.title(scene_name, fontsize=fontsize)
     fig_path = os.path.join("figs", "epoch", scene_name + ".png")
+    pdf_path = os.path.join("figs", "epoch", "pdf", scene_name + ".pdf")
+    pdf = PdfPages(pdf_path)
+    pdf.savefig()
+    pdf.close()
     plt.savefig(fig_path)
     plt.show()
 
@@ -470,17 +512,17 @@ def _test(scene_idx, data_limit, top_k, use_pre):
 
     loss_flag = True if "96" in sqlite_path else False
     raw_metric_list, our_metric_list, count_dict, not_ill_metric_list, raw_id_metric_list_dict, our_id_epoch_dict, \
-    not_ill_id_epoch_dict, symptom_metric_list_dict, ill_metric_list, healthy_metric_list, id_result_dict_list_dict = \
-        simulate(sqlite_path, loss_flag, data_limit, use_pre)
+    not_ill_id_epoch_dict, symptom_metric_list_dict, ill_metric_list, healthy_metric_list, id_result_dict_list_dict,\
+    id_timestamp_list_dict = simulate(sqlite_path, loss_flag, data_limit, use_pre)
 
     # plot_metric(raw_metric_list, our_metric_list, not_ill_metric_list, scene_name, loss_flag, top_k)
     # plot_triangle(raw_id_metric_list_dict, our_id_epoch_dict, scene_name, loss_flag)
 
-    # plot_pie(count_dict, overview_pie_name_list, symptom_pie_name_list, rule_pie_name_list, scene_name)
+    plot_pie(count_dict, overview_pie_name_list, symptom_pie_name_list, rule_pie_name_list, scene_name)
     plot_distribution(raw_metric_list, healthy_metric_list, not_ill_metric_list, ill_metric_list,
                       symptom_metric_list_dict, scene_name, loss_flag)
-    # plot_epoch_distribution(raw_metric_list, our_metric_list, raw_id_metric_list_dict, our_id_epoch_dict, scene_name,
-    #                         loss_flag)
+    plot_duration_distribution(raw_metric_list, our_metric_list, raw_id_metric_list_dict, our_id_epoch_dict,
+                               id_timestamp_list_dict, scene_name,loss_flag)
     print(np.mean(list(our_id_epoch_dict.values())))
 
 
