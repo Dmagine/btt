@@ -1011,7 +1011,7 @@ def plot_phenomenon():
         plt.ylabel(y_label, fontsize=font_size)
         plt.legend(fontsize=font_size)
         plt.title("{}".format(scene_name), fontsize=font_size)
-        fig_path = os.path.join("figs", "feature", early_metric_name + ".png")
+        fig_path = os.path.join("figs", "early", early_metric_name + ".png")
         plt.savefig(fig_path)
         fig_path_list = fig_path.split("/")
         pdf_path = "/".join(["/".join(fig_path_list[:-1]), "pdf", fig_path_list[-1].replace(".png", ".pdf")])
