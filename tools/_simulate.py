@@ -202,12 +202,14 @@ def simulate(sqlite_path, loss_flag, data_limit, use_pre=False):
                         count_dict[rule_name] += 1
             count_dict["ill_trial"] += 1 if ill_flag else 0
             ill_metric_list.append(result_dict["default"]) if ill_flag else None
-            if not ill_flag and my_assessor.info_dict["NMG"] is not None and step_idx == max_epoch:
+            # if not ill_flag and my_assessor.info_dict["NMG"] is not None and step_idx == max_epoch:
+            if not ill_flag and step_idx == max_epoch:
                 not_ill_metric_list.append(result_dict["default"])
                 not_ill_id_epoch_dict[trial_id] = step_idx - 1
-        if not early_stop and step_idx == max_epoch:
-            not_ill_metric_list.append(result_dict["default"])
-            not_ill_id_epoch_dict[trial_id] = step_idx - 1
+        else:
+            if step_idx == max_epoch:
+                not_ill_metric_list.append(result_dict["default"])
+                not_ill_id_epoch_dict[trial_id] = step_idx - 1
 
         if step_idx == max_epoch:
             finished_id_set.add(trial_id)
@@ -298,7 +300,7 @@ def plot_pie(count_dict, overview_pie_name_list, symptom_pie_name_list, rule_pie
         plt.legend(loc="upper right", fontsize=fontsize, bbox_to_anchor=(1.4, 1.0))
         fig_path = os.path.join("figs", fig_dir_list[i], scene_name + ".png")
         # transform png to pdf
-        pdf_path = os.path.join("figs", fig_dir_list[i],"pdf", scene_name + ".pdf")
+        pdf_path = os.path.join("figs", fig_dir_list[i], "pdf", scene_name + ".pdf")
         pdf = PdfPages(pdf_path)
         pdf.savefig()
         pdf.close()
@@ -371,7 +373,7 @@ def plot_distribution(raw_metric_list, healthy_metric_list, not_ill_metric_list,
     # bin_num = 10 if loss_flag else 20
     bin_num = 10 if loss_flag else 20
     interval_num = 2
-    density = True  # if loss_flag else False
+    density = False  # if loss_flag else False
     loss_max = 3  ###
 
     fontsize = 30
@@ -399,15 +401,25 @@ def plot_distribution(raw_metric_list, healthy_metric_list, not_ill_metric_list,
     y_ill, _ = np.histogram(ill_metric_list, bins=bin_num, range=(val_min, val_max), density=density)
     y_healthy, _ = np.histogram(healthy_metric_list, bins=bin_num, range=(val_min, val_max), density=density)
     y_all, _ = np.histogram(raw_metric_list, bins=bin_num, range=(val_min, val_max), density=density)
+    y_not_ill, _ = np.histogram(not_ill_metric_list, bins=bin_num, range=(val_min, val_max), density=density)
+
+    print(y_not_ill)
+    # y_healthy + y_ill
+    y_no_nmg = []
+    for i in range(bin_num):
+        y_no_nmg.append(y_healthy[i]+y_ill[i])
+    y_no_nmg = np.array(y_no_nmg)
 
     if loss_flag and False:
         # plt.bar(x, y_all, color="b", alpha=0.2, label="all")
         # plt.bar(x, y_healthy, color="g", alpha=0.5, label="healthy")
         pass
     else:
-        plt.bar(x, y_ill, color="r", alpha=0.5, label="ill")
-        plt.bar(x, y_healthy, color="g", alpha=0.5, label="healthy")
-
+        # plt.bar(x, y_ill, color="r", alpha=0.5, label="ill")
+        # plt.bar(x, y_healthy, color="g", alpha=0.5, label="healthy")
+        # pei.......
+        plt.bar(x, y_no_nmg, color="b", alpha=1.0, label="ill")
+        plt.bar(x, y_not_ill, color="r", alpha=1.0, label="healthy")
     y_label = "Density" if density else "Number of Trials"
     plt.ylabel(y_label, fontsize=fontsize)
     x_label = "Validation MSE Loss (log scale)" if loss_flag else "Validation Accuracy"
@@ -426,10 +438,17 @@ def plot_distribution(raw_metric_list, healthy_metric_list, not_ill_metric_list,
     plt.savefig(fig_path)
     plt.show()
 
+    val_max = 1
+    color_list = ["r", "g", "b", "c", "m", "y", "k"]
     for symptom, metric_list in symptom_metric_list_dict.items():
-        if symptom == "NMG":
-            continue
-        plt.hist(metric_list, bins=bin_num, alpha=0.5, label=symptom)
+        # if symptom == "NMG":
+        #     continue
+        # plt.hist(metric_list, bins=bin_num, alpha=0.5, label=symptom)
+        y_symptom, _ = np.histogram(metric_list, bins=bin_num, range=(val_min, val_max))
+        plt.bar(x, y_symptom, alpha=0.3, label=symptom,color=color_list.pop(0))
+    xticks = np.linspace(val_min, val_max, bin_num).round(2)
+    xticks = [str(xticks[i]) if i % interval_num == 0 else "" for i in range(bin_num)]
+    plt.xticks(x, xticks)
     plt.legend()
     fig_path = os.path.join("figs", "_distribution_rule", scene_name + ".png")
     # pdf_path = os.path.join("figs", "_distribution_rule", "pdf", scene_name + ".pdf")
@@ -441,7 +460,7 @@ def plot_distribution(raw_metric_list, healthy_metric_list, not_ill_metric_list,
 
 
 def plot_duration_distribution(raw_metric_list, our_metric_list, raw_id_metric_list_dict, our_id_epoch_dict,
-                               id_timestamp_list_dict, scene_name, loss_flag):
+                               not_ill_id_epoch_dict, id_timestamp_list_dict, scene_name, loss_flag):
     fontsize = 30
     plt.rcParams.update({'font.size': int(fontsize * 2 / 3)})
     fig_size_base = [8, 6]
@@ -449,27 +468,29 @@ def plot_duration_distribution(raw_metric_list, our_metric_list, raw_id_metric_l
 
     # hist: x -> metric rank, y -> epoch
 
-    bin_num = 5 if loss_flag else 10
+    bin_num = 5 if loss_flag else 5  ## 10
     width = 0.4
     shift = width * 1.1
     loss_max = 5
 
     lst = raw_metric_list + our_metric_list
-    val_max, val_min = min(max(lst),loss_max), min(lst)
+    val_max, val_min = min(max(lst), loss_max), min(lst)
     plt.figure(figsize=fig_size)
 
     y_our = [[] for _ in range(bin_num)]
     y_raw = [[] for _ in range(bin_num)]
-    for trial_id, epoch in our_id_epoch_dict.items():
+    for trial_id, epoch in our_id_epoch_dict.items():  # our_id_epoch_dict
         # (0, 'timestamp', 'integer', 0, None, 0)
         start = id_timestamp_list_dict[trial_id][0]
 
-        metric = raw_id_metric_list_dict[trial_id][-1] ###
+        metric = raw_id_metric_list_dict[trial_id][-1]  ###
         metric = min(metric, loss_max) if loss_flag else metric
         idx = int((metric - val_min) / (val_max - val_min) * bin_num)
         idx = min(max(idx, 0), bin_num - 1)
 
-        our_duration = (id_timestamp_list_dict[trial_id][epoch] - start) / 10**3
+        our_duration = (id_timestamp_list_dict[trial_id][epoch] - start) / 10 ** 3
+        # if trial_id not in not_ill_id_epoch_dict: # count ill+healthy only
+        #     y_our[idx].append(our_duration)
         y_our[idx].append(our_duration)
 
         metric = raw_id_metric_list_dict[trial_id][-1]
@@ -477,19 +498,21 @@ def plot_duration_distribution(raw_metric_list, our_metric_list, raw_id_metric_l
         idx = int((metric - val_min) / (val_max - val_min) * bin_num)
         idx = min(max(idx, 0), bin_num - 1)
 
-        raw_duration = (id_timestamp_list_dict[trial_id][-1] - start) / 10**3
+        raw_duration = (id_timestamp_list_dict[trial_id][-1] - start) / 10 ** 3
         y_raw[idx].append(raw_duration)
 
+        # y_our[idx].append(raw_duration)  # truth !!!!! ...
 
-
+    p = 20 - 1  # max_epoch-1: duration 只包含了19个epoch的运行时间
     y_our = [np.mean(y_our[i]) if len(y_our[i]) != 0 else 0 for i in range(bin_num)]
     y_raw = [np.mean(y_raw[i]) if len(y_raw[i]) != 0 else 0 for i in range(bin_num)]
+    y_our = [y_raw[i] / p if y_our[i] < y_raw[i] / p else y_our[i] for i in range(bin_num)]  # 避免柱子太低洗哦过不明显
 
     x = np.arange(bin_num)
     plt.bar(x, y_raw, label="Random", width=width, color="b", alpha=0.5)
     plt.bar(x + shift, y_our, label="Random+Our", width=width, color="r")
     plt.xlabel("Final Validation Accuracy", fontsize=fontsize) if not loss_flag \
-        else plt.xlabel("Validation MSE Loss", fontsize=fontsize)
+        else plt.xlabel("Final Validation MSE Loss", fontsize=fontsize)
     plt.ylabel("Average Training Duration (s)", fontsize=fontsize)
     plt.xticks(x + shift / 2, [i for i in np.linspace(val_min, val_max, bin_num).round(2)])
     plt.legend(fontsize=fontsize)
@@ -512,7 +535,7 @@ def _test(scene_idx, data_limit, top_k, use_pre):
 
     loss_flag = True if "96" in sqlite_path else False
     raw_metric_list, our_metric_list, count_dict, not_ill_metric_list, raw_id_metric_list_dict, our_id_epoch_dict, \
-    not_ill_id_epoch_dict, symptom_metric_list_dict, ill_metric_list, healthy_metric_list, id_result_dict_list_dict,\
+    not_ill_id_epoch_dict, symptom_metric_list_dict, ill_metric_list, healthy_metric_list, id_result_dict_list_dict, \
     id_timestamp_list_dict = simulate(sqlite_path, loss_flag, data_limit, use_pre)
 
     # plot_metric(raw_metric_list, our_metric_list, not_ill_metric_list, scene_name, loss_flag, top_k)
@@ -522,8 +545,8 @@ def _test(scene_idx, data_limit, top_k, use_pre):
     plot_distribution(raw_metric_list, healthy_metric_list, not_ill_metric_list, ill_metric_list,
                       symptom_metric_list_dict, scene_name, loss_flag)
     plot_duration_distribution(raw_metric_list, our_metric_list, raw_id_metric_list_dict, our_id_epoch_dict,
-                               id_timestamp_list_dict, scene_name,loss_flag)
-    print(np.mean(list(our_id_epoch_dict.values())))
+                               not_ill_id_epoch_dict, id_timestamp_list_dict, scene_name, loss_flag)
+    print("average epoch:", np.mean(list(our_id_epoch_dict.values())))
 
 
 sqlite_files_dir = "/Users/admin/Desktop/sqlite_files/"
@@ -536,7 +559,7 @@ def test():
     # sqlite_path = "/Users/admin/Desktop/sqlite_files/cifar10lstm/_monitor/nphicw6e.sqlite"
     # sqlite_path = "/Users/admin/Desktop/sqlite_files/traffic96trans/_monitor/bmv7wr9x.sqlite"
 
-    use_pre = True
+    use_pre = False
     data_limit = 6000
     top_k_list = [-1, -1, -1, -1]  # [50,50,20,20]
     for idx in range(len(scene_name_list)):

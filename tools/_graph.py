@@ -1058,24 +1058,26 @@ def plot_time():
     # label_lst = ["random", "random_lce", "gp", "gp_lce", "tpe", "tpe_lce", "smac", "smac_lce"]  # 1 -> n
     # label_lst = ["random", "random_msr", "gp", "gp_msr", "tpe", "tpe_msr","smac","smac_msr"]  # 1 -> n
 
-    scene_name_list = ["cifar10cnn", "cifar10lstm", "exchange96auto", "traffic96trans"]  # ["cifar10cnn"]
+    scene_name_list = ["cifar10cnn", "cifar10lstm", "exchange96auto", "traffic96trans"]
     hpo_name_lst = ["random", "gp", "tpe", "smac"]
     hpo_prefix = ["", "lce_", "msr_", "our_"]
     color_dict = {"random": "b", "gp": "g", "tpe": "y", "smac": "c"}
     line_style_dict = {"": 'dotted', "lce": 'dashdot', "msr": 'dashdot', "our": "solid"}
-    top_k_list = [1, 3, 5, 10]
+    top_k_list = [1, 3] # [1, 3, 5, 10]
     seg_num_list1 = [120, 120, 30, 30]  # acc
-    seg_num_list2 = [30, 30, 12, 12]  # loss
+    seg_num_list2 = [30, 30, 12, 6]  # loss
+
+    # scene_name_list = ["traffic96trans","exchange96auto"]
 
     hpo_name_lst = [prefix + name for prefix in hpo_prefix for name in hpo_name_lst]
 
-    time_rate = 6 / 6  # 6
-    start_seg = 0  # seg_num // 6
+    time_rate = 4 / 6  # 6
+    start_seg_rate = 0 / 6  # 1/2/6
 
     fontsize = 30
 
     def set_fig():
-        plt.rcParams.update({'font.size': 16})  ###
+        plt.rcParams.update({'font.size': int(fontsize*2/3)})  ###
         fig_size_base = [8, 6]
         fig_size = tuple([i * 2 for i in fig_size_base])
         plt.figure(figsize=fig_size)
@@ -1116,21 +1118,22 @@ def plot_time():
             # delta_list = (list((plot_y[:-1] - plot_y[1:]) >= 0) if loss_flag else list((plot_y[1:] - plot_y[:-1]) <= 0))
             # delta_list.reverse()
             # tmp_start_seg = len(plot_y) - delta_list.index(True) - 1
-            tmp_start_seg = start_seg
+            tmp_start_seg = int(seg_num * start_seg_rate)
             plot_y = plot_y[tmp_start_seg:]
-            plot_x = np.linspace(tmp_start_seg / seg_num * 6, 6, seg_num - tmp_start_seg)
+            max_time = 6 * time_rate
+            plot_x = np.linspace(start_seg_rate * max_time, max_time, seg_num - tmp_start_seg)
 
             line_style = line_style_dict[""] if "_" not in hpo_name else None
             line_style = line_style_dict[hpo_name.split("_")[-2]] if line_style is None else line_style
             color = color_dict[hpo_name.split("_")[-1]]
-            if "our" in hpo_name:
+            if "smac_our" in hpo_name: ####
                 plt.plot(plot_x, plot_y, label=hpo_name, linestyle=line_style, color=color, linewidth=3)
             else:
                 plt.plot(plot_x, plot_y, label=hpo_name, linestyle=line_style, color=color, alpha=0.8)
             plt.title(scene_name + " (top{})".format(top_k), fontsize=fontsize)
             plt.xlabel("Time (hour)", fontsize=fontsize)
-            if loss_flag:  # log scale
-                plt.ylabel("Validation MSE Loss (log scale)", fontsize=fontsize)
+            if loss_flag:  # log scale ?
+                plt.ylabel("Validation MSE Loss", fontsize=fontsize)
                 plt.yscale("log")
             else:
                 plt.ylabel("Validation Accuracy", fontsize=fontsize)
@@ -1148,6 +1151,18 @@ def plot_time():
         loss_flag = True if "96" in scene_name else False
         for top_k, seg_num1,seg_num2 in zip(top_k_list, seg_num_list1,seg_num_list2):
             _plot_time(scene_name, top_k, seg_num2 if loss_flag else seg_num1)
+
+def plot_tmp():
+    fontsize = 20
+    pkl_path = "/Users/admin/Desktop/sqlite_files/cifar10lstm/random/9412y0ie_metric_list.pkl"
+    metric_list = pickle.load(open(pkl_path, "rb"))
+    plot_y,_ = np.histogram(metric_list, bins=5)
+    plot_y = plot_y / np.sum(plot_y)
+    plt.bar(np.arange(len(plot_y)), plot_y)
+    plt.bar(np.arange(len(plot_y))[-1], plot_y[-1], color="red")
+    plt.ylabel("Number of Trials (ratio)", fontsize=fontsize)
+    plt.xlabel("Accuracy", fontsize=fontsize)
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -1167,3 +1182,4 @@ if __name__ == '__main__':
 
     plot_time()
     # plot_phenomenon()
+    # plot_tmp()
