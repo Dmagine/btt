@@ -11,38 +11,30 @@
     # enable_cond: (global) global_cmp_num > min_cmp_num && global_loss_percent < 90%
 
 
-
-    1 前期，只比较：
-
     # EG: (step:half1)
     # eg_rule0: any(has_nan or has_inf)
     # eg_rule1: max(grad_abs_ave) > p_eg1 ||| (p_eg1:10)
-    # eg_rule2: median(adjacent_quotient) > p_eg2 ||| (p_eg2:100)
-    # eg_rule3: enough(cmp_num) && train_loss >= step_median_train_loss * p_eg3 ||| (p_eg3:5) 基于比较，已取消
-grad_abs_ave: 网络层梯度的绝对值的均值
-adjacent_quotient: 相邻权网络层的grad_abs_ave的商（靠近数据侧的除以靠近loss侧的）
-step_median_train_loss: 历史trial中的当前epoch时的trainloss的中位数
+    # eg_rule2: median(adjacent_quotient) > p_eg2 ||| (p_eg2:100) 改为median
+    # eg_rule3: train_loss >= global_median_train_loss * p_eg3 ||| (p_eg3:10) 稍微改小
 
     # VG: (step:half1)
     # protect_top_train_loss: True
     # vg_rule1: median(grad_abs_ave) < p_vg1 ||| (p_vg1:1.e-7) 。。。魔法数且作用小，已去掉
-    # vg_rule2: median(adjacent_quotient) < p_vg2 ||| (p_vg3:0.01) 逻辑修复，验证ok
-    # vg_rule3: mean(abs_delta_train_loss) < train_loss[0] * p_vg3 ||| (p_vg3:0.001) 逻辑已修改！！！！！！!!!!!!!!!!!
-    # vg_rule4: enough(cmp_num) && percent(global_median_grad_abs_ave) < p_vg4 ||| (p_vg4:0.1) 基于比较已取消
-abs_delta_train_loss: 相邻epoch的trainloss的差值的绝对值
-protect_top_train_loss: 在当前epoch的trainloss属于顶尖时不会被任何规则提前停止
+    # vg_rule2: median(adjacent_quotient) < p_vg2 ||| (p_vg3:0.001) 逻辑修复，验证ok
+    # vg_rule3: mean(abs(delta_train_loss)) < train_loss[0] * p_vg3 ||| (p_vg3:0.01) 逻辑已修改！！！！！！!!!!!!!!!!!
+    # vg_rule4: enough(cmp_num) && percent(global_median_grad_abs_ave) < p_vg4 ||| (p_vg4:0.1) 新加入相对，验证ok!困难......
 
     # DR: (step:all)
     # protect_top_train_loss: True
     # dr_rule1: median(rate0) > p_dr1 ||| (p_dr1:0.1) 已经改any为median且调小了p_dr1
     # dr_rule2: weighted_mean(rate0) > p_dr2 ||| (p_dr2:0.5) 。。。同质，已经取消
-    # dr_rule3: enough(cmp_num) && percent(global_median_rate0) > p_dr3 ||| (p_dr3:0.9) 基于相对比较，已取消
+    # dr_rule3: enough(cmp_num) && percent(global_median_rate0) > p_dr3 ||| (p_dr3:0.9) 新加入相对，验证ok
 
     # SC: (step:half1) ##### 改half1为half2???         # 属于训练强度太弱 ！！！！！！！！！！######### 整体跟EGVG排在一起？
     # protect_top_train_loss: True
     # sc_rule1: (acc[0]-acc[-1]) / acc[0] > p_sc1 ||| (p_sc1:0) 。。。同质acc混，已经取消
     # sc_rule2: (train_loss[-1]-train_loss[0]) / train_loss[0] > p_sc2 ||| (p_sc2:0) 已经改逻辑，只检测比初始还差的
-    # sc_rule3: enough(cmp_num) && percentile(global_train_loss) > p_sc3 * 100 ||| (p_sc3:0.9)  基于相对比较，已经取消
+    # sc_rule3: enough(cmp_num) && percentile(global_train_loss) > p_sc3 * 100 ||| (p_sc3:0.9) ！！！！！保留，也算相对比较，力度轻即可(0.9) ->
 
     # HO(heavy oscillation): (step:half2) (wd:0.25)
     # ho_rule1: std(acc[-wd:]) / mean(acc[-wd:]) > p_ho1 ||| (p_ho1:0) 。。。同质acc混，考虑取消

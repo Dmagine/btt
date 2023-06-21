@@ -199,7 +199,8 @@ class ATDDMonitor:
         return d
 
     def get_final_dict(self):
-        tmp = self.epoch_idx + 1
+        # tmp = self.epoch_idx + 1
+        tmp = self.epoch_idx
         if self.quick_calc:
             self.epoch_module_weight_grad_abs_avg_2da = self.epoch_module_weight_grad_abs_avg_2da[:tmp, :]
             self.epoch_module_weight_grad_rate0_2da = self.epoch_module_weight_grad_rate0_2da[:tmp, :]

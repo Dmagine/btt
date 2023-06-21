@@ -30,18 +30,29 @@ assessor:
       p_vg2: 0.001
       p_vg3: 0.01 # 0.001
       p_vg4: -1 ### 相对 ...
-      p_dr1: 0.1
+      p_dr1: 0.01 # 0.1
       p_dr2: -1
       p_dr3: -1 ### 相对
       p_sc1: -1
       p_sc2: 0.01 ###0.1
-      p_sc3: -1 ### 相对 ...
+      p_sc3: 0.9 ### 相对 ...
       p_ho1: -1
       p_ho2: 0.01 #
       p_nmg1: -1
       p_nmg2: 0
       wd_ho: 0.25
       wd_nmg: 0.25
+#inspector:
+#  classArgs:
+#    basic: ""
+#evaluator:
+#  classArgs:
+#    basic: ""
+#viewer:
+#  classArgs:
+#    basic: ""
+
+
 
 
 

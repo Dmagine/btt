@@ -1,0 +1,294 @@
+import random
+import sys
+
+import numpy as np
+import torch
+import torch.optim as optim
+from torch import nn
+from torch.optim.lr_scheduler import StepLR
+from torch.utils.data import DataLoader
+from torchvision import datasets, transforms
+
+sys.path.append("../register_package")
+from atdd_manager import ATDDManager
+
+# log_dir = os.path.join(os.environ["NNI_OUTPUT_DIR"], 'tensorboard')
+# writer = SummaryWriter(log_dir)
+
+# resource limitaion
+device = "cuda" if torch.cuda.is_available() else "cpu"
+batch_quota = np.inf
+epoch_quota = np.inf
+print(f"Using {device} device")
+
+params = {
+    "conv1_k_num": 6,
+    "pool1_size": 3,
+    "conv2_k_num": 17,
+    "pool2_size": 2,
+    "full_num": 84,
+    "conv_k_size": 4,
+    "lr": 0.1,
+    "weight_decay": 0.01,
+    "drop_rate": 0.5,
+    #
+    "batch_norm": 1,
+    "drop": 1,
+    "batch_size": 300,
+    "data_norm": 1,
+    "gamma": 0.7,
+    "step_size": 1,
+    "grad_clip": 1,
+    "clip_thresh": 10,
+    "act": 0,
+    "opt": 0,
+    "pool": 0,
+    # bn / batch size / transform / gamma / step size XXX / grad clip / opt / pool / momentum XXX
+}
+
+seed = 529
+manager = ATDDManager(seed=seed)
+
+
+def clip_gradient(opt, clip_thresh=params["clip_thresh"]):
+    for group in opt.param_groups:
+        for param in group["params"]:
+            if param.grad is not None:
+                param.grad.data.clamp_(-clip_thresh, clip_thresh)
+
+
+def choose_act():
+    act_func = params["act"]
+    if act_func == 0:
+        return nn.ReLU()
+    elif act_func == 1:
+        return nn.Tanh()
+    elif act_func == 2:
+        return nn.Sigmoid()
+    elif act_func == 3:
+        return nn.ELU()
+    elif act_func == 4:
+        return nn.LeakyReLU()
+
+
+def choose_opt():
+    opt_func_name = params["opt"]
+    if opt_func_name == 0:
+        return optim.Adam
+    elif opt_func_name == 1:
+        return optim.SGD
+    elif opt_func_name == 2:
+        return optim.Adadelta
+    elif opt_func_name == 3:
+        return optim.Adagrad
+    elif opt_func_name == 4:
+        return optim.RMSprop
+
+
+def choose_pool():
+    pool_name = params["pool"]
+    if pool_name == 0:
+        return nn.MaxPool2d
+    elif pool_name == 1:
+        return nn.AvgPool2d
+
+
+def set_seed():
+    print("seed: ", seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+
+
+class LeNet5(nn.Module):
+    def __init__(self):
+        super(LeNet5, self).__init__()
+        # 1 input image channel (black & white), 6 output channels, 5x5 square convolution
+        # kernel
+        self.conv1 = nn.Conv2d(1, params["conv1_k_num"], params["conv_k_size"])
+        self.conv2 = nn.Conv2d(params["conv1_k_num"], params["conv2_k_num"], params["conv_k_size"])
+        # an affine operation: y = Wx + b
+        self.feature_num = self.num_flat_features_()
+        self.fc1 = nn.Linear(self.feature_num, params["full_num"])  # 5*5 from image dimension
+        self.fc2 = nn.Linear(params["full_num"], params["full_num"])
+        self.fc3 = nn.Linear(params["full_num"], 10)
+        self.drop = nn.Dropout(params["drop_rate"])
+        self.bn1 = nn.BatchNorm2d(params["conv1_k_num"])
+        self.bn2 = nn.BatchNorm2d(params["conv2_k_num"])
+        self.act = choose_act()
+        self.pool1 = choose_pool()(params["pool1_size"], stride=2)
+        self.pool2 = choose_pool()(params["pool2_size"], stride=2)
+
+    def forward(self, x):
+        x = self.pool1(self.act(self.conv1(x)))
+        x = self.bn1(x) if params["batch_norm"] == 1 else x
+        x = self.pool2(self.act(self.conv2(x)))
+        x = self.bn2(x) if params["batch_norm"] == 1 else x
+        x = x.view(-1, self.feature_num)
+        x = self.act(self.fc1(x))
+        x = self.act(self.fc2(x))
+        x = self.drop(x) if params["drop"] == 1 else x
+        x = self.fc3(x)
+        return x
+
+    def num_flat_features_(self):
+        r = 28
+        r = r - params["conv_k_size"] + 1
+        r = (r - params["pool1_size"]) // 2 + 1
+        r = r - params["conv_k_size"] + 1
+        r = (r - params["pool2_size"]) // 2 + 1
+        return r * r * params["conv2_k_num"]
+
+
+def train(dataloader, model, loss_fn, optimizer):
+    model.train()
+    correct = 0
+    loss_accumulate = 0
+    for batch, (X, y) in enumerate(dataloader):
+        X, y = X.to(device), y.to(device)
+        pred = model(X)
+        loss = loss_fn(pred, y)
+        loss_accumulate += float(loss.item())  # batch average
+        optimizer.zero_grad()
+        correct += (pred.argmax(1) == y).type(torch.float).sum().item()  # batch sum
+        loss.backward()
+        if params["grad_clip"] == 1:
+            clip_gradient(optimizer)
+        #################################################
+        # metric_name, rule_params, block
+        manager.record_with_rule("module_metric_2da", ("in", model), True)
+
+        optimizer.step()
+    acc = correct / len(dataloader)
+    loss_ave = loss_accumulate / len(dataloader.dataset)
+    return acc, loss_ave
+
+
+def standard_test(dataloader, model, loss_fn):
+    model.eval()
+    loss, correct = 0, 0
+    with torch.no_grad():
+        for X, y in dataloader:
+            X, y = X.to(device), y.to(device)
+            pred = model(X)
+            loss += loss_fn(pred, y).item()
+            correct += (pred.argmax(1) == y).type(torch.float).sum().item()
+    loss /= len(dataloader)
+    acc = correct / len(dataloader.dataset)
+    return loss, acc
+
+
+def test(dataloader, model, loss_fn):
+    loss, acc = standard_test(dataloader, model, loss_fn)
+    return acc, loss
+
+
+def save_checkpoint(model, checkpoint_path):
+    torch.save(model.state_dict(), checkpoint_path)
+
+
+def load_checkpoint(checkpoint_path):
+    model_state_dict = torch.load(checkpoint_path)
+    return model_state_dict
+
+
+def main():
+    print("experiment_id: ", manager.get_experiment_id())
+    print("trial_id: ", manager.get_trial_id())
+    optimized_params = manager.get_trial_parameters()
+    params.update(optimized_params)
+    print("params: ", params)
+
+    train_kwargs = {'batch_size': params["batch_size"]}
+    test_kwargs = {'batch_size': params["batch_size"]}
+    global device
+    if device == "cuda":
+        cuda_kwargs = {'num_workers': 1,
+                       'pin_memory': True,
+                       'shuffle': True}
+        train_kwargs.update(cuda_kwargs)
+        test_kwargs.update(cuda_kwargs)
+
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,))
+    ]) if params["data_norm"] == 1 else transforms.Compose([transforms.ToTensor()])
+    train_data = datasets.MNIST('../../../data', train=True, download=True, transform=transform)
+    test_data = datasets.MNIST('../../../data', train=False, transform=transform)
+
+    train_data, valid_data = torch.utils.data.random_split(train_data, [50000, 10000])
+    train_dataloader = torch.utils.data.DataLoader(train_data, **train_kwargs)
+    test_dataloader = torch.utils.data.DataLoader(test_data, **test_kwargs)
+    valid_dataloader = torch.utils.data.DataLoader(valid_data, **test_kwargs)
+
+    model = LeNet5().to(device)
+
+    optimizer = choose_opt()(model.parameters(), lr=params["lr"], weight_decay=params["weight_decay"])
+    scheduler = StepLR(optimizer, step_size=params["step_size"], gamma=params["gamma"])
+    loss_fn = nn.CrossEntropyLoss()
+    global max_nb_epoch, max_nb_batch
+    max_nb_epoch = 15
+    max_nb_batch = len(train_dataloader)
+    ######################################################
+    # manager.init_basic(model, train_dataloader)
+    # has_nan_inf module_name_list module_nele_list module_metric_2da module_name_flow_matrix relu_pre_module_name_list
+    manager.record_with_rule("module_name_list", d={"model": model}, block=True)
+    manager.record_with_rule("module_nele_list", d={"model": model}, block=True)
+    manager.record_with_rule("module_value_metric_2da", d={"mode": "before", "statistics": "all"}, block=True)
+    manager.record_with_rule("module_gradient_metric_2da", d={"mode": "before", "statistics": "all"}, block=True)
+    manager.record_with_rule("module_features_metric_2da", d={"mode": "before", "statistics": "all"}, block=True)
+    for t in range(max_nb_epoch):
+        print(f"Epoch {t + 1}\n-------------------------------")
+
+        ######################################################
+        # resource parameters -> device, batch_quota, epoch_quota
+        global device, batch_quota, epoch_quota
+        d = {"device": device, "batch_quota": batch_quota, "epoch_quota": epoch_quota}
+        d = manager.update_resource_params(d)
+        device, batch_quota, epoch_quota = d["device"], d["batch_quota"], d["epoch_quota"]
+
+        train_acc, train_loss = train(train_dataloader, model, loss_fn, optimizer)
+
+        ######################################################
+        # rule_name, kwargs, block
+        manager.record_with_rule("module_value_metric_2da", d={"mode": "after"}, block=True)
+        manager.record_with_rule("module_gradient_metric_2da", d={"mode": "after"}, block=True)
+        manager.record_with_rule("module_features_metric_2da", d={"mode": "after"}, block=True)
+
+        val_acc, val_loss = test(valid_dataloader, model, loss_fn)
+
+        ######################################################
+        # metric_name, metric_value
+        d = {"train_acc": train_acc, "train_loss": train_loss, "valid_acc": val_acc, "valid_loss": val_loss}
+        manager.record_periodically(d, multiple=True)
+
+        ######################################################
+        # report_to_assessor
+        manager.report_to_assessor("all")
+
+        scheduler.step()
+
+    test_acc, test_loss = test(test_dataloader, model, loss_fn)
+
+    ######################################################
+    # metric_name, metric_value
+    d = {"test_acc": test_acc, "test_loss": test_loss}
+    manager.record_once(d, multiple=True)
+
+    ######################################################
+    # report_to_tuner
+    keys = ["train_acc", "train_loss", "valid_acc", "valid_loss", "test_acc"]
+    manager.report_to_tuner(keys)
+
+    ######################################################
+    # metric_name
+    metric_value = manager.get_metric("module_metric_2da")
+    print(len(metric_value), metric_value[0].shape)
+    return
+
+
+if __name__ == '__main__':
+    set_seed()
+    main()

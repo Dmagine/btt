@@ -153,6 +153,7 @@ class MyAssessor:
         for symptom_name in self.symptom_name_list:
             if self.info_dict[symptom_name] is not None:  ###
                 early_stop = True
+        self.info_dict["early_stop"] = early_stop
         ###########
         self.record_global_metric()
         return early_stop
@@ -428,17 +429,19 @@ class MyAssessor:
             self.info_dict["SC"].append("sc_rule2")
 
     def sc_rule3(self):
-        if not self.if_in_stage("half2"):         ########
+        if not self.if_in_stage("all"):         ########
             return
-        if self.epoch_idx not in [10,15]:
+        if self.epoch_idx not in [15]:
             return
         # if self.epoch_idx not in self.half1_cmp_step_list:
         #     return
         _train_loss_list = self.epoch_train_loss_list_dict[self.epoch_idx]
         if len(_train_loss_list) < self.min_cmp_num:
             return
-        train_loss = np.array(self.result_dict["train_loss_list"])[-1]
+        window_size = 5
+        train_loss = np.min(self.result_dict["train_loss_list"][-window_size:])
         if train_loss > np.percentile(_train_loss_list, self.dp.p_sc3 * 100):
+            print(train_loss,np.percentile(_train_loss_list, self.dp.p_sc3 * 100))
             self.info_dict["SC"].append("sc_rule3")
 
     def diagnose_ho(self):

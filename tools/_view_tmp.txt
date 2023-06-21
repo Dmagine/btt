@@ -1,4 +1,0 @@
-
-log_2023-04-10--23-11-11_atdd_model_mnistlenet_raw_random_idx_0.txt
-log_2023-04-11--00-16-17_atdd_model_mnistlenet_raw_random_idx_1.txt
-log_2023-04-11--01-21-24_atdd_model_mnistlenet_raw_random_idx_2.txt
