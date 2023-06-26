@@ -1,0 +1,23 @@
+experiment_name: "cifar10cnn_raw_random"
+searchSpaceFile: search_space_cifar10cnn.json
+
+
+trial_command: python3 atdd_model_cifar10cnn.py
+trial_code_directory: .
+
+trial_concurrency: 8
+maxExperimentDuration: 6h ####
+training_service:
+  platform: local
+  useActiveGpu: false
+trialGpuNumber: 1
+
+
+tuner:
+  name: random
+
+
+
+
+
+

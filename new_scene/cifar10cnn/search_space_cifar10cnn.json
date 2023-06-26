@@ -1,0 +1,102 @@
+{
+  "conv1_k_num": {
+    "_type": "randint",
+    "_value": [
+      8,
+      32
+    ]
+  },
+  "conv2_k_num": {
+    "_type": "randint",
+    "_value": [
+      32,
+      64
+    ]
+  },
+  "conv3_k_num": {
+    "_type": "randint",
+    "_value": [
+      64,
+      128
+    ]
+  },
+  "conv4_k_num": {
+    "_type": "randint",
+    "_value": [
+      64,
+      128
+    ]
+  },
+  "conv_k_size": {
+    "_type": "choice",
+    "_value": [
+      2,
+      3
+    ]
+  },
+  "mlp_f_num": {
+    "_type": "randint",
+    "_value": [
+      10,
+      1000
+    ]
+  },
+  "lr": {
+    "_type": "loguniform",
+    "_value": [
+      0.0001,
+      0.4
+    ]
+  },
+  "weight_decay": {
+    "_type": "loguniform",
+    "_value": [
+      0.00001,
+      0.001
+    ]
+  },
+  "act": {
+    "_type": "choice",
+    "_value": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "opt": {
+    "_type": "choice",
+    "_value": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "batch_size": {
+    "_type": "choice",
+    "_value": [
+      45,
+      90,
+      180,
+      360,
+      720
+    ]
+  },
+  "batch_norm": {
+    "_type": "choice",
+    "_value": [
+      0,
+      1
+    ]
+  },
+  "drop_rate": {
+    "_type": "uniform",
+    "_value": [
+      0,
+      0.9
+    ]
+  }
+}

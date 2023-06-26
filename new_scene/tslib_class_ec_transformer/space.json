@@ -1,0 +1,41 @@
+{
+  "e_layers": {
+    "_type": "choice",
+    "_value": [
+      1,
+      2,
+      3
+    ]
+  },
+  "d_model": {
+    "_type": "choice",
+    "_value": [
+      64,
+      128,
+      256,
+    ]
+  },
+  "d_ff": {
+    "_type": "randint",
+    "_value": [
+      128,
+      256,
+      512
+    ]
+  },
+  "learning_rate": {
+    "_type": "loguniform",
+    "_value": [
+      0.0001,
+      0.01
+    ]
+  },
+  "batch_size": {
+    "_type": "choice",
+    "_value": [
+      8,
+      16,
+      32
+    ]
+  }
+}

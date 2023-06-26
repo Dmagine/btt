@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 sys.path.append("../register_package")
-from atdd_manager import ATDDManager
+from btt_manager import BttManager
 
 # log_dir = os.path.join(os.environ["NNI_OUTPUT_DIR"], 'tensorboard')
 # writer = SummaryWriter(log_dir)
@@ -47,7 +47,7 @@ params = {
 }
 
 seed = 529
-manager = ATDDManager(seed=seed)
+manager = BttManager(seed=seed)
 
 
 def clip_gradient(opt, clip_thresh=params["clip_thresh"]):
@@ -144,39 +144,47 @@ class LeNet5(nn.Module):
 
 def train(dataloader, model, loss_fn, optimizer):
     model.train()
-    correct = 0
+    acc_accumulate = 0
     loss_accumulate = 0
-    for batch, (X, y) in enumerate(dataloader):
+    nb_samples = 0
+    for batch_idx, (X, y) in enumerate(dataloader):
+        if batch_idx + 1 >= batch_quota:
+            break
+        nb_samples += X.shape[0]
         X, y = X.to(device), y.to(device)
         pred = model(X)
         loss = loss_fn(pred, y)
-        loss_accumulate += float(loss.item())  # batch average
+        loss_accumulate += float(loss.item()) * X.shape[0]
         optimizer.zero_grad()
-        correct += (pred.argmax(1) == y).type(torch.float).sum().item()  # batch sum
+        # acc_accumulate += (pred.argmax(1) == y).type(torch.float).sum().item()  # batch sum
+        acc_accumulate += torch.Tensor(pred.argmax(1) == y).sum().item()  # batch sum
         loss.backward()
         if params["grad_clip"] == 1:
             clip_gradient(optimizer)
+
         #################################################
-        # metric_name, rule_params, block
-        manager.record_with_rule("module_metric_2da", ("in", model), True)
+        kwargs = {"mode": "in", "model": model}
+        d = {"module_value_metric_2da": kwargs, "module_gradient_metric_2da": kwargs,
+             "module_features_metric_2da": kwargs}
+        manager.record_metric(d)
 
         optimizer.step()
-    acc = correct / len(dataloader)
-    loss_ave = loss_accumulate / len(dataloader.dataset)
-    return acc, loss_ave
+    acc = acc_accumulate / nb_samples
+    loss = loss_accumulate / nb_samples
+    return acc, loss
 
 
 def standard_test(dataloader, model, loss_fn):
     model.eval()
-    loss, correct = 0, 0
+    loss, acc = 0, 0
     with torch.no_grad():
         for X, y in dataloader:
             X, y = X.to(device), y.to(device)
             pred = model(X)
-            loss += loss_fn(pred, y).item()
-            correct += (pred.argmax(1) == y).type(torch.float).sum().item()
+            loss += loss_fn(pred, y).item()  # batch ave
+            acc += (pred.argmax(1) == y).type(torch.float).sum().item()  # batch sum
     loss /= len(dataloader)
-    acc = correct / len(dataloader.dataset)
+    acc = acc / len(dataloader.dataset)
     return loss, acc
 
 
@@ -231,16 +239,19 @@ def main():
     global max_nb_epoch, max_nb_batch
     max_nb_epoch = 15
     max_nb_batch = len(train_dataloader)
+
     ######################################################
-    # manager.init_basic(model, train_dataloader)
     # has_nan_inf module_name_list module_nele_list module_metric_2da module_name_flow_matrix relu_pre_module_name_list
-    manager.record_with_rule("module_name_list", d={"model": model}, block=True)
-    manager.record_with_rule("module_nele_list", d={"model": model}, block=True)
-    manager.record_with_rule("module_value_metric_2da", d={"mode": "before", "statistics": "all"}, block=True)
-    manager.record_with_rule("module_gradient_metric_2da", d={"mode": "before", "statistics": "all"}, block=True)
-    manager.record_with_rule("module_features_metric_2da", d={"mode": "before", "statistics": "all"}, block=True)
-    for t in range(max_nb_epoch):
-        print(f"Epoch {t + 1}\n-------------------------------")
+    kwargs = {"model": model}
+    d = {"module_name_list": kwargs, "module_nele_list": kwargs}
+    manager.record_metric(d)
+    kwargs = {"mode": "before", "statistics": "all"}
+    d = {"module_value_metric_2da": kwargs, "module_gradient_metric_2da": kwargs,
+         "module_features_metric_2da": kwargs}
+    manager.record_metric(d)
+
+    for epoch_idx in range(max_nb_epoch):
+        print(f"Epoch {epoch_idx + 1}\n-------------------------------")
 
         ######################################################
         # resource parameters -> device, batch_quota, epoch_quota
@@ -253,20 +264,24 @@ def main():
 
         ######################################################
         # rule_name, kwargs, block
-        manager.record_with_rule("module_value_metric_2da", d={"mode": "after"}, block=True)
-        manager.record_with_rule("module_gradient_metric_2da", d={"mode": "after"}, block=True)
-        manager.record_with_rule("module_features_metric_2da", d={"mode": "after"}, block=True)
+        kwargs = {"mode": "after", "model": model}
+        d = {"module_value_metric_2da": kwargs, "module_gradient_metric_2da": kwargs,
+             "module_features_metric_2da": kwargs}
+        manager.record_metric(d)
 
         val_acc, val_loss = test(valid_dataloader, model, loss_fn)
 
         ######################################################
         # metric_name, metric_value
         d = {"train_acc": train_acc, "train_loss": train_loss, "valid_acc": val_acc, "valid_loss": val_loss}
-        manager.record_periodically(d, multiple=True)
+        manager.record_metric(d)
 
         ######################################################
-        # report_to_assessor
-        manager.report_to_assessor("all")
+        manager.intermediate_report("all")
+
+        ######################################################
+        if epoch_idx + 1 >= epoch_quota:
+            break
 
         scheduler.step()
 
@@ -275,16 +290,14 @@ def main():
     ######################################################
     # metric_name, metric_value
     d = {"test_acc": test_acc, "test_loss": test_loss}
-    manager.record_once(d, multiple=True)
+    manager.record_metric(d)
 
     ######################################################
-    # report_to_tuner
     keys = ["train_acc", "train_loss", "valid_acc", "valid_loss", "test_acc"]
-    manager.report_to_tuner(keys)
+    manager.final_report(keys)
 
     ######################################################
-    # metric_name
-    metric_value = manager.get_metric("module_metric_2da")
+    metric_value = manager.get_metric(["module_metric_2da"])[0].value
     print(len(metric_value), metric_value[0].shape)
     return
 

@@ -1,3 +1,4 @@
+import os
 import queue
 import threading
 import time
@@ -55,3 +56,4 @@ if __name__ == '__main__':
     for i in range(10):
         manager.A()
     manager.B()
+    os.system("sleep 5")

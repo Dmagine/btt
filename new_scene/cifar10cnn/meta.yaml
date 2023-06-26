@@ -1,0 +1,4 @@
+algoType: advisor
+builtinName: _BOHB
+className: nni.algorithms.hpo.bohb_advisor.BOHB
+classArgsValidator: nni.algorithms.hpo.bohb_advisor.BOHBClassArgsValidator

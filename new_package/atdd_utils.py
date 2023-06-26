@@ -1,11 +1,8 @@
-import os
 import random
 from collections import namedtuple
-from enum import Enum
 
 import numpy as np
 import torch
-import yaml
 
 diagnose_params = namedtuple("diagnose_params", {
     "p_eg1", "p_eg2", "p_eg3",

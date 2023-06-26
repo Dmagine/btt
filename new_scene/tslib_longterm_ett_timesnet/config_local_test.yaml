@@ -1,0 +1,32 @@
+experiment_name: "ett_longterm_timesnet_local_test"
+searchSpaceFile: space.json
+
+
+trial_command: python3 atdd_model_exchange96auto.py
+trial_code_directory: .
+
+trial_concurrency: 2
+maxExperimentDuration: 6h ####
+training_service:
+  platform: local
+
+advisor:
+  codeDirectory: ../../new_package ###
+  className: atdd_advisor.ATDDAdvisor
+  classArgs:
+    shared:
+      max_epoch: 20
+      enable_dict:
+        acc: false
+    monitor: default
+    tuner:
+      name: random
+      class_args:
+        optimize_mode: minimize
+    assessor: default
+
+
+
+
+
+

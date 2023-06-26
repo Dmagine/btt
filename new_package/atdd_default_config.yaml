@@ -42,17 +42,6 @@ assessor:
       p_nmg2: 0
       wd_ho: 0.25
       wd_nmg: 0.25
-#inspector:
-#  classArgs:
-#    basic: ""
-#evaluator:
-#  classArgs:
-#    basic: ""
-#viewer:
-#  classArgs:
-#    basic: ""
-
-
 
 
 

@@ -1,0 +1,14 @@
+pandas
+scikit-learn
+torchvision
+numpy
+matplotlib
+reformer_pytorch
+
+
+pandas==2.0.0
+scikit-learn==1.2.2
+torchvision==0.15.1
+numpy==1.24.2
+matplotlib==2.7.1
+nni==2.10
