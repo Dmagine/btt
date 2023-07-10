@@ -2,29 +2,25 @@ import logging
 
 import nni
 
-from atdd_messenger import ATDDMessenger
-from atdd_utils import set_seed
-from btt_monitor import BttMonitor, MonitorCategory, monitor_str_2_class
+from btt_messenger import BttMessenger
+from btt_monitor import BttMonitor
+from btt_utils import set_seed
 
 logger = logging.getLogger(__name__)
 
 
 class BttTrialManager:
     advisor_config = None
-    shared_config = None
     monitor_config = None
     assessor_config = None
-    monitor = None
 
-    # current_metric_name = None  # -> record metric
-    # metric_dict = None  # -> get metric
-    # resource_params = None  # -> get resource
+    monitor = None
 
     def __init__(self, seed=None):
         set_seed(seed, "btt_trial_manager", logger)
         self.seed = seed
 
-        self.advisor_config = ATDDMessenger().read_advisor_config()
+        self.advisor_config = BttMessenger().read_advisor_config()
         self.shared_config = self.advisor_config["shared"] \
             if self.advisor_config is not None and "shared" in self.advisor_config else None
         self.monitor_config = self.advisor_config["monitor"]["classArgs"] \
@@ -33,62 +29,28 @@ class BttTrialManager:
             if self.advisor_config is not None and "assessor" in self.advisor_config else None
         self.monitor = BttMonitor(**self.monitor_config) if self.monitor_config is not None else None
 
-    #     self.locks = threading.Lock()
-    #     self.monitor_queue = queue.Queue()
-    #     self.thread = threading.Thread(target=self._monitor_run)
-    #     self.thread.start()
-    #
-    # def _monitor_run(self):
-    #     while True:
-    #         with self.lock1:
-    #             k, v, c = self.monitor_queue.get()
-    #             self.current_metric_name = k
-    #             if c == MonitorCategory.RULE:
-    #                 self.monitor.record_with_rule(k, v)  # metric_name, metric_value
-    #             elif c == MonitorCategory.PERIOD:
-    #                 self.monitor.record_periodically(k, v)  # metric_name, metric_value
-    #             elif c == MonitorCategory.ONCE:
-    #                 self.monitor.record_once(k, v)  # rule_name, kwargs
-    #             elif c == MonitorCategory.GET:
-    #                 self.metric_dict = self.monitor.get_metric(k)
-    #             elif c == MonitorCategory.INTERMEDIATE:
-    #                 self.monitor.report_intermediate_result(k)
-    #             elif c == MonitorCategory.FINAL:
-    #                 self.monitor.report_final_result(k)
-    #             elif c == MonitorCategory.RESOURCE:
-    #                 self.resource_params = self.monitor.get_resource_parameters(k, v)
-    #             else:
-    #                 raise ValueError("unknown category")
-
-    def record_metric(self, d, category="once"):
-        # block = True
-        c = monitor_str_2_class(category)
+    def record_metric(self, d1):
+        d2 = d1
+        # d2 = deepcopy(d1)  # deep copy -> no grad (grad) / id fail (feature) / slow!
         if self.monitor_config is not None:
-            for k, v in d:
-                if c == MonitorCategory.RULE:
-                    self.monitor.record_with_rule(k, v)  # metric_name, metric_value
-                elif c == MonitorCategory.PERIOD:
-                    self.monitor.record_periodically(k, v)  # metric_name, metric_value
-                elif c == MonitorCategory.ONCE:
-                    self.monitor.record_once(k, v)  # rule_name, kwargs
+            for rule_name, d_args in d2.items():
+                # if "model" in d_args:
+                #     if d1[rule_name]["model"].conv1.weight.grad is not None:
+                #         print(d1[rule_name]["model"].conv1.weight.grad.shape)
+                #         print(d2[rule_name]["model"].conv1.weight.grad.shape)
+                #         exit()
+                self.monitor.record_metric(rule_name, d_args)
+        del d2
 
-                elif c == MonitorCategory.GET:
-                    self.metric_dict = self.monitor.get_metric(k)
-                elif c == MonitorCategory.INTERMEDIATE:
-                    self.monitor.report_intermediate_result(k)
-                elif c == MonitorCategory.FINAL:
-                    self.monitor.report_final_result(k)
-                elif c == MonitorCategory.RESOURCE:
-                    self.resource_params = self.monitor.get_resource_parameters(k, v)
-                else:
-                    raise ValueError("unknown category")
-        else:
-            raise ValueError("monitor_config is None")
-
-    def get_metric(self, metric_name):
-        # block = True
+    def obtain_metric(self, metric_name, idx=-1, mode="idx_wait"):
+        # metric_name or metric_name_list
         if self.monitor_config is not None:
-            return self.monitor.get_metric(metric_name)
+            if type(metric_name) is list:
+                d = {}
+                for m in metric_name:
+                    d[m] = self.monitor.obtain_metric(m, idx, mode=mode)
+            else:
+                return self.monitor.obtain_metric(metric_name, idx, mode=mode)
 
     def get_experiment_id(self):
         return nni.get_experiment_id()
@@ -99,55 +61,20 @@ class BttTrialManager:
     def get_trial_parameters(self):
         return nni.get_next_parameter()
 
-    def get_resource_parameters(self):
+    def update_resource_params(self, resource_params):
+        logger.debug("resource_params: {}".format(resource_params))
+        if self.assessor_config is not None:
+            d = BttMessenger().read_resource_params(resource_params)
+            if d is not None:
+                resource_params.update(d)
+            return resource_params
+        else:
+            return resource_params
+
+    def report_intermediate_result(self):
         if self.monitor_config is not None:
-            return self.monitor.get_resource_parameters()
+            self.monitor.intermediate_expect_idx += 1
 
-    def report_intermediate_report(self, metric):
+    def report_final_result(self):
         if self.monitor_config is not None:
-            d1 = self.monitor.get_intermediate_result_dict()
-
-    def report_final_report(self, metric):
-        if
-
-    def
-
-# def report_intermediate_result(self, rd=None):
-#     d = {}
-#     if self.monitor_config is not None:
-#         d1 = self.monitor.get_intermediate_dict()
-#         ATDDMessenger().write_monitor_info(d1)
-#         d.update(d1)
-#     if self.raw_mode is True:
-#         d = self.get_raw_dict(rd)
-#     logger.info(" ".join(["intermediate_result_dict:", str(d)]))
-#     nni.report_intermediate_result(d)  # assessor _metric
-#     return d
-#     # manager考虑从assessor和inspector收回信息？？？
-#
-# def report_final_result(self, rd=None):
-#     d = {}
-#     if self.monitor_config is not None:
-#         d1 = self.monitor.get_final_dict()
-#         ATDDMessenger().write_monitor_info(d1)
-#         d.update(d1)
-#     if self.assessor_config is not None:
-#         d3 = ATDDMessenger().read_assessor_info()
-#         while d3 is None:
-#             d3 = ATDDMessenger().read_assessor_info()
-#             os.system("sleep 1")
-#         d.update(d3)
-#     if self.raw_mode is True:
-#         d = self.get_raw_dict(rd)
-#     logger.info(" ".join(["final_result_dict:", str(d)]))
-#     nni.report_final_result(d)  # tuner symptom
-#     return d
-#
-# def if_send_stop(self):
-#     if self.assessor_config is not None:
-#         early_stop = ATDDMessenger().if_atdd_assessor_send_stop()
-#         if early_stop:
-#             info_dict = ATDDMessenger().read_assessor_info()
-#             logger.info(" ".join(["assessor_info_dict ", str(info_dict)]))
-#         return early_stop
-#     return False
+            self.monitor.report_final_result()

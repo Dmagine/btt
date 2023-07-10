@@ -99,7 +99,7 @@ class MyAssessor:
         #     acc_history_list = self.epoch_metric_3d_list[self.epoch_idx][metric_idx]
         #     if len(acc_history_list) > self.comparable_trial_minimum:
         #         acc_t = np.percentile(acc_history_list, self.top_percent)
-        #         acc = self.get_metric("train_acc")
+        #         acc = self.obtain_metric("train_acc")
         #         if acc is not None and acc > acc_t:
         #             s = " ".join(["top acc:", str(self.epoch_idx), self.trial_id, str(acc), ">", str(acc_t)])
         #             print(s)
@@ -111,7 +111,7 @@ class MyAssessor:
         #     loss_history_list = self.epoch_metric_3d_list[self.epoch_idx][metric_idx]
         #     if len(loss_history_list) > self.comparable_trial_minimum:
         #         loss_t = np.percentile(loss_history_list, 100 - self.top_percent)
-        #         loss = self.get_metric("train_loss")
+        #         loss = self.obtain_metric("train_loss")
         #         if loss is not None and loss < loss_t:
         #             s = " ".join(["top loss:", str(self.epoch_idx), self.trial_id, str(loss), "<", str(loss_t)])
         #             logger.info(s)

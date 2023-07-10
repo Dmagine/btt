@@ -12,10 +12,19 @@ import numpy as np
 
 warnings.filterwarnings('ignore')
 
+sys.path.append("../../new_package")
+from atdd_manager import ATDDManager
+manager = None
+
 
 class Exp_Imputation(Exp_Basic):
     def __init__(self, args):
         super(Exp_Imputation, self).__init__(args)
+        seed = 529
+        global manager
+        manager = ATDDManager(seed=seed)
+        train_loader = self._get_data('train')[1]
+        manager.init_basic(self.model, train_loader)
 
     def _build_model(self):
         model = self.model_dict[self.args.model].Model(self.args).float()
@@ -88,8 +97,11 @@ class Exp_Imputation(Exp_Basic):
         criterion = self._select_criterion()
 
         for epoch in range(self.args.train_epochs):
+            manager.refresh_before_epoch_start()
+
             iter_count = 0
             train_loss = []
+
 
             self.model.train()
             epoch_time = time.time()
@@ -123,6 +135,8 @@ class Exp_Imputation(Exp_Basic):
                     time_now = time.time()
 
                 loss.backward()
+                manager.collect_in_training(self.model)
+
                 model_optim.step()
 
             print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
@@ -138,23 +152,33 @@ class Exp_Imputation(Exp_Basic):
             #     break
             adjust_learning_rate(model_optim, epoch + 1, self.args)
 
-        best_model_path = path + '/' + 'checkpoint.pth'
-        self.model.load_state_dict(torch.load(best_model_path))
+            manager.collect_after_training(None, train_loss)
+            manager.calculate_after_training()
+            manager.collect_after_validating(None, vali_loss)
+            manager.report_intermediate_result(vali_loss)
+            if manager.if_atdd_send_stop():
+                break
+
+        # best_model_path = path + '/' + 'checkpoint.pth'
+        # self.model.load_state_dict(torch.load(best_model_path))
+
+        manager.collect_after_testing(None, test_loss)
+        manager.report_final_result(test_loss)
 
         return self.model
 
     def test(self, setting, test=0):
         test_data, test_loader = self._get_data(flag='test')
-        if test:
-            print('loading model')
-            self.model.load_state_dict(torch.load(os.path.join('./checkpoints/' + setting, 'checkpoint.pth')))
+        # if test:
+        #     print('loading model')
+        #     self.model.load_state_dict(torch.load(os.path.join('./checkpoints/' + setting, 'checkpoint.pth')))
 
         preds = []
         trues = []
         masks = []
         folder_path = './test_results/' + setting + '/'
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
+        # if not os.path.exists(folder_path):
+        #     os.makedirs(folder_path)
 
         self.model.eval()
         with torch.no_grad():
@@ -200,14 +224,14 @@ class Exp_Imputation(Exp_Basic):
 
         mae, mse, rmse, mape, mspe = metric(preds[masks == 0], trues[masks == 0])
         print('mse:{}, mae:{}'.format(mse, mae))
-        f = open("result_imputation.txt", 'a')
-        f.write(setting + "  \n")
-        f.write('mse:{}, mae:{}'.format(mse, mae))
-        f.write('\n')
-        f.write('\n')
-        f.close()
+        # f = open("result_imputation.txt", 'a')
+        # f.write(setting + "  \n")
+        # f.write('mse:{}, mae:{}'.format(mse, mae))
+        # f.write('\n')
+        # f.write('\n')
+        # f.close()
 
-        np.save(folder_path + 'metrics.npy', np.array([mae, mse, rmse, mape, mspe]))
-        np.save(folder_path + 'pred.npy', preds)
-        np.save(folder_path + 'true.npy', trues)
+        # np.save(folder_path + 'metrics.npy', np.array([mae, mse, rmse, mape, mspe]))
+        # np.save(folder_path + 'pred.npy', preds)
+        # np.save(folder_path + 'true.npy', trues)
         return

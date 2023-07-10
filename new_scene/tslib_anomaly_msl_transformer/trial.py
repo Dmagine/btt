@@ -7,17 +7,20 @@ import numpy as np
 import torch
 
 sys.path.append("../TSlib")
+from exp.exp_anomaly_detection import Exp_Anomaly_Detection
+from exp.exp_classification import Exp_Classification
+from exp.exp_imputation import Exp_Imputation
+from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
 from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
 
 seed = 529
 
 params = {
-    "e_layers": 1,
-    "d_layers": 1,
-    "d_model": 512,
-    "learning_rate": 0.001,
-    "batch_size": 16,
-    "factor": 3
+    "e_layers": 3,
+    "d_ff": 128,
+    "d_model": 128,
+    "learning_rate": 0.0001,
+    "batch_size": 128,
 }
 
 
@@ -116,58 +119,41 @@ def main():
                         help='hidden layer dimensions of projector (List)')
     parser.add_argument('--p_hidden_layers', type=int, default=2, help='number of hidden layers in projector')
 
-    args = parser.parse_args()
-
-    # fixed
     # python -u run.py \
-    #   --task_name short_term_forecast \
+    #   --task_name anomaly_detection \
     #   --is_training 1 \
-    #   --root_path ./dataset/m4 \
-    #   --seasonal_patterns 'Monthly' \
-    #   --model_id m4_Monthly \
-    #   --model $model_name \
-    #   --data m4 \
+    #   --root_path ./dataset/MSL \
+    #   --model_id MSL \
+    #   --model Transformer \
+    #   --data MSL \
     #   --features M \
-    #   --e_layers 2 \
-    #   --d_layers 1 \
-    #   --factor 3 \
-    #   --enc_in 1 \
-    #   --dec_in 1 \
-    #   --c_out 1 \
-    #   --batch_size 16 \
-    #   --d_model 512 \
-    #   --des 'Exp' \
-    #   --itr 1 \
-    #   --learning_rate 0.001 \
-    #   --loss 'SMAPE'
-    args.task_name = "short_term_forecast" # 感觉很慢
-    args.train_epochs = 20
-    args.is_training = True
-    args.root_path = "../../../data/dataset/m4/"
-    args.seasonal_patterns = "Monthly"
-    args.model_id = "ett_96_48_96_timesnet"
-    args.model = "Autoformer"
-    args.data = "m4"
+    #   --seq_len 100 \
+    #   --pred_len 0 \
+    #   --d_model 128 \
+    #   --d_ff 128 \
+    #   --e_layers 3 \
+    #   --enc_in 55 \
+    #   --c_out 55 \
+    #   --anomaly_ratio 1 \
+    #   --batch_size 128 \
+    #   --train_epochs 10
+    args = parser.parse_args()
+    args.task_name = "anomaly_detection"
+    args.is_training = 1
+    args.root_path = "../../../data/dataset/MSL"
+    args.model = "Transformer"
+    args.data = "MSL"  # 小数据集 okk
     args.features = "M"
-    args.seq_len = 96
-    args.label_len = 48
-    args.pred_len = 96
-    args.itr = 1
-    args.enc_in = 1
-    args.dec_in = 1
-    args.c_out = 1
-    args.loss = "SMAPE"
-    # factor ？？？ 0.1 1 3 5
-    # args.num_workers=10 ok
-    # args.use_gpu = True
-    # args.devices = "0,1,2,3"
-    # args.use_amp = True
+    args.seq_len = 100
+    args.pred_len = 0
+    args.enc_in = 55
+    args.c_out = 55
+    args.anomaly_ratio = 1
+    args.train_epochs = 10
 
-    ###########
     args.e_layers = params["e_layers"]
-    args.d_layers = params["d_layers"]
     args.d_model = params["d_model"]
-    args.factor = params["factor"]
+    args.d_ff = params["d_ff"]
     args.learning_rate = params["learning_rate"]
     args.batch_size = params["batch_size"]
 
@@ -182,7 +168,18 @@ def main():
     print('Args in experiment:')
     print(args)
 
-    Exp = Exp_Short_Term_Forecast
+    if args.task_name == 'long_term_forecast':
+        Exp = Exp_Long_Term_Forecast
+    elif args.task_name == 'short_term_forecast':
+        Exp = Exp_Short_Term_Forecast
+    elif args.task_name == 'imputation':
+        Exp = Exp_Imputation
+    elif args.task_name == 'anomaly_detection':
+        Exp = Exp_Anomaly_Detection
+    elif args.task_name == 'classification':
+        Exp = Exp_Classification
+    else:
+        Exp = Exp_Long_Term_Forecast
 
     setting = '{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_fc{}_eb{}_dt{}_{}_{}'.format(
         args.model_id,

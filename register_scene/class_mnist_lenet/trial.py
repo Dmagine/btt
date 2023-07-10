@@ -9,13 +9,14 @@ from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
-sys.path.append("../register_package")
-from btt_manager import BttManager
+sys.path.append("../../register_package")
+from btt_trial_manager import BttTrialManager
 
 # log_dir = os.path.join(os.environ["NNI_OUTPUT_DIR"], 'tensorboard')
 # writer = SummaryWriter(log_dir)
 
 # resource limitaion
+# global device, batch_quota, epoch_quota
 device = "cuda" if torch.cuda.is_available() else "cpu"
 batch_quota = np.inf
 epoch_quota = np.inf
@@ -47,7 +48,7 @@ params = {
 }
 
 seed = 529
-manager = BttManager(seed=seed)
+manager = BttTrialManager(seed=seed)
 
 
 def clip_gradient(opt, clip_thresh=params["clip_thresh"]):
@@ -156,19 +157,27 @@ def train(dataloader, model, loss_fn, optimizer):
         loss = loss_fn(pred, y)
         loss_accumulate += float(loss.item()) * X.shape[0]
         optimizer.zero_grad()
-        # acc_accumulate += (pred.argmax(1) == y).type(torch.float).sum().item()  # batch sum
         acc_accumulate += torch.Tensor(pred.argmax(1) == y).sum().item()  # batch sum
         loss.backward()
         if params["grad_clip"] == 1:
             clip_gradient(optimizer)
 
+        # params_list = list(model.parameters())
+        # for i in range(len(params_list)):
+        #     if params_list[i].grad is not None:
+        #         print("grad!")
         #################################################
-        kwargs = {"mode": "in", "model": model}
-        d = {"module_value_metric_2da": kwargs, "module_gradient_metric_2da": kwargs,
-             "module_features_metric_2da": kwargs}
+        d = {"mode": "train_iter_end", "model": model}
+        d = {"weight_val": d, "weight_grad": d, "feature_val": d, "feature_grad": d}
         manager.record_metric(d)
 
         optimizer.step()
+
+    ######################################################
+    d = {"mode": "train_epoch_end", "model": model}
+    d = {"weight_val": d, "weight_grad": d, "feature_val": d, "feature_grad": d}
+    manager.record_metric(d)
+
     acc = acc_accumulate / nb_samples
     loss = loss_accumulate / nb_samples
     return acc, loss
@@ -193,15 +202,6 @@ def test(dataloader, model, loss_fn):
     return acc, loss
 
 
-def save_checkpoint(model, checkpoint_path):
-    torch.save(model.state_dict(), checkpoint_path)
-
-
-def load_checkpoint(checkpoint_path):
-    model_state_dict = torch.load(checkpoint_path)
-    return model_state_dict
-
-
 def main():
     print("experiment_id: ", manager.get_experiment_id())
     print("trial_id: ", manager.get_trial_id())
@@ -211,7 +211,7 @@ def main():
 
     train_kwargs = {'batch_size': params["batch_size"]}
     test_kwargs = {'batch_size': params["batch_size"]}
-    global device
+    global device, batch_quota, epoch_quota
     if device == "cuda":
         cuda_kwargs = {'num_workers': 1,
                        'pin_memory': True,
@@ -237,49 +237,31 @@ def main():
     scheduler = StepLR(optimizer, step_size=params["step_size"], gamma=params["gamma"])
     loss_fn = nn.CrossEntropyLoss()
     global max_nb_epoch, max_nb_batch
-    max_nb_epoch = 15
+    max_nb_epoch = 3  # tset
     max_nb_batch = len(train_dataloader)
 
-    ######################################################
-    # has_nan_inf module_name_list module_nele_list module_metric_2da module_name_flow_matrix relu_pre_module_name_list
-    kwargs = {"model": model}
-    d = {"module_name_list": kwargs, "module_nele_list": kwargs}
+    #################################################
+    d = {"mode": "train_begin", "model": model, "max_nb_epoch": max_nb_epoch, "max_nb_batch": max_nb_batch}
+    d = {"weight_val": d, "weight_grad": d, "feature_val": d, "feature_grad": d}
     manager.record_metric(d)
-    kwargs = {"mode": "before", "statistics": "all"}
-    d = {"module_value_metric_2da": kwargs, "module_gradient_metric_2da": kwargs,
-         "module_features_metric_2da": kwargs}
-    manager.record_metric(d)
-
     for epoch_idx in range(max_nb_epoch):
         print(f"Epoch {epoch_idx + 1}\n-------------------------------")
 
         ######################################################
-        # resource parameters -> device, batch_quota, epoch_quota
-        global device, batch_quota, epoch_quota
+        # global device, batch_quota, epoch_quota
         d = {"device": device, "batch_quota": batch_quota, "epoch_quota": epoch_quota}
         d = manager.update_resource_params(d)
         device, batch_quota, epoch_quota = d["device"], d["batch_quota"], d["epoch_quota"]
 
         train_acc, train_loss = train(train_dataloader, model, loss_fn, optimizer)
-
-        ######################################################
-        # rule_name, kwargs, block
-        kwargs = {"mode": "after", "model": model}
-        d = {"module_value_metric_2da": kwargs, "module_gradient_metric_2da": kwargs,
-             "module_features_metric_2da": kwargs}
-        manager.record_metric(d)
-
         val_acc, val_loss = test(valid_dataloader, model, loss_fn)
 
         ######################################################
-        # metric_name, metric_value
         d = {"train_acc": train_acc, "train_loss": train_loss, "valid_acc": val_acc, "valid_loss": val_loss}
         manager.record_metric(d)
 
         ######################################################
-        manager.intermediate_report("all")
-
-        ######################################################
+        manager.report_intermediate_result()
         if epoch_idx + 1 >= epoch_quota:
             break
 
@@ -288,17 +270,19 @@ def main():
     test_acc, test_loss = test(test_dataloader, model, loss_fn)
 
     ######################################################
-    # metric_name, metric_value
     d = {"test_acc": test_acc, "test_loss": test_loss}
     manager.record_metric(d)
 
     ######################################################
-    keys = ["train_acc", "train_loss", "valid_acc", "valid_loss", "test_acc"]
-    manager.final_report(keys)
+    # metric_value = manager.obtain_metric("module_value")
+    # print(len(metric_value), metric_value[0].shape)
+    key = "valid_acc"
+    metric_value = manager.obtain_metric(key)
+    print(key, metric_value)
 
     ######################################################
-    metric_value = manager.get_metric(["module_metric_2da"])[0].value
-    print(len(metric_value), metric_value[0].shape)
+    manager.report_final_result()
+
     return
 
 

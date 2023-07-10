@@ -1,11 +1,11 @@
-experiment_name: "ett_shortterm_timesnet_our_random"
+experiment_name: "shortterm_ett_autoformer_our_random"
 searchSpaceFile: space.json
 
 
 trial_command: python3 trial.py
 trial_code_directory: .
 
-trial_concurrency: 8
+trial_concurrency: 4
 maxExperimentDuration: 6h ####
 training_service:
   platform: local

@@ -1,17 +1,4 @@
-import nni
-import torch
-from nni.experiment import Experiment
-
-
-def main():
-    experiment = Experiment('local')
-    experiment.config.experiment_name = 'mnist32lenet_test'
-    experiment.config.trial_command = 'python3 atdd_model_mnist32lenet.py'
-    experiment.config.trial_concurrency = 2
-    experiment.config.max_trial_number = 10
-    experiment.config.max_experiment_duration = '1h'
-
-    experiment.config.search_space = {
+{
         "conv1_k_num": {
             "_type": "randint",
             "_value": [
@@ -152,54 +139,3 @@ def main():
             ]
         }
     }
-
-    # experiment.config.tuner.name = 'random'
-    # experiment.config.tuner.class_args = {
-    #     'optimize_mode': 'maximize'
-    # }
-
-    experiment.config.advisor.name = None  ### !!!
-    experiment.config.advisor.code_directory = '../register_package'
-    experiment.config.advisor.class_name = 'atdd_advisor.ATDDAdvisor'
-    experiment.config.advisor.class_args = {
-        'shared': {
-            'max_epoch': 20
-        },
-        'monitor': 'default',
-        'tuner': {
-            'name': 'random'
-        },
-        'inspector': 'default',
-        'assessor': 'default'
-    }
-    # experiment.config.tuner = experiment.config.advisor
-    # experiment.config.advisor = None
-
-    # experiment.config.trial:
-    #   command: python3 atdd_model_mnist32lenet.py
-    #   codeDirectory: ../../new_package ###
-    #   gpuNum: 1
-    #   cpuNum: 1
-    #   memoryMB: 4096
-    #   gpuType: 1080ti
-    #   gpuIndices: [0]
-    #   nniManagerPort: 8081
-    #   nniManagerIP:
-
-    experiment.config.training_service.platform = 'local'
-
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Using {device} device")
-    if device == "cuda":
-        experiment.config.trial_gpu_number = 1
-        experiment.config.training_service.use_active_gpu = True
-
-    experiment.run(8080, wait_completion=False)
-    exp_id = nni.get_experiment_id()
-    print(f"Experiment id: {exp_id}")
-    # experiment.stop()
-    # experiment.view(exp_id,8080)
-
-
-if __name__ == '__main__':
-    main()
