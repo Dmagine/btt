@@ -1,2 +1,12 @@
-56	165	325	62	182	360	61	163	307
-98	285	562	71	198	382	97	259	486
+Random                     & 0.7124          & 0.6863           & -                 & \textbf{0.5488}   & \textbf{0.5077}  & -                 & \textbf{0.1857}   & 0.1899            & - \\ 
+Random-ETR                 & 0.6635          & 0.6415           & 6.1              & 0.5407            & 0.5210           & \textbf{6.2}      & 0.1868            & 0.1894            & 6.2  \\
+\textbf{Random-BTTackler}  & \textbf{0.8200} & \textbf{0.7980}  & \underline{\textbf{9.7}}     & 0.5337            & 0.5040           & 5.5              & \textbf{0.1857}   & \textbf{0.1894}   & \textbf{6.4} \\ \midrule
+GP                         & 0.7605          & 0.7294           & -                 & \textbf{0.5522}   & \textbf{0.5268}  & -                 & \textbf{0.1851}   & 0.1899            & - \\ 
+GP-ETR                     & 0.6771          & 0.6734           & 7.7              & 0.5163            & 0.4890           & \textbf{6.5}      & 0.1853            & 0.1894            & 7.4  \\
+\textbf{GP-BTTackler}      & \textbf{0.8040} & \textbf{0.7850}  & \textbf{7.9}     & 0.5357            & 0.5226           & 4.4              & \textbf{0.1851}   & \textbf{0.1841}   & \textbf{7.6} \\ \midrule
+TPE                        & 0.6818          & 0.6544           & -                 & 0.4989            & 0.4720           & -                 & 0.1854            & 0.1890            & 0.1890 \\ 
+TPE-ETR                    & 0.7393          & 0.7047           & 6.0              & 0.4921            & 0.4328           & 5.1              & 0.1825            & 0.1890            & 5.7  \\
+\textbf{TPE-BTTackler}     & \textbf{0.8108} & \textbf{0.7910}  & \textbf{9.5}     & \textbf{0.5222}   & \textbf{0.5039}  & \textbf{6.4}     & \textbf{0.1837}   & \textbf{0.1855}   & \underline{\textbf{7.7}} \\ \midrule
+SMAC                       & 0.8390          & 0.8347           & -                 & 0.5580            & 0.5396           & -                 & 0.1826            & 0.1885            & - \\ 
+SMAC-ETR                   & 0.6804          & 0.6715           & 1.7              & 0.5500            & 0.5333           & 6.3              & 0.1805            & 0.1852            & 7.2  \\
+\textbf{SMAC-BTTackler}    & \underline{\textbf{0.8399}} & \underline{\textbf{0.8367}}  & \textbf{5.7}   & \underline{\textbf{0.5654}}   & \underline{\textbf{0.5541}}   & \underline{\textbf{9.4}}   & \underline{\textbf{0.1802}}   & \underline{\textbf{0.1838}}   & \textbf{7.6} \\ 

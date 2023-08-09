@@ -147,11 +147,19 @@ def train(dataloader, model, loss_fn, optimizer):
     model.train()
     acc_accumulate = 0
     loss_accumulate = 0
-    nb_samples = 0
+    nb_samples = len(dataloader.dataset)
+
+    d = {"mode": "epoch_train_begin", "model": model}
+    d = {"feature_val_in": d, "feature_grad_out": d}
+    manager.record_metric(d)
     for batch_idx, (X, y) in enumerate(dataloader):
         if batch_idx + 1 >= batch_quota:
             break
-        nb_samples += X.shape[0]
+        d = {"mode": "train_iter_begin", "model": model}
+        d = {"feature_val_in": d, "feature_grad_out": d}
+        manager.record_metric(d)
+
+        # nb_samples += X.shape[0]
         X, y = X.to(device), y.to(device)
         pred = model(X)
         loss = loss_fn(pred, y)
@@ -162,20 +170,19 @@ def train(dataloader, model, loss_fn, optimizer):
         if params["grad_clip"] == 1:
             clip_gradient(optimizer)
 
-        # params_list = list(model.parameters())
-        # for i in range(len(params_list)):
-        #     if params_list[i].grad is not None:
-        #         print("grad!")
-        #################################################
         d = {"mode": "train_iter_end", "model": model}
-        d = {"weight_val": d, "weight_grad": d, "feature_val": d, "feature_grad": d}
+        d = {"weight_val": d, "weight_grad": d, "feature_val_in": d, "feature_grad_out": d}
         manager.record_metric(d)
 
         optimizer.step()
 
+        if batch_idx % 100 == 0:
+            loss, current = loss.item(), (batch_idx + 1) * len(X)
+            print(f"loss: {loss:>7f}  [{current:>5d}/{nb_samples:>5d}]")
+
     ######################################################
-    d = {"mode": "train_epoch_end", "model": model}
-    d = {"weight_val": d, "weight_grad": d, "feature_val": d, "feature_grad": d}
+    d = {"mode": "epoch_train_end", "model": model}
+    d = {"weight_val": d, "weight_grad": d, "feature_val_in": d, "feature_grad_out": d}
     manager.record_metric(d)
 
     acc = acc_accumulate / nb_samples
@@ -241,8 +248,8 @@ def main():
     max_nb_batch = len(train_dataloader)
 
     #################################################
-    d = {"mode": "train_begin", "model": model, "max_nb_epoch": max_nb_epoch, "max_nb_batch": max_nb_batch}
-    d = {"weight_val": d, "weight_grad": d, "feature_val": d, "feature_grad": d}
+    d = {"mode": "begin", "model": model, "max_nb_epoch": max_nb_epoch, "max_nb_batch": max_nb_batch}
+    d = {"weight_val": d, "weight_grad": d, "feature_val_in": d, "feature_grad_out": d}
     manager.record_metric(d)
     for epoch_idx in range(max_nb_epoch):
         print(f"Epoch {epoch_idx + 1}\n-------------------------------")

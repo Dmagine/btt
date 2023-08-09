@@ -62,10 +62,10 @@ def main():
                         "mode": "rule",
                         "code_dir": "../../register_package/",
                         "module_name": "btt_monitor_rule",
-                        "class_name": "WeightStatisticsMonitorRule",
-                        "init_args": {
-                            "metric_prefix": "weight_val",
-                        },
+                        "class_name": "NotImplementMonitorRule", # WeightStatisticsMonitorRule
+                        # "init_args": {
+                        #     "metric_prefix": "weight_val",
+                        # },
                         "intermediate_report": True,
                         "final_report": False
                     },
@@ -73,26 +73,34 @@ def main():
                         "mode": "rule",
                         "code_dir": "../../register_package/",
                         "module_name": "btt_monitor_rule",
-                        "class_name": "WeightStatisticsMonitorRule",
-                        "init_args": {
-                            "metric_prefix": "weight_grad",
-                        },
+                        "class_name": "NotImplementMonitorRule", # WeightStatisticsMonitorRule
+                        # "init_args": {
+                        #     "metric_prefix": "weight_grad",
+                        # },
                         "intermediate_report": True,
                         "final_report": False
                     },
-                    "feature_val": {
+                    "feature_val_in": {
                         "mode": "rule",
                         "code_dir": "../../register_package/",
                         "module_name": "btt_monitor_rule",
                         "class_name": "NotImplementMonitorRule",
+                        # "class_name": "FeatureStatisticsMonitorRule",
+                        # "init_args": {
+                        #     "metric_prefix": "feature_val_in",
+                        # },
                         "intermediate_report": True,
                         "final_report": False
                     },
-                    "feature_grad": {
+                    "feature_grad_out": {
                         "mode": "rule",
                         "code_dir": "../../register_package/",
                         "module_name": "btt_monitor_rule",
                         "class_name": "NotImplementMonitorRule",
+                        # "class_name": "FeatureStatisticsMonitorRule",
+                        # "init_args": {
+                        #     "metric_prefix": "feature_grad_out",
+                        # },
                         "intermediate_report": True,
                         "final_report": False
                     }

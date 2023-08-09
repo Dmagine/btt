@@ -1,6 +1,5 @@
 # 提取txt文件中的所有浮点数字
 
-import os
 
 def latex():
     file_name = 'tmp.txt'
@@ -19,6 +18,8 @@ def latex():
                         pre_flag = False
                 pass
             print()
+
+
 def calc_rate():
     file_name = 'tmp.txt'
     with open(file_name, 'r') as f:
@@ -29,9 +30,27 @@ def calc_rate():
                 pre_nums = [float(x) for x in pre_line.split()]
                 nums = [float(x) for x in line.split()]
                 for i in range(len(nums)):
-                    print('%.1f' % ((nums[i] - pre_nums[i]) / pre_nums[i] *100), end='\t')
+                    print('%.1f' % ((nums[i] - pre_nums[i]) / pre_nums[i] * 100), end='\t')
                 print()
             pre_line = line
 
+
+def remove_blank():
+    file_name = 'tmp.txt'
+    s = ""
+    with open(file_name, 'r') as f:
+        for line in f.readlines():
+            l = line.split(" ")
+            ll = []
+            for i in range(len(l)):
+                if l[i] != "" and l[i] != "\t":
+                    ll.append(l[i])
+            print(l)
+            line = " ".join(ll)
+            s += line
+    print(s)
+
+
 if __name__ == "__main__":
-    calc_rate()
+    # calc_rate()
+    remove_blank()

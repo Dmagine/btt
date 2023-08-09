@@ -196,6 +196,7 @@ class MyAssessor:
         # print("global_loss_list:", global_loss_list)
         train_loss_t = np.percentile(_train_loss_list, self.cmp_percent)  # idx越大val越大
         # print("train_loss_t:", train_loss_t, "train_loss:", train_loss)
+
         if train_loss > train_loss_t:
             return True
         else:  # loss 比较小 保护
@@ -213,6 +214,9 @@ class MyAssessor:
         return False
 
     def diagnose_symptom(self):
+        ######
+        self.eg_rule0()
+
         self.diagnose_eg() if "EG" in self.symptom_name_list else None
         if self.has_nan_inf:
             return
