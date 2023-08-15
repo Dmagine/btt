@@ -7,8 +7,8 @@ import threading
 import nni
 
 from btt_messenger import BttMessenger
-from btt_monitor_rule import OnceMonitorRuleBase, PeriodMonitorRuleBase
-from btt_utils import ObtainMode
+from monitor_rule import OnceMonitorRuleBase, PeriodMonitorRuleBase
+from utils import ObtainMode
 
 logger = logging.getLogger(__name__)
 

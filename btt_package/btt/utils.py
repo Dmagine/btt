@@ -1,5 +1,8 @@
+import hashlib
+import importlib
 import os
 import random
+import uuid
 from enum import Enum
 
 import numpy as np
@@ -110,6 +113,28 @@ class ObtainMode(Enum):
 
     def __json__(self):
         return self.name
+
+
+def get_uuid(str_len=8):
+    return hashlib.md5(str(uuid.uuid4()).encode('utf-8')).hexdigest()[:str_len]
+
+
+def get_package_abs_dir():
+    return importlib.import_module("btt").__path__[0]
+
+
+def time_str2second(time_str):
+    # e.g.: 1d, 2h, 3m or 4s
+    if time_str[-1] == "d":
+        return int(time_str[:-1]) * 24 * 60 * 60
+    elif time_str[-1] == "h":
+        return int(time_str[:-1]) * 60 * 60
+    elif time_str[-1] == "m":
+        return int(time_str[:-1]) * 60
+    elif time_str[-1] == "s":
+        return int(time_str[:-1])
+    else:
+        raise ValueError("time_str should be end with 'd', 'h', 'm' or 's'")
 
 
 def sleep(i):

@@ -9,7 +9,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from btt_utils import get_module_name_nele_dict, get_module_id_name_dict, calc_array_statistic, \
+from ..utils import get_module_name_nele_dict, get_module_id_name_dict, calc_array_statistic, \
     RecordMode, ObtainMode
 
 
@@ -29,70 +29,6 @@ class MonitorRuleBase:
     @abstractmethod
     def obtain_metric(self, d_args):
         raise NotImplementedError
-
-
-class MonitorAggregateRule(MonitorRuleBase):
-    def __init__(self, d_args):
-        super().__init__(d_args)
-        self.mode_func_dict = {
-            RecordMode.Begin: self.on_begin,
-            RecordMode.End: self.on_end,
-            RecordMode.EpochBegin: self.on_epoch_begin,
-            RecordMode.EpochEnd: self.on_epoch_end,
-            RecordMode.EpochTrainBegin: self.on_epoch_train_begin,
-            RecordMode.EpochTrainEnd: self.on_epoch_train_end,
-            RecordMode.TrainIterBegin: self.on_train_iter_begin,
-            RecordMode.TrainIterEnd: self.on_train_iter_end,
-            RecordMode.EpochValBegin: self.on_epoch_eval_begin,
-            RecordMode.EpochValEnd: self.on_epoch_eval_end,
-            RecordMode.ValIterBegin: self.on_val_iter_begin,
-            RecordMode.ValIterEnd: self.on_val_iter_end,
-        }
-
-    def record_metric(self, d_args):
-        mode = d_args["mode"]
-        if mode not in self.mode_func_dict:
-            raise ValueError("mode should be in {}".format(self.mode_func_dict.keys()))
-        self.mode_func_dict[mode](d_args)
-
-    def obtain_metric(self, d_args):
-        raise NotImplementedError
-
-    def on_begin(self, d_args):
-        pass
-
-    def on_end(self, d_args):
-        pass
-
-    def on_epoch_begin(self, d_args):
-        pass
-
-    def on_epoch_end(self, d_args):
-        pass
-
-    def on_epoch_train_begin(self, d_args):
-        pass
-
-    def on_epoch_train_end(self, d_args):
-        pass
-
-    def on_train_iter_begin(self, d_args):
-        pass
-
-    def on_train_iter_end(self, d_args):
-        pass
-
-    def on_epoch_eval_begin(self, d_args):
-        pass
-
-    def on_epoch_eval_end(self, d_args):
-        pass
-
-    def on_val_iter_begin(self, d_args):
-        pass
-
-    def on_val_iter_end(self, d_args):
-        pass
 
 
 class ParallelMonitorRule(MonitorRuleBase):
@@ -343,7 +279,6 @@ class WeightStatisticsMonitorRule(MonitorRuleBase):
 
         self.max_nb_batch = None
         self.max_nb_calc_batch = None
-
 
     def record_metric(self, d_args):
         def append_new_epoch_instance():

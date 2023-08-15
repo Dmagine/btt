@@ -3,8 +3,8 @@ import logging
 import nni
 
 from btt_messenger import BttMessenger
-from btt_monitor import BttMonitor
-from btt_utils import set_seed
+from btt_package.btt.monitor.monitor import BttMonitor
+from utils import set_seed
 
 logger = logging.getLogger(__name__)
 
