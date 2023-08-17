@@ -1,21 +1,28 @@
-from data_provider.data_factory import data_provider
-from exp.exp_basic import Exp_Basic
-from utils.tools import EarlyStopping, adjust_learning_rate, visual
-from utils.metrics import metric
-import torch
-import torch.nn as nn
-from torch import optim
-import os
 import time
 import warnings
+
 import numpy as np
+import torch
+import torch.nn as nn
+from data_provider.data_factory import data_provider
+from exp.exp_basic import Exp_Basic
+from utils.metrics import metric
+from utils.tools import EarlyStopping, adjust_learning_rate
 
 warnings.filterwarnings('ignore')
+
+# import sys
+# sys.path.append("../../new_package")
+# from atdd_manager import ATDDManager
+# manager = None
 
 
 class Exp_Long_Term_Forecast(Exp_Basic):
     def __init__(self, args):
         super(Exp_Long_Term_Forecast, self).__init__(args)
+        self.manager = args.manager
+        train_loader = self._get_data('train')[1]
+        self.manager.init_basic(self.model, train_loader)
 
     def _build_model(self):
         model = self.model_dict[self.args.model].Model(self.args).float()
@@ -28,13 +35,13 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         data_set, data_loader = data_provider(self.args, flag)
         return data_set, data_loader
 
-    def _select_optimizer(self):
-        model_optim = optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
-        return model_optim
+    # def _select_optimizer(self):
+    # model_optim = optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
+    # return model_optim
 
-    def _select_criterion(self):
-        criterion = nn.MSELoss()
-        return criterion
+    # def _select_criterion(self):
+    # criterion = nn.MSELoss()
+    # return criterion
 
     def vali(self, vali_data, vali_loader, criterion):
         total_loss = []
@@ -85,8 +92,6 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                     total_params += param_size
             return total_params
 
-
-
         train_data, train_loader = self._get_data(flag='train')
         vali_data, vali_loader = self._get_data(flag='val')
         test_data, test_loader = self._get_data(flag='test')
@@ -106,7 +111,10 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         if self.args.use_amp:
             scaler = torch.cuda.amp.GradScaler()
 
+        best_test_loss = np.inf
         for epoch in range(self.args.train_epochs):
+            self.manager.refresh_before_epoch_start()
+
             iter_count = 0
             train_loss = []
 
@@ -164,13 +172,16 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                     iter_count = 0
                     time_now = time.time()
 
-                if self.args.use_amp:
-                    scaler.scale(loss).backward()
-                    scaler.step(model_optim)
-                    scaler.update()
-                else:
-                    loss.backward()
-                    model_optim.step()
+                # if self.args.use_amp:
+                #     scaler.scale(loss).backward()
+                #     scaler.step(model_optim)
+                #     scaler.update()
+                # else:
+                #     loss.backward()
+                #     model_optim.step()
+                loss.backward()
+                self.manager.collect_in_training(self.model)
+                model_optim.step()
 
             print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
             train_loss = np.average(train_loss)
@@ -186,6 +197,14 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
             adjust_learning_rate(model_optim, epoch + 1, self.args)
 
+            self.manager.collect_after_training(None, {"train_data_train_loss": train_loss})
+            self.manager.calculate_after_training()
+            self.manager.collect_after_validating(None, {"val_data_train_loss": vali_loss})
+            self.manager.report_intermediate_result()
+            best_test_loss = min(best_test_loss, test_loss)
+            if self.manager.if_atdd_send_stop():
+                break
+
         # best_model_path = path + '/' + 'checkpoint.pth'
         # self.model.load_state_dict(torch.load(best_model_path))
 
@@ -199,9 +218,9 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
         preds = []
         trues = []
-        folder_path = './test_results/' + setting + '/'
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
+        # folder_path = './test_results/' + setting + '/'
+        # if not os.path.exists(folder_path):
+        #     os.makedirs(folder_path)
 
         self.model.eval()
         with torch.no_grad():
@@ -240,11 +259,11 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
                 preds.append(pred)
                 trues.append(true)
-                if i % 20 == 0:
-                    input = batch_x.detach().cpu().numpy()
-                    gt = np.concatenate((input[0, :, -1], true[0, :, -1]), axis=0)
-                    pd = np.concatenate((input[0, :, -1], pred[0, :, -1]), axis=0)
-                    visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
+                # if i % 20 == 0:
+                #     input = batch_x.detach().cpu().numpy()
+                #     gt = np.concatenate((input[0, :, -1], true[0, :, -1]), axis=0)
+                #     pd = np.concatenate((input[0, :, -1], pred[0, :, -1]), axis=0)
+                #     visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
 
         preds = np.array(preds)
         trues = np.array(trues)
@@ -254,21 +273,26 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         print('test shape:', preds.shape, trues.shape)
 
         # result save
-        folder_path = './results/' + setting + '/'
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
+        # folder_path = './results/' + setting + '/'
+        # if not os.path.exists(folder_path):
+        #     os.makedirs(folder_path)
 
         mae, mse, rmse, mape, mspe = metric(preds, trues)
+        d = {"test_data_mae": mae, "test_data_mse": mse, "test_data_rmse": rmse,
+             "test_data_mape": mape, "test_data_mspe": mspe, }
+        self.manager.collect_after_testing(None, d)
+        self.manager.report_final_result()
         print('mse:{}, mae:{}'.format(mse, mae))
-        f = open("result_long_term_forecast.txt", 'a')
-        f.write(setting + "  \n")
-        f.write('mse:{}, mae:{}'.format(mse, mae))
-        f.write('\n')
-        f.write('\n')
-        f.close()
 
-        np.save(folder_path + 'metrics.npy', np.array([mae, mse, rmse, mape, mspe]))
-        np.save(folder_path + 'pred.npy', preds)
-        np.save(folder_path + 'true.npy', trues)
+        # f = open("result_long_term_forecast.txt", 'a')
+        # f.write(setting + "  \n")
+        # f.write('mse:{}, mae:{}'.format(mse, mae))
+        # f.write('\n')
+        # f.write('\n')
+        # f.close()
+        #
+        # np.save(folder_path + 'metrics.npy', np.array([mae, mse, rmse, mape, mspe]))
+        # np.save(folder_path + 'pred.npy', preds)
+        # np.save(folder_path + 'true.npy', trues)
 
         return

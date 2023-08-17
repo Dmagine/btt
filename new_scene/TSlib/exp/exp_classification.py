@@ -14,20 +14,18 @@ import pdb
 
 warnings.filterwarnings('ignore')
 
-sys.path.append("../../new_package")
-from atdd_manager import ATDDManager
-
-manager = None
+# sys.path.append("../../new_package")
+# from atdd_manager import ATDDManager
+#
+# manager = None
 
 
 class Exp_Classification(Exp_Basic):
     def __init__(self, args):
         super(Exp_Classification, self).__init__(args)
-        seed = 529
-        global manager
-        manager = ATDDManager(seed=seed)
+        self.manager = args.manager
         train_loader = self._get_data('train')[1]
-        manager.init_basic(self.model, train_loader)
+        self.manager.init_basic(self.model, train_loader)
 
     def _build_model(self):
         # model input depends on data

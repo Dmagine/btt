@@ -18,12 +18,15 @@ seed = 529
 params = {
     "e_layers": 2,
     "d_layers": 1,
-    "d_model": 512,
+    "d_model": 16,
     "n_heads": 8,
-    "d_ff": 2048,
+    "d_ff": 32,
     "learning_rate": 0.0001,
     "batch_size": 32,
-    "dropout": 0.05
+    "dropout": 0.05,
+    "factor": 3,
+    #   --d_model 16 \
+    #   --d_ff 32 \
 }
 
 
@@ -56,7 +59,7 @@ def main():
 
     # data loader
     parser.add_argument('--data', type=str, default='ETTm1', help='dataset type')
-    parser.add_argument('--root_path', type=str, default='./data/ETT/', help='root path of the data file')
+    parser.add_argument('--root_path', type=str, default='./data/ETTh1/', help='root path of the data file')
     parser.add_argument('--data_path', type=str, default='ETTh1.csv', help='data file')
     parser.add_argument('--features', type=str, default='M',
                         help='forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate')
@@ -128,7 +131,7 @@ def main():
     # python -u run.py \
     #   --task_name long_term_forecast \
     #   --is_training 1 \
-    #   --root_path ./dataset/ETT-small/ \
+    #   --root_path ./dataset/ETTh1-small/ \
     #   --data_path ETTh1.csv \
     #   --model_id ETTh1_96_96 \
     #   --model $model_name \
@@ -145,6 +148,11 @@ def main():
     #   --c_out 7 \
     #   --des 'Exp' \
     #   --itr 1
+
+    #   --d_model 16 \
+    #   --d_ff 32 \
+    #   --top_k 5
+
     args.task_name = "long_term_forecast"
     args.train_epochs = 20  #######
     args.patience = args.train_epochs  # no early stop -> 10
@@ -152,8 +160,8 @@ def main():
     # args.do_predict = False
     args.root_path = "../../../data/dataset/ETT-small/"
     args.data_path = "ETTh1.csv"
-    args.model_id = "ett_96_48_96_timesnet"
-    args.model = "TimesNet" # ....
+    args.model_id = "ETTh1_96_96"  # ETTh1_96_96 ??? 好像也没什么用？
+    args.model = "TimesNet"  # ....
     # TimesNet -》 4,798,550,812 ｜｜｜ [Autoformer, Transformer, TimesNet]
     # Autoformer -》42,143,772
     # Transformer -》 42,160,156
@@ -173,14 +181,15 @@ def main():
     # args.use_amp = True
 
     ###########
-    args.e_layers = params["e_layers"]  # choice 1,2,3
-    args.d_layers = params["d_layers"]  # choice 1,2,3
-    args.d_model = params["d_model"]  # choice 256,512,1024
-    args.n_heads = params["n_heads"]  # randint 5,15
-    args.d_ff = params["d_ff"]  # choice 1024,2048,4096
-    args.learning_rate = params["learning_rate"]  # loguniform 1e-5,1e-3
-    args.batch_size = params["batch_size"]  # choice 16,32,64,128
-    args.dropout = params["dropout"]  # choice 0.05,0.1,0.15,0.2
+    args.factor = params["factor"]
+    args.e_layers = params["e_layers"]
+    args.d_layers = params["d_layers"]
+    args.d_model = params["d_model"]
+    args.n_heads = params["n_heads"]
+    args.d_ff = params["d_ff"]
+    args.learning_rate = params["learning_rate"]
+    args.batch_size = params["batch_size"]
+    args.dropout = params["dropout"]
 
     args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
 

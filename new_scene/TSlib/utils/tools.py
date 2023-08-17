@@ -1,27 +1,55 @@
-import os
-
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import matplotlib.pyplot as plt
-import pandas as pd
 
 plt.switch_backend('agg')
 
 
 def adjust_learning_rate(optimizer, epoch, args):
     # lr = args.learning_rate * (0.2 ** (epoch // 2))
-    if args.lradj == 'type1':
-        lr_adjust = {epoch: args.learning_rate * (0.5 ** ((epoch - 1) // 1))}
-    elif args.lradj == 'type2':
-        lr_adjust = {
-            2: 5e-5, 4: 1e-5, 6: 5e-6, 8: 1e-6,
-            10: 5e-7, 15: 1e-7, 20: 5e-8
-        }
-    if epoch in lr_adjust.keys():
-        lr = lr_adjust[epoch]
-        for param_group in optimizer.param_groups:
-            param_group['lr'] = lr
-        print('Updating learning rate to {}'.format(lr))
+    # if args.lradj == 'type1':
+    #     lr_adjust = {epoch: args.learning_rate * (0.5 ** ((epoch - 1) // 1))}
+    # elif args.lradj == 'type2':
+    #     lr_adjust = {
+    #         2: 5e-5, 4: 1e-5, 6: 5e-6, 8: 1e-6,
+    #         10: 5e-7, 15: 1e-7, 20: 5e-8
+    #     }
+    # if epoch in lr_adjust.keys():
+    #     lr = lr_adjust[epoch]
+    #     for param_group in optimizer.param_groups:
+    #         param_group['lr'] = lr
+    #     print('Updating learning rate to {}'.format(lr))
+
+    # Exponential decay
+    new_lr = args.learning_rate * args.gamma ** (epoch // args.step_size)
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = new_lr
+    print('Updating learning rate to {}'.format(new_lr))
+
+def get_opt_name_by_idx(idx):
+    # # SGD,Adam,RMSprop,Adagrad,Adadelta
+    if idx == 0:
+        return 'SGD'
+    elif idx == 1:
+        return 'Adam'
+    elif idx == 2:
+        return 'RMSprop'
+    elif idx == 3:
+        return 'Adagrad'
+    elif idx == 4:
+        return 'Adadelta'
+    else:
+        raise NotImplementedError
+
+
+def get_activation_name_by_idx(idx):
+    # gelu relu
+    if idx == 0:
+        return 'gelu'
+    elif idx == 1:
+        return 'relu'
+    else:
+        raise NotImplementedError
 
 
 class EarlyStopping:

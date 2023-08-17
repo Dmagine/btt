@@ -1,0 +1,44 @@
+experiment_name: "longterm_ett_timesnet_monitor"
+searchSpaceFile: space.json
+
+
+trial_command: python3 trial.py
+trial_code_directory: .
+
+trial_concurrency: 4
+maxExperimentDuration: 12h ####
+training_service:
+  platform: local
+  useActiveGpu: false
+trialGpuNumber: 1
+
+advisor: # for loss
+#  codeDirectory: ../../atdd_package
+  codeDirectory: ../../_package
+  className: atdd_advisor.ATDDAdvisor
+  classArgs:
+    shared:
+      enable_dict:
+        acc: false ###
+      max_epoch: 20 ###
+    monitor: default
+    tuner:
+      name: random
+      class_args:
+        optimize_mode: minimize
+
+#advisor: # for loss
+#  codeDirectory: ../../atdd_package
+#  className: atdd_advisor.ATDDAdvisor
+#  classArgs:
+#    shared:
+#      max_epoch: 20
+#    monitor: default
+#    tuner:
+#      name: random
+
+
+
+
+
+

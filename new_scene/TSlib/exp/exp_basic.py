@@ -1,7 +1,10 @@
 import os
+
 import torch
 from models_ import Autoformer, Transformer, TimesNet, Nonstationary_Transformer, DLinear, FEDformer, \
     Informer, LightTS, Reformer, ETSformer, Pyraformer, PatchTST, MICN, Crossformer, FiLM
+from torch import nn
+from utils.losses import mape_loss, mase_loss, smape_loss
 
 
 class Exp_Basic(object):
@@ -53,3 +56,31 @@ class Exp_Basic(object):
 
     def test(self):
         pass
+
+    def _select_criterion(self, loss_name='MSE'):
+        if loss_name == 'MSE':
+            return nn.MSELoss()
+        elif loss_name == 'MAPE':
+            return mape_loss()
+        elif loss_name == 'MASE':
+            return mase_loss()
+        elif loss_name == 'SMAPE':
+            return smape_loss()
+        else:
+            raise NotImplementedError
+
+    def _select_optimizer(self,opt_name='Adam'):
+        lr = self.args.learning_rate
+        wd = self.args.weight_decay
+        if opt_name == 'Adam':
+            return torch.optim.Adam(self.model.parameters(), lr=lr, weight_decay=wd)
+        elif opt_name == 'SGD':
+            return torch.optim.SGD(self.model.parameters(), lr=lr, weight_decay=wd)
+        elif opt_name == 'RMSprop':
+            return torch.optim.RMSprop(self.model.parameters(), lr=lr, weight_decay=wd)
+        elif opt_name == 'Adagrad':
+            return torch.optim.Adagrad(self.model.parameters(), lr=lr, weight_decay=wd)
+        else:
+            raise NotImplementedError
+
+

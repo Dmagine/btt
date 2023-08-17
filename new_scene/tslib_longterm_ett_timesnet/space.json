@@ -1,24 +1,26 @@
 {
   "e_layers": {
-    "_type": "randint",
+    "_type": "choice",
     "_value": [
       1,
-      4
+      2,
+      3
     ]
   },
   "d_layers": {
-    "_type": "randint",
+    "_type": "choice",
     "_value": [
       1,
-      4
+      2,
+      3
     ]
   },
   "d_model": {
     "_type": "choice",
     "_value": [
-      256,
-      512,
-      1024
+      8,
+      16,
+      32
     ]
   },
   "n_heads": {
@@ -29,16 +31,21 @@
     ]
   },
   "d_ff": {
-    "_type": "randint",
+    "_type": "choice",
     "_value": [
-      1024,
-      2048
+      16,
+      32,
+      64
     ]
   },
   "learning_rate": {
-    "_type": "loguniform",
+    "_type": "choice",
     "_value": [
+      0.00003,
       0.00001,
+      0.0003,
+      0.0001,
+      0.003,
       0.001
     ]
   },

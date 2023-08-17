@@ -125,45 +125,65 @@ class ParallelMonitorRule(MonitorRuleBase):
         # raise NotImplementedError
 
 
-class OnceMonitorRuleBase(MonitorRuleBase):
+class StatisticsMonitorRuleBase(MonitorRuleBase):
+
     def __init__(self, d_args):
         super().__init__(d_args)
-        self.once_flag = False
-        self.result = None
+        self.module_name_list = None
+        self.epoch_rule_instance_list = []
+        self.begin_args_for_epoch = None
+        # self.single_epoch_module_metric_2da_list = []
 
-    def record_metric(self, result):
-        if self.once_flag:
-            raise ValueError("OnceMonitorRule can only be used once")
-        self.once_flag = True
-        self.result = result
+        self.metric_prefix = d_args["metric_prefix"] if "metric_prefix" in d_args else None
+        self.metric_suffix_list = ["avg", "mid", "rate0"] \
+            if "metric_suffix_list" not in d_args else d_args["metric_suffix_list"]
+        self.module_type_list = [nn.Linear, nn.Conv2d, nn.Conv1d, nn.Conv3d, nn.RNN, nn.LSTM, nn.GRU] \
+            if "module_type_list" not in d_args else d_args["module_type_list"]
+        self.calc_batch_ratio = 0.01 if "calc_batch_ratio" in d_args else d_args["calc_batch_ratio"]
 
-    def obtain_metric(self, d_args):
-        return self.result
+        self.max_nb_batch = None
+        self.max_nb_calc_batch = None
 
-
-class PeriodMonitorRuleBase(MonitorRuleBase):
-    def __init__(self, d_args):
-        super().__init__(d_args)
-        self.result_list = []
-
-    def record_metric(self, result):
-        self.result_list.append(result)
+    @abstractmethod
+    def record_metric(self, d_args):
+        raise NotImplementedError
 
     def obtain_metric(self, d_args):
         mode = d_args["mode"]
-        result_idx = d_args["result_idx"] if "result_idx" in d_args else None
+        self.logger.debug("obtain_metric: {}".format(mode))
+        # 思考：如果assessor需要，可以从exp_config(中的monitor_config)得到
+        # r = {
+        #     "class_name": self.__class__.__name__,
+        #     "metric_prefix": self.metric_prefix,  # 更稳定了 不依靠rule_name
+        #     "module_name_list": self.module_name_list,  # 不同trial还不一样。。。 冗余？哎呀，暂时不需要，额外的monitor可以传递！！
+        #     "metric_suffix_list": self.metric_suffix_list,
+        #     "array": None,
+        # }
         if mode == ObtainMode.IdxImmediate:
-            return self.result_list[result_idx] if result_idx < len(self.result_list) else None
+            result_idx = d_args["result_idx"] if "result_idx" in d_args else None
+            r = self.epoch_rule_instance_list[result_idx].obtain_metric(d_args)
+            return r
         elif mode == ObtainMode.IdxWait:
-            return self.result_list[result_idx] if result_idx < len(self.result_list) else None
+            result_idx = d_args["result_idx"] if "result_idx" in d_args else None
+            d_args_ = deepcopy(d_args)
+            d_args_["result_idx"] = None
+            d_args_["mode"] = ObtainMode.AllWait
+            r = self.epoch_rule_instance_list[result_idx].obtain_metric(d_args_)
+            return r
         elif mode == ObtainMode.AllWait:
-            return self.result_list
+            tmp = self.epoch_rule_instance_list[0]
+            shape = (len(self.epoch_rule_instance_list), len(tmp.module_name_list), len(tmp.metric_suffix_list))
+            epoch_module_metric_3da = np.zeros(shape)
+            for i in range(len(self.epoch_rule_instance_list)):
+                # epoch_module_metric_3da[i] = self.single_epoch_module_metric_2da_list[i]
+                epoch_module_metric_3da[i] = self.epoch_rule_instance_list[i].obtain_metric(d_args)
+            r = epoch_module_metric_3da
+            return r
         else:
             raise ValueError("unknown mode: {}".format(mode))
 
 
-class WeightStatisticsEpochMonitorRule(ParallelMonitorRule):
-    # 收集一个epoch的所有batch的weight的统计信息
+class StatisticsEpochMonitorRuleBase(ParallelMonitorRule):
     def __init__(self, d_args):
         super().__init__(d_args)
         self.module_name_list = d_args["module_name_list"]
@@ -172,9 +192,55 @@ class WeightStatisticsEpochMonitorRule(ParallelMonitorRule):
         self.module_type_list = d_args["module_type_list"]
 
         self.max_nb_calc_batch = d_args["max_nb_calc_batch"]
-
         self.calc_batch_idx = None
         self.stop_flag = None
+
+    @abstractmethod
+    def before_record_metric(self, d_args):
+        raise NotImplementedError
+
+    def after_obtain_metric(self, d_args):
+        mode = d_args["mode"]
+        result = d_args["result"]
+        if result is None:
+            return None
+        self.logger.debug("after_obtain_metric: {}".format(mode))
+        if mode == ObtainMode.IdxImmediate:
+            return result
+        elif mode == ObtainMode.IdxWait:
+            return result
+        elif mode == ObtainMode.AllWait:
+            result_list = result
+            nb_calc_batch = len(result_list)
+            shape = (nb_calc_batch, len(self.module_name_list), len(self.metric_suffix_list))
+            batch_module_metric_3da = np.zeros(shape)
+            for i in range(nb_calc_batch):
+                batch_module_metric_3da[i] = result_list[i]
+            single_epoch_module_metric_2da = np.mean(batch_module_metric_3da, axis=0)
+            return single_epoch_module_metric_2da
+        else:
+            raise ValueError("mode {} not supported".format(mode))
+
+    def calc_metric_parallel(self, d_args):
+        mode = d_args["mode"]
+        self.logger.debug("calc_metric_parallel begin: {}".format(mode))
+
+        if mode == RecordMode.TrainIterEnd:
+            single_batch_module_metric_2da = np.zeros((len(self.module_name_list), len(self.metric_suffix_list)))
+            tensor_list = d_args["tensor_list"]
+            for module_idx, tensor in enumerate(tensor_list):
+                array = tensor.numpy()
+                for metric_idx, suffix in enumerate(self.metric_suffix_list):
+                    single_batch_module_metric_2da[module_idx, metric_idx] = calc_array_statistic(array, suffix)
+            return single_batch_module_metric_2da
+        else:
+            raise ValueError("unknown mode: {}".format(mode))
+
+
+class WeightStatisticsEpochMonitorRule(StatisticsEpochMonitorRuleBase):
+    # 收集一个epoch的所有batch的weight的统计信息
+    def __init__(self, d_args):
+        super().__init__(d_args)
 
     def before_record_metric(self, d_args):
         def get_tensor_list(model: nn.Module):
@@ -204,6 +270,7 @@ class WeightStatisticsEpochMonitorRule(ParallelMonitorRule):
         if mode == RecordMode.EpochTrainBegin:
             self.calc_batch_idx = 0
             self.stop_flag = False
+            return None  #### 不记录
         elif mode == RecordMode.TrainIterEnd:
             if self.stop_flag:
                 self.calc_batch_idx += 1
@@ -219,66 +286,15 @@ class WeightStatisticsEpochMonitorRule(ParallelMonitorRule):
         return d_args
 
     def calc_metric_parallel(self, d_args):
-        mode = d_args["mode"]
-        self.logger.debug("calc_metric_parallel begin: {}".format(mode))
-
-        if "stop_flag" in d_args and d_args["stop_flag"]:
-            return
-
-        if mode == RecordMode.EpochTrainBegin:
-            pass
-        elif mode == RecordMode.TrainIterEnd:
-            single_batch_module_metric_2da = np.zeros((len(self.module_name_list), len(self.metric_suffix_list)))
-            tensor_list = d_args["tensor_list"]
-            for module_idx, tensor in enumerate(tensor_list):
-                array = tensor.numpy()
-                for metric_idx, suffix in enumerate(self.metric_suffix_list):
-                    metric_name = self.metric_prefix + "_" + suffix
-                    single_batch_module_metric_2da[module_idx, metric_idx] = calc_array_statistic(array, suffix)
-            return single_batch_module_metric_2da
-        else:
-            raise ValueError("unknown mode: {}".format(mode))
+        return super().calc_metric_parallel(d_args)
 
     def after_obtain_metric(self, d_args):
-        mode = d_args["mode"]
-        result = d_args["result"]
-        if result is None:
-            return None
-
-        self.logger.debug("after_obtain_metric: {}".format(mode))
-        if mode == ObtainMode.IdxImmediate:
-            return result
-        elif mode == ObtainMode.IdxWait:
-            return result
-        elif mode == ObtainMode.AllWait:
-            result_list = result
-            nb_batch = len(result_list)
-            shape = (nb_batch, len(self.module_name_list), len(self.metric_suffix_list))
-            batch_module_metric_3da = np.zeros(shape)
-            for i in range(nb_batch):
-                batch_module_metric_3da[i] = result_list[i]
-            single_epoch_module_metric_2da = np.mean(batch_module_metric_3da, axis=0)
-            return single_epoch_module_metric_2da
-        else:
-            raise ValueError("unknown mode: {}".format(mode))
+        return super().after_obtain_metric(d_args)
 
 
-class WeightStatisticsMonitorRule(MonitorRuleBase):
+class WeightStatisticsMonitorRule(StatisticsMonitorRuleBase):
     def __init__(self, d_args):
         super().__init__(d_args)
-        self.module_name_list = None
-        self.epoch_rule_instance_list = []
-        self.single_epoch_module_metric_2da_list = []
-
-        self.metric_prefix = d_args["metric_prefix"] if "metric_prefix" in d_args else None
-        self.metric_suffix_list = ["mid", "rate0"] \
-            if "metric_suffix_list" not in d_args else d_args["metric_suffix_list"]
-        self.module_type_list = [nn.Linear, nn.Conv2d, nn.Conv1d, nn.Conv3d, nn.RNN, nn.LSTM, nn.GRU] \
-            if "module_type_list" not in d_args else d_args["module_type_list"]
-        self.calc_batch_ratio = 0.01 if "calc_batch_ratio" in d_args else d_args["calc_batch_ratio"]
-
-        self.max_nb_batch = None
-        self.max_nb_calc_batch = None
 
     def record_metric(self, d_args):
         def append_new_epoch_instance():
@@ -309,49 +325,15 @@ class WeightStatisticsMonitorRule(MonitorRuleBase):
             return None
 
     def obtain_metric(self, d_args):
-        mode = d_args["mode"]
-        self.logger.debug("obtain_metric: {}".format(mode))
-        if mode == ObtainMode.IdxImmediate:
-            result_idx = d_args["result_idx"] if "result_idx" in d_args else None
-            return self.epoch_rule_instance_list[result_idx].obtain_metric(d_args)
-        elif mode == ObtainMode.IdxWait:
-            result_idx = d_args["result_idx"] if "result_idx" in d_args else None
-            d_args_ = deepcopy(d_args)
-            d_args_["result_idx"] = None
-            d_args_["mode"] = ObtainMode.AllWait
-            r = self.epoch_rule_instance_list[result_idx].obtain_metric(d_args_)
-            self.single_epoch_module_metric_2da_list.append(r)
-            return r
-        elif mode == ObtainMode.AllWait:
-            tmp = self.epoch_rule_instance_list[0]
-            shape = (len(self.epoch_rule_instance_list), len(tmp.module_name_list), len(tmp.metric_suffix_list))
-            epoch_module_metric_3da = np.zeros(shape)
-            # 可能需要等intermediate_metric_rule的所有结果都出来才能计算
-            for i in range(len(self.epoch_rule_instance_list)):
-                epoch_module_metric_3da[i] = self.single_epoch_module_metric_2da_list[i]
-            return epoch_module_metric_3da
-        else:
-            raise ValueError("unknown mode: {}".format(mode))
+        return super().obtain_metric(d_args)
 
 
-class FeatureStatisticsEpochMonitorRule(ParallelMonitorRule):
+class FeatureStatisticsEpochMonitorRule(StatisticsEpochMonitorRuleBase):
     def __init__(self, d_args):
         super().__init__(d_args)
-        # metric_prefix -> ["feat_val","feat_grad"] in or out ???
-        self.module_name_list = d_args["module_name_list"]
-        self.metric_prefix = d_args["metric_prefix"]
-        self.metric_suffix_list = d_args["metric_suffix_list"]
-        self.module_type_list = d_args["module_type_list"]
-
-        self.max_nb_calc_batch = d_args["max_nb_calc_batch"]
-        self.module_id_name_dict = d_args["module_id_name_dict"]
-
-        self.calc_batch_idx = None
-        self.stop_flag = None
-
         self.hook_handle_list = None
-
         self.tensor_list = None
+        self.module_id_name_dict = d_args["module_id_name_dict"]
 
     def before_record_metric(self, d_args):
         def register_hook(model: nn.Module):
@@ -362,7 +344,14 @@ class FeatureStatisticsEpochMonitorRule(ParallelMonitorRule):
                 module_idx = self.module_name_list.index(self.module_id_name_dict[module_id])
                 # array = feature_value_in[0].detach().cpu().numpy().flatten()  # time ...
                 # tensor = feature_value_in[0].detach().cpu() # 因为并行计算所以cpu 但是.cpu耗时间？？？
-                tensor = feature_value_in[0].detach().flatten()  # time ...
+                # time ...
+                if self.metric_prefix == "feature_val_in":
+                    tensor = feature_value_in[0].detach().flatten()
+                elif self.metric_prefix == "feature_val_out":
+                    tensor = feature_value_out[0].detach().flatten()
+                else:
+                    raise ValueError("metric_prefix should be in ['feature_val_in', 'feature_val_out']")
+                tensor = torch.abs(tensor) if "_abs" in self.metric_prefix else tensor
                 self.logger.debug("forward_hook: module_idx: {}, tensor.shape: {}".format(module_idx, tensor.shape))
                 self.tensor_list[module_idx] = tensor
                 return
@@ -372,7 +361,15 @@ class FeatureStatisticsEpochMonitorRule(ParallelMonitorRule):
                     return
                 module_id = id(module)
                 module_idx = self.module_name_list.index(self.module_id_name_dict[module_id])
-                tensor = feature_grad_out[0].detach().flatten()  # time ...
+                # tensor = feature_grad_out[0].detach().flatten()  # time ...
+                # tensor = torch.abs(tensor) if "_abs" in self.metric_prefix else tensor
+                if self.metric_prefix == "feature_grad_out":
+                    tensor = feature_grad_out[0].detach().flatten()
+                elif self.metric_prefix == "feature_grad_in":
+                    tensor = feature_grad_in[0].detach().flatten()
+                else:
+                    raise ValueError("metric_prefix should be in ['feature_val_in', 'feature_val_out']")
+                tensor = torch.abs(tensor) if "_abs" in self.metric_prefix else tensor
                 self.logger.debug("backward_hook: module_idx: {}, tensor.shape: {}".format(module_idx, tensor.shape))
                 self.tensor_list[module_idx] = tensor
                 return
@@ -381,10 +378,10 @@ class FeatureStatisticsEpochMonitorRule(ParallelMonitorRule):
             for module in model.modules():
                 if type(module) not in self.module_type_list:
                     continue
-                if self.metric_prefix == "feature_val_in":
+                if "feature_val" in self.metric_prefix:  # feature_val_in (feature_val_out)
                     h = module.register_forward_hook(forward_hook_get_feature_value_in)
                     self.hook_handle_list.append(h)
-                elif self.metric_prefix == "feature_grad_out":
+                elif "feature_grad" in self.metric_prefix:  # feature_grad_out (feature_grad_in)
                     h = module.register_full_backward_hook(backward_hook_get_feature_gradient_out)
                     self.hook_handle_list.append(h)
                 else:
@@ -404,8 +401,10 @@ class FeatureStatisticsEpochMonitorRule(ParallelMonitorRule):
             self.tensor_list = [None] * len(self.module_name_list)
             self.calc_batch_idx = 0
             self.stop_flag = False
+            return None  #### 不记录
         elif mode == RecordMode.EpochTrainEnd:
             unregister_hook()
+            return None  #### 不记录
         elif mode == RecordMode.TrainIterEnd:
             if self.stop_flag:
                 self.calc_batch_idx += 1
@@ -417,72 +416,29 @@ class FeatureStatisticsEpochMonitorRule(ParallelMonitorRule):
                 self.stop_flag = True
             self.calc_batch_idx += 1
             d_args["module_tensor_list"] = self.tensor_list  # 类似record操作
+            return d_args
         else:
             raise ValueError("unknown mode: {}".format(mode))
-        return d_args
 
     def calc_metric_parallel(self, d_args):
-        mode = d_args["mode"]
-        self.logger.debug("calc_metric_parallel begin: {}".format(mode))
-
-        if "stop_flag" in d_args and d_args["stop_flag"]:
-            return
-
-        if mode == RecordMode.EpochTrainBegin:
-            pass
-        elif mode == RecordMode.EpochTrainEnd:
-            pass
-        elif mode == RecordMode.TrainIterEnd:
-            module_tensor_list = d_args["module_tensor_list"]
-            single_batch_module_metric_2da = np.zeros((len(module_tensor_list), len(self.metric_suffix_list)))
-            for module_idx, tensor in enumerate(module_tensor_list):
-                array = tensor.cpu().numpy()
-                for metric_idx, metric_suffix in enumerate(self.metric_suffix_list):
-                    statistic = calc_array_statistic(array, metric_suffix)
-                    single_batch_module_metric_2da[module_idx][metric_idx] = statistic
-            return single_batch_module_metric_2da
-        else:
-            raise ValueError("unknown mode: {}".format(mode))
+        return super().calc_metric_parallel(d_args)
 
     def after_obtain_metric(self, d_args):
-        mode = d_args["mode"]
-        result = d_args["result"]
-        if result is None:
-            return None
-
-        self.logger.debug("after_obtain_metric: {}".format(mode))
-        if mode == ObtainMode.IdxImmediate:
-            return result
-        elif mode == ObtainMode.IdxWait:
-            return result
-        elif mode == ObtainMode.AllWait:
-            result_list = result
-            nb_calc_batch = len(result_list)
-            shape = (nb_calc_batch, len(self.module_name_list), len(self.metric_suffix_list))
-            batch_module_metric_3da = np.zeros(shape)
-            for i in range(nb_calc_batch):
-                batch_module_metric_3da[i] = result_list[i]
-            single_epoch_module_metric_2da = np.mean(batch_module_metric_3da, axis=0)
-            return single_epoch_module_metric_2da
-        else:
-            raise ValueError("mode {} not supported".format(mode))
+        return super().after_obtain_metric(d_args)
 
 
-class FeatureStatisticsMonitorRule(MonitorRuleBase):
+class FeatureStatisticsMonitorRule(StatisticsMonitorRuleBase):
     def __init__(self, d_args):
         super().__init__(d_args)
         self.module_name_list = None
         self.epoch_rule_instance_list = []
-        self.default_module_type_list = [nn.Linear, nn.Conv2d, nn.Conv1d, nn.Conv3d, nn.RNN, nn.LSTM, nn.GRU]
-        self.default_metric_suffix_list = ["mid", "rate0"]
         self.begin_args_for_epoch = None
-        self.next_train_begin_flag = False
-        self.single_epoch_module_metric_2da_list = []
+        # self.single_epoch_module_metric_2da_list = []
 
         self.metric_prefix = d_args["metric_prefix"] if "metric_prefix" in d_args else None
-        self.metric_suffix_list = self.default_metric_suffix_list \
+        self.metric_suffix_list = ["avg", "mid", "rate0"] \
             if "metric_suffix_list" not in d_args else d_args["metric_suffix_list"]
-        self.module_type_list = self.default_module_type_list \
+        self.module_type_list = [nn.Linear, nn.Conv2d, nn.Conv1d, nn.Conv3d, nn.RNN, nn.LSTM, nn.GRU] \
             if "module_type_list" not in d_args else d_args["module_type_list"]
         self.calc_batch_ratio = d_args["calc_batch_ratio"] if "calc_batch_ratio" in d_args else None
 
@@ -526,29 +482,7 @@ class FeatureStatisticsMonitorRule(MonitorRuleBase):
             return None
 
     def obtain_metric(self, d_args):
-        mode = d_args["mode"]
-        self.logger.debug("obtain_metric: {}".format(mode))
-        if mode == ObtainMode.IdxImmediate:
-            result_idx = d_args["result_idx"] if "result_idx" in d_args else None
-            return self.epoch_rule_instance_list[result_idx].obtain_metric(d_args)
-        elif mode == ObtainMode.IdxWait:
-            result_idx = d_args["result_idx"] if "result_idx" in d_args else None
-            d_args_ = deepcopy(d_args)
-            d_args_["result_idx"] = None
-            d_args_["mode"] = ObtainMode.AllWait
-            r = self.epoch_rule_instance_list[result_idx].obtain_metric(d_args_)
-            self.single_epoch_module_metric_2da_list.append(r)
-            return r
-        elif mode == ObtainMode.AllWait:
-            tmp = self.epoch_rule_instance_list[0]
-            shape = (len(self.epoch_rule_instance_list), len(tmp.module_name_list), len(tmp.metric_suffix_list))
-            epoch_module_metric_3da = np.zeros(shape)
-            # 可能需要等intermediate_metric_rule的所有结果都出来才能计算
-            for i in range(len(self.epoch_rule_instance_list)):
-                epoch_module_metric_3da[i] = self.single_epoch_module_metric_2da_list[i]
-            return epoch_module_metric_3da
-        else:
-            raise ValueError("mode {} not supported".format(mode))
+        return super().obtain_metric(d_args)
 
 
 class NotImplementMonitorRule(MonitorRuleBase):
@@ -560,8 +494,45 @@ class NotImplementMonitorRule(MonitorRuleBase):
         return "nothing"
 
 
-class ModePeriodMonitorRule(PeriodMonitorRuleBase):
-    # train acc / val loss
+class OnceMonitorRuleBase(MonitorRuleBase):
+    def __init__(self, d_args):
+        super().__init__(d_args)
+        self.once_flag = False
+        self.result = None
+
+    def record_metric(self, result):
+        if self.once_flag:
+            raise ValueError("OnceMonitorRule can only be used once")
+        self.once_flag = True
+        self.result = result
+
+    def obtain_metric(self, d_args):
+        return self.result
+
+
+class PeriodMonitorRuleBase(MonitorRuleBase):
+    def __init__(self, d_args):
+        super().__init__(d_args)
+        self.result_list = []
+
+    def record_metric(self, result):
+        self.result_list.append(result)
+
+    def obtain_metric(self, d_args):
+        mode = d_args["mode"]
+        result_idx = d_args["result_idx"] if "result_idx" in d_args else None
+        if mode == ObtainMode.IdxImmediate:
+            return self.result_list[result_idx] if result_idx < len(self.result_list) else None
+        elif mode == ObtainMode.IdxWait:
+            return self.result_list[result_idx] if result_idx < len(self.result_list) else None
+        elif mode == ObtainMode.AllWait:
+            return self.result_list
+        else:
+            raise ValueError("unknown mode: {}".format(mode))
+
+
+class ModeOnceMonitorRule(OnceMonitorRuleBase):
+    # test acc
     def __init__(self, d_args):
         super().__init__(d_args)
         self.key = d_args["key"]
@@ -576,8 +547,8 @@ class ModePeriodMonitorRule(PeriodMonitorRuleBase):
         return super().obtain_metric(d_args)
 
 
-class ModeOnceMonitorRule(OnceMonitorRuleBase):
-    # test acc
+class ModePeriodMonitorRule(PeriodMonitorRuleBase):
+    # train acc / val loss
     def __init__(self, d_args):
         super().__init__(d_args)
         self.key = d_args["key"]

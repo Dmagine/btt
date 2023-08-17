@@ -137,5 +137,9 @@ def time_str2second(time_str):
         raise ValueError("time_str should be end with 'd', 'h', 'm' or 's'")
 
 
+def if_nan_or_inf(x):
+    return np.isnan(x).any or np.isinf(x).any
+
+
 def sleep(i):
     os.system("sleep " + str(i))

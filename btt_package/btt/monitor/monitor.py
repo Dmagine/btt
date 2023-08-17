@@ -5,9 +5,7 @@ import sys
 import threading
 
 import nni
-
 from btt_messenger import BttMessenger
-from monitor_rule import OnceMonitorRuleBase, PeriodMonitorRuleBase
 from utils import ObtainMode
 
 logger = logging.getLogger(__name__)
@@ -39,18 +37,13 @@ class BttMonitor:
 
     def init_rule_instance(self):
         for rule_name, rule_info in self.rule_config.items():
-            # if mode == "once":
-            #     instance = OnceMonitorRuleBase({"rule_name": rule_name})
-            # elif mode == "period":
-            #     instance = PeriodMonitorRuleBase({"rule_name": rule_name})
-            code_dir = rule_info["code_dir"]
-            module_name = rule_info["module_name"]
+            module_path = rule_info["module_path"]  ###
             class_name = rule_info["class_name"]
             init_args = rule_info["init_args"] if "init_args" in rule_info else {}
             init_args["rule_name"] = rule_name
 
-            sys.path.append(code_dir)
-            class_module = importlib.import_module(module_name)
+            sys.path.append(os.path.dirname(module_path))
+            class_module = importlib.import_module(os.path.basename(module_path))
             class_constructor = getattr(class_module, class_name)
             instance = class_constructor(init_args)
             self.rule_instance_dict[rule_name] = instance
@@ -80,9 +73,9 @@ class BttMonitor:
                     d = {}  # 每次尝试汇报都要清空
                     for rule_name in self.intermediate_rule_name_list:
                         d_args = {"result_idx": self.intermediate_actual_idx, "mode": ObtainMode.IdxWait}
-                        tmp_d = self.obtain_metric(rule_name, d_args)
-                        if tmp_d is not None:
-                            d[rule_name] = tmp_d
+                        rule_result_dict = self.obtain_metric(rule_name, d_args)
+                        if rule_result_dict is not None:
+                            d[rule_name] = rule_result_dict
                         else:
                             logger.debug(" ".join(["_report_intermediate_result none:",
                                                    rule_name, str(self.intermediate_actual_idx),
@@ -132,9 +125,9 @@ class BttMonitor:
         for rule_name in self.rule_name_list:
             logger.debug(" ".join(["report_final_result wait:", rule_name]))
             d_args = {"result_idx": -1, "mode": ObtainMode.AllWait}
-            metric_value = self.obtain_metric(rule_name, d_args)
+            rule_result_dict = self.obtain_metric(rule_name, d_args)
             if rule_name in self.final_report_rule_name_list:
-                d.update({rule_name: metric_value})
+                d[rule_name] = rule_result_dict
         logger.info("final_report report: ")
 
         d["default"] = d[self.final_default_rule_name]

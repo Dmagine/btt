@@ -2,7 +2,7 @@ import os
 import time
 
 
-def script_run(lst, t, log_dir=None):
+def script_run(lst, hour, log_dir=None):
     for i in range(len(lst)):  # [0,1,2...9]
         exp_file_path = lst[i]
         log_dir = "../../script_log/" if log_dir is None else log_dir
@@ -20,5 +20,5 @@ def script_run(lst, t, log_dir=None):
         log_file_name = "\"" + tmp + exp_name + "_idx_" + str(i) + ".txt" + "\""
         cmd = "nnictl create --config " + exp_file_path + " --port 8080 > " + log_file_name
         res = os.system(cmd)
-        os.system("sleep " + str(t) + "h")  ###########
+        os.system("sleep " + str(hour) + "h")  ###########
         os.system("sleep 5m")

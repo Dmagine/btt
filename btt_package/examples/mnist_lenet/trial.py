@@ -9,9 +9,8 @@ from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
-sys.path.append("../../register_package")
-from btt_trial_manager import BttTrialManager
-from btt_utils import RecordMode, ObtainMode
+from btt.trial_manager import BttTrialManager
+from btt.utils import RecordMode, ObtainMode
 
 # log_dir = os.path.join(os.environ["NNI_OUTPUT_DIR"], 'tensorboard')
 # writer = SummaryWriter(log_dir)
@@ -49,7 +48,7 @@ params = {
 }
 
 seed = 529
-manager = BttTrialManager(seed=seed)
+manager = None
 
 
 def clip_gradient(opt, clip_thresh=params["clip_thresh"]):
@@ -201,7 +200,10 @@ def test(dataloader, model, loss_fn):
     return acc, loss
 
 
-def main():
+def main(*args, **kwargs):
+    global manager
+    manager = BttTrialManager(seed=seed)
+
     print("experiment_id: ", manager.get_experiment_id())
     print("trial_id: ", manager.get_trial_id())
     optimized_params = manager.get_trial_parameters()

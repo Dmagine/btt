@@ -12,19 +12,13 @@ import numpy as np
 
 warnings.filterwarnings('ignore')
 
-sys.path.append("../../new_package")
-from atdd_manager import ATDDManager
-manager = None
-
 
 class Exp_Imputation(Exp_Basic):
     def __init__(self, args):
         super(Exp_Imputation, self).__init__(args)
-        seed = 529
-        global manager
-        manager = ATDDManager(seed=seed)
+        self.manager = args.manager
         train_loader = self._get_data('train')[1]
-        manager.init_basic(self.model, train_loader)
+        self.manager.init_basic(self.model, train_loader)
 
     def _build_model(self):
         model = self.model_dict[self.args.model].Model(self.args).float()
@@ -102,7 +96,6 @@ class Exp_Imputation(Exp_Basic):
             iter_count = 0
             train_loss = []
 
-
             self.model.train()
             epoch_time = time.time()
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(train_loader):
@@ -154,16 +147,16 @@ class Exp_Imputation(Exp_Basic):
 
             manager.collect_after_training(None, train_loss)
             manager.calculate_after_training()
-            manager.collect_after_validating(None, vali_loss)
-            manager.report_intermediate_result(vali_loss)
+            manager.collect_after_validating(None, test_loss)  ### test_loss
+            manager.report_intermediate_result(test_loss)  ### test_loss
+            best_test_loss = min(best_test_loss, test_loss)
             if manager.if_atdd_send_stop():
                 break
 
         # best_model_path = path + '/' + 'checkpoint.pth'
         # self.model.load_state_dict(torch.load(best_model_path))
-
-        manager.collect_after_testing(None, test_loss)
-        manager.report_final_result(test_loss)
+        manager.collect_after_testing(None, best_test_loss)
+        manager.report_final_result(best_test_loss)
 
         return self.model
 

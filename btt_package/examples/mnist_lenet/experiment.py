@@ -39,7 +39,10 @@ def get_monitor_config(exp_config):
     exp_config.monitor_config = []
     rule_name_list = ['train_acc', 'train_loss', 'val_acc', 'val_loss', 'test_acc', 'test_loss',
                       'weight_val', 'weight_grad',
-                      'feature_val_in', 'feature_grad_out']
+                      'feature_val_in', 'feature_grad_out',
+                      'weight_val_abs', 'weight_grad_abs',
+                      'feature_val_in_abs', 'feature_grad_out_abs',
+                      ]
     for rule_name in rule_name_list:
         conf = MonitorRuleConfig()
         conf.name = rule_name
@@ -85,6 +88,8 @@ def get_assessor_config(exp_config):
         conf.class_name = indicator_class_name
         exp_config.monitor_config.append(conf)
 
+    return exp_config
+
 
 def main():
     exp_config = ExperimentConfig()
@@ -99,14 +104,8 @@ def main():
     exp_config = get_monitor_config(exp_config)
     exp_config = get_assessor_config(exp_config)
 
-    exp_id = experiment.id
-    d = {"device": device, "exp_id": exp_id}
-    threading.Thread(target=des, kwargs=d).start()
-    experiment.run(8080)  # background
-    # experiment.start(8080)
-
-    # experiment.stop()
-    # experiment.view(exp_id,8080)
+    experiment = Experiment(exp_config)
+    experiment.start()
 
 
 if __name__ == '__main__':
