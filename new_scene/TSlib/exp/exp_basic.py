@@ -29,6 +29,8 @@ class Exp_Basic(object):
         }
         self.device = self._acquire_device()
         self.model = self._build_model().to(self.device)
+        self.best_val_model = None
+        self.best_val_result = None
 
     def _build_model(self):
         raise NotImplementedError

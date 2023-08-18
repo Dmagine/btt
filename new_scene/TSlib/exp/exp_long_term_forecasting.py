@@ -1,5 +1,6 @@
 import time
 import warnings
+from copy import deepcopy
 
 import numpy as np
 import torch
@@ -10,6 +11,7 @@ from utils.metrics import metric
 from utils.tools import EarlyStopping, adjust_learning_rate
 
 warnings.filterwarnings('ignore')
+
 
 # import sys
 # sys.path.append("../../new_package")
@@ -111,7 +113,6 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         if self.args.use_amp:
             scaler = torch.cuda.amp.GradScaler()
 
-        best_test_loss = np.inf
         for epoch in range(self.args.train_epochs):
             self.manager.refresh_before_epoch_start()
 
@@ -121,12 +122,6 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             self.model.train()
             epoch_time = time.time()
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(train_loader):
-                # print("iter_count:", iter_count)
-                # print("calculate_model_size", calculate_model_size(self.model))
-                # print("batch_x.shape", batch_x.shape)
-                # calc model size
-                if iter_count == 0:
-                    self._build_model()
                 iter_count += 1
                 model_optim.zero_grad()
                 batch_x = batch_x.float().to(self.device)
@@ -185,9 +180,13 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
             print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
             train_loss = np.average(train_loss)
+            # 速度很慢...... 5min/epoch * 20epoch = 100min -> 50m
             vali_loss = self.vali(vali_data, vali_loader, criterion)
-            test_loss = self.vali(test_data, test_loader, criterion)
-
+            if self.best_val_result is None or vali_loss < self.best_val_result:
+                self.best_val_result = vali_loss
+                self.best_val_model = deepcopy(self.model)
+            # test_loss = self.vali(test_data, test_loader, criterion)
+            test_loss = -1
             print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} Vali Loss: {3:.7f} Test Loss: {4:.7f}".format(
                 epoch + 1, train_steps, train_loss, vali_loss, test_loss))
             # early_stopping(vali_loss, self.model, path)
@@ -201,7 +200,6 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             self.manager.calculate_after_training()
             self.manager.collect_after_validating(None, {"val_data_train_loss": vali_loss})
             self.manager.report_intermediate_result()
-            best_test_loss = min(best_test_loss, test_loss)
             if self.manager.if_atdd_send_stop():
                 break
 
@@ -222,6 +220,8 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         # if not os.path.exists(folder_path):
         #     os.makedirs(folder_path)
 
+        self.model = self.best_val_model  ##########
+        print("load best model: best_val_result: ", self.best_val_result)
         self.model.eval()
         with torch.no_grad():
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):

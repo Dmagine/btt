@@ -4,7 +4,7 @@ trial_command: python3 trial.py
 trial_code_directory: .
 
 trial_concurrency: 4
-maxExperimentDuration: 6h ####不细调了
+maxExperimentDuration: 6h ####
 training_service:
   platform: local
   useActiveGpu: false

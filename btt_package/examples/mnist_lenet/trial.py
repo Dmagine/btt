@@ -1,54 +1,27 @@
 import random
-import sys
 
+import btt
 import numpy as np
 import torch
 import torch.optim as optim
+from btt.trial_manager import BttTrialManager
+from btt.utils import RecordMode, ObtainMode, ParamMode
 from torch import nn
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
-from btt.trial_manager import BttTrialManager
-from btt.utils import RecordMode, ObtainMode
-
-# log_dir = os.path.join(os.environ["NNI_OUTPUT_DIR"], 'tensorboard')
-# writer = SummaryWriter(log_dir)
-
 # resource limitaion
 # global device, batch_quota, epoch_quota
 device = "cuda" if torch.cuda.is_available() else "cpu"
-batch_quota = np.inf
-epoch_quota = np.inf
+batch_quota, epoch_quota = np.inf, np.inf
+max_nb_epoch, max_nb_batch = None, None
 print(f"Using {device} device")
 
-params = {
-    "conv1_k_num": 6,
-    "pool1_size": 3,
-    "conv2_k_num": 17,
-    "pool2_size": 2,
-    "full_num": 84,
-    "conv_k_size": 4,
-    "lr": 0.1,
-    "weight_decay": 0.01,
-    "drop_rate": 0.5,
-    #
-    "batch_norm": 1,
-    "drop": 1,
-    "batch_size": 300,
-    "data_norm": 1,
-    "gamma": 0.7,
-    "step_size": 1,
-    "grad_clip": 1,
-    "clip_thresh": 10,
-    "act": 0,
-    "opt": 0,
-    "pool": 0,
-    # bn / batch size / transform / gamma / step size XXX / grad clip / opt / pool / momentum XXX
-}
 
-seed = 529
-manager = None
+# seed = 529
+# manager = None # 用entri
+# params = None
 
 
 def clip_gradient(opt, clip_thresh=params["clip_thresh"]):
@@ -200,19 +173,20 @@ def test(dataloader, model, loss_fn):
     return acc, loss
 
 
-def main(*args, **kwargs):
-    global manager
-    manager = BttTrialManager(seed=seed)
+def trial_func(manager: btt.trial_manager, *args, **kwargs):
+    if manager is None:
+        raise NotImplementedError
 
     print("experiment_id: ", manager.get_experiment_id())
     print("trial_id: ", manager.get_trial_id())
-    optimized_params = manager.get_trial_parameters()
-    params.update(optimized_params)
-    print("params: ", params)
+    # params = trial_manager.get_trial_parameters()
+    # print("params: ", params)
 
-    train_kwargs = {'batch_size': params["batch_size"]}
-    test_kwargs = {'batch_size': params["batch_size"]}
+    batch_size = manager.suggest_param("batch_size", ParamMode.Choice, [64, 128, 256])  # name type range
+    train_kwargs = {'batch_size': batch_size}
+    test_kwargs = {'batch_size': batch_size}
     global device, batch_quota, epoch_quota
+    data_norm = manager.suggest_param("data_norm", ParamMode.Choice, [0, 1])
     if device == "cuda":
         cuda_kwargs = {'num_workers': 1,
                        'pin_memory': True,
@@ -223,7 +197,7 @@ def main(*args, **kwargs):
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
-    ]) if params["data_norm"] == 1 else transforms.Compose([transforms.ToTensor()])
+    ]) if data_norm == 1 else transforms.Compose([transforms.ToTensor()])
     train_data = datasets.MNIST('../../../data', train=True, download=True, transform=transform)
     test_data = datasets.MNIST('../../../data', train=False, transform=transform)
 
@@ -234,42 +208,43 @@ def main(*args, **kwargs):
 
     model = LeNet5().to(device)
 
-    optimizer = choose_opt()(model.parameters(), lr=params["lr"], weight_decay=params["weight_decay"])
-    scheduler = StepLR(optimizer, step_size=params["step_size"], gamma=params["gamma"])
+    lr = manager.suggest_param("lr", ParamMode.Choice, [0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001])
+    weight_decay = manager.suggest_param("weight_decay", ParamMode.Choice, [0, 0.01, 0.001])
+    step_size = manager.suggest_param("step_size", ParamMode.Choice, [1, 3, 5])
+    gamma = manager.suggest_param("gamma", ParamMode.Choice, [0.3, 0.5, 0.7])
+    optimizer = choose_opt()(model.parameters(), lr=lr, weight_decay=weight_decay)
+    scheduler = StepLR(optimizer, step_size=step_size, gamma=gamma)
     loss_fn = nn.CrossEntropyLoss()
     global max_nb_epoch, max_nb_batch
-    max_nb_epoch = 3  # tset
+    max_nb_epoch = 3  # test
     max_nb_batch = len(train_dataloader)
 
     d = {"mode": RecordMode.Begin, "model": model, "max_nb_epoch": max_nb_epoch, "max_nb_batch": max_nb_batch}
     manager.record_metric(d)
     for epoch_idx in range(max_nb_epoch):
+        epoch_quota = manager.update_resource_params({"epoch_quota": epoch_quota})["epoch_quota"]
         if epoch_idx >= epoch_quota:
             break
         print(f"Epoch {epoch_idx + 1}\n-------------------------------")
         manager.record_metric({"mode": RecordMode.EpochBegin, "model": model, "epoch_idx": epoch_idx})
 
         # future: + opt + model (all quantized)
-        d = {"device": device, "batch_quota": batch_quota, "epoch_quota": epoch_quota}
-        d = manager.update_resource_params(d)
-        device, batch_quota, epoch_quota = d["device"], d["batch_quota"], d["epoch_quota"]
 
         train_acc, train_loss = train(train_dataloader, model, loss_fn, optimizer)
         val_acc, val_loss = test(valid_dataloader, model, loss_fn)
         scheduler.step()
-        manager.record_metric({"mode": RecordMode.EpochEnd})
-        manager.report_intermediate_result()
+        manager.record_metric({"mode": RecordMode.EpochEnd, "model": model})
+        # manager.report_intermediate_result()
         print(f"val_loss: {val_loss:>7f}  val_acc: {val_acc:>2f}  ")
 
     test_acc, test_loss = test(test_dataloader, model, loss_fn)
     manager.record_metric({"mode": RecordMode.End, "test_acc": test_acc, "test_loss": test_loss})
+    # manager.report_final_result()
 
     rule_name = "val_acc"
     d = {"rule_name": rule_name, "mode": ObtainMode.AllWait}
-    metric_value = manager.obtain_metric(d)
-    print(rule_name, metric_value)
-
-    manager.report_final_result()
+    val_acc_list = manager.obtain_metric(d)
+    print(rule_name, val_acc_list)
 
     return
 

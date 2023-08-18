@@ -4,7 +4,7 @@ import nni
 
 from btt_messenger import BttMessenger
 from btt_package.btt.monitor.monitor import BttMonitor
-from utils import set_seed
+from utils import set_seed, RecordMode
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,15 @@ class BttTrialManager:
             # for rule_name, d_args in d2.items():
             #     self.monitor.record_metric(rule_name, d_args)
             self.monitor.record_metric(d_args)
+        mode = d_args["mode"]
+        if mode == RecordMode.Begin:
+            pass  # init report?
+        elif mode == RecordMode.EpochEnd:
+            self.report_intermediate_result()
+            if self.monitor.intermediate_expect_idx != 0:  # 表示从未report过
+                pass  # 一些奇怪的 fix param report?
+        elif mode == RecordMode.End:
+            self.report_final_result()
 
     def obtain_metric(self, d_args):
         # metric_name or metric_name_list

@@ -1,4 +1,3 @@
-import threading
 from copy import deepcopy
 
 import torch
@@ -91,7 +90,7 @@ def get_assessor_config(exp_config):
     return exp_config
 
 
-def main():
+def hpo_exp_main():
     exp_config = ExperimentConfig()
     exp_config.exp_name = 'class_mnist_lenet_test'
     exp_config.exp_description = exp_config.exp_name
@@ -105,8 +104,11 @@ def main():
     exp_config = get_assessor_config(exp_config)
 
     experiment = Experiment(exp_config)
+    from trial import trial_func
+    experiment.trial_func = trial_func
+    experiment.trial_func_kwargs = {}  # add trial_manager
     experiment.start()
 
 
 if __name__ == '__main__':
-    main()
+    hpo_exp_main()

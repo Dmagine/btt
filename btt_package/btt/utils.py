@@ -115,6 +115,26 @@ class ObtainMode(Enum):
         return self.name
 
 
+class ParamMode(Enum):
+    Choice = 0
+    RandInt = 1
+    Uniform = 2
+    QUniform = 3
+    LogUniform = 4
+    QLogUniform = 5
+    Normal = 6
+    QNormal = 7
+    LogNormal = 8
+    QLogNormal = 9
+
+
+
+
+
+    def __json__(self):
+        return self.name
+
+
 def get_uuid(str_len=8):
     return hashlib.md5(str(uuid.uuid4()).encode('utf-8')).hexdigest()[:str_len]
 

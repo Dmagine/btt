@@ -65,7 +65,9 @@ class ATDDManager:
         result_dict = self.raw_result_dict_list[-1]  # test_data_mse_best
         if type(result_dict) is dict:
             for k, v in result_dict.items():
-                if "train_data" in k:
+                if "test_data_mse" == k:
+                    result_dict["default"] = v
+                elif "test_data" in k:
                     result_dict["default"] = v
                     break
             if "default" not in result_dict:

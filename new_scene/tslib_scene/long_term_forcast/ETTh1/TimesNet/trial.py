@@ -162,6 +162,8 @@ def main():
     parser.add_argument('--manager', type=object, default=None, help='manager')
 
     args = parser.parse_args()
+    args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
+    args.num_workers = 2  # 影响时间？
     # args.num_workers = 2  #### 并发数太高？模型太大? 是seq_len太短 RuntimeError: Trying to resize storage that is not resizable
 
     args.task_name = "long_term_forecast"
