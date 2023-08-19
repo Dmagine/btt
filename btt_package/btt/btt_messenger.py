@@ -119,7 +119,7 @@ class BttMessenger:
         pre_info = self.read_json_info(file_name_key)
         now_info = pre_info if pre_info is not None else {}
         now_info.update({info_key: info_value})
-        if info_key == "final":
+        if info_key == "final" or info_key == "initial":
             logger.info("now_info: {}".format(now_info))
         dumped_now_info = dump(now_info)
         data = dumped_now_info.encode('utf8')
@@ -137,6 +137,9 @@ class BttMessenger:
 
     def add_final_monitor_result(self, info_value):
         self.add_json_info("final", info_value, "monitor")
+
+    def add_initial_monitor_result(self, info_value):
+        self.add_json_info("initial", info_value, "monitor")
 
     def read_resource_params(self, pre_resource_params):
         assessor_info = self.read_json_info("assessor")

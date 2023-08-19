@@ -221,6 +221,7 @@ def trial_func(manager: btt.trial_manager, *args, **kwargs):
 
     d = {"mode": RecordMode.Begin, "model": model, "max_nb_epoch": max_nb_epoch, "max_nb_batch": max_nb_batch}
     manager.record_metric(d)
+    # manager.report_initial_result() # HPO直接造成的结果
     for epoch_idx in range(max_nb_epoch):
         epoch_quota = manager.update_resource_params({"epoch_quota": epoch_quota})["epoch_quota"]
         if epoch_idx >= epoch_quota:

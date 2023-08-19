@@ -113,12 +113,12 @@ class Model(nn.Module):
 
         self.multiscale = [1, 2, 4]
         self.window_size = [256]
-        configs.ratio = 0.5
+        configs.window_ratio = 0.5
         self.legts = nn.ModuleList(
             [HiPPO_LegT(N=n, dt=1. / self.pred_len / i) for n in self.window_size for i in self.multiscale])
         self.spec_conv_1 = nn.ModuleList([SpectralConv1d(in_channels=n, out_channels=n,
                                                          seq_len=min(self.pred_len, self.seq_len),
-                                                         ratio=configs.ratio) for n in
+                                                         ratio=configs.window_ratio) for n in
                                           self.window_size for _ in range(len(self.multiscale))])
         self.mlp = nn.Linear(len(self.multiscale) * len(self.window_size), 1)
 

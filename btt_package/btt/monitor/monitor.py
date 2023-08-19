@@ -27,6 +27,8 @@ class BttMonitor:
     final_report_rule_name_list = []
     final_default_rule_name = None
 
+    initial_report_rule_name_list = []
+
     def __init__(self, rule_config):
         logger.debug("monitor hello!")
         self.rule_config = rule_config
@@ -34,6 +36,7 @@ class BttMonitor:
         self.init_rule_instance()
         self.init_intermediate_report()
         self.init_final_report()
+        self.init_initial_report()
 
     def init_rule_instance(self):
         for rule_name, rule_info in self.rule_config.items():
@@ -81,7 +84,7 @@ class BttMonitor:
                                                    rule_name, str(self.intermediate_actual_idx),
                                                    str(self.intermediate_expect_idx)]))
 
-                    if list(d.keys()) == self.intermediate_rule_name_list:  # ok
+                    if set(list(d.keys())) == set(self.intermediate_rule_name_list):
                         d["default"] = d[self.intermediate_default_rule_name]
                         BttMessenger().add_intermediate_monitor_result(d, self.intermediate_actual_idx)
                         nni.report_intermediate_result(d)
@@ -106,6 +109,17 @@ class BttMonitor:
         for rule_name, rule_info in self.rule_config.items():
             if rule_info["final_report"] is True:
                 self.final_report_rule_name_list.append(rule_name)
+
+    def init_initial_report(self):
+        logger.debug("init_initial_report:")
+        for rule_name, rule_info in self.rule_config.items():
+            if rule_info["initial_report"] is True:
+                self.initial_report_rule_name_list.append(rule_name)
+
+    def report_intermediate_result(self):
+        logger.debug("report_intermediate_result begin:")
+        with self.intermediate_lock:
+            self.intermediate_expect_idx += 1
 
     def report_final_result(self):
         logger.debug("report_final_result begin:")
@@ -133,6 +147,21 @@ class BttMonitor:
         d["default"] = d[self.final_default_rule_name]
         BttMessenger().add_final_monitor_result(d)
         nni.report_final_result(d)
+
+    def report_initial_result(self):
+        logger.debug("report_initial_result begin:")
+        d = {}
+        for rule_name in self.rule_name_list:
+            if rule_name in self.initial_report_rule_name_list:
+                logger.debug(" ".join(["report_initial_result wait:", rule_name]))
+                d_args = {"result_idx": -1, "mode": ObtainMode.AllWait}
+                rule_result_dict = self.obtain_metric(rule_name, d_args)
+                d[rule_name] = rule_result_dict
+        logger.info("initial_report report: ")
+
+        BttMessenger().add_initial_monitor_result(d)
+        # nni.report_final_result(d) #########
+        pass
 
 
 if __name__ == '__main__':

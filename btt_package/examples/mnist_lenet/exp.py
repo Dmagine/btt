@@ -41,6 +41,7 @@ def get_monitor_config(exp_config):
                       'feature_val_in', 'feature_grad_out',
                       'weight_val_abs', 'weight_grad_abs',
                       'feature_val_in_abs', 'feature_grad_out_abs',
+                      'common_info'
                       ]
     for rule_name in rule_name_list:
         conf = MonitorRuleConfig()
@@ -64,6 +65,10 @@ def get_monitor_config(exp_config):
         elif "feature" in rule_name:
             conf.class_name = 'FeatureStatisticsMonitorRule'
             conf.init_args = {'metric_prefix': rule_name, 'calc_batch_ratio': 0.01}
+        elif rule_name == "common":
+            conf.class_name = 'ModeOnceMonitorRule'
+            conf.intermediate_report = False
+            conf.initial_report = True
         if rule_name == "val_acc":
             conf.intermediate_default = True
         elif rule_name == "test_acc":

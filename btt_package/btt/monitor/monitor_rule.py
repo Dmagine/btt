@@ -152,24 +152,23 @@ class StatisticsMonitorRuleBase(MonitorRuleBase):
         mode = d_args["mode"]
         self.logger.debug("obtain_metric: {}".format(mode))
         # 思考：如果assessor需要，可以从exp_config(中的monitor_config)得到
-        # r = {
-        #     "class_name": self.__class__.__name__,
-        #     "metric_prefix": self.metric_prefix,  # 更稳定了 不依靠rule_name
-        #     "module_name_list": self.module_name_list,  # 不同trial还不一样。。。 冗余？哎呀，暂时不需要，额外的monitor可以传递！！
-        #     "metric_suffix_list": self.metric_suffix_list,
-        #     "array": None,
-        # }
+        d = {
+            # "class_name": self.__class__.__name__, # config 里面有
+            "metric_prefix": self.metric_prefix,  # 更稳定了 不依靠rule_name
+            "module_name_list": self.module_name_list,  # 不同trial还不一样。。。 冗余？哎呀，暂时不需要，额外的monitor可以传递！！
+            "metric_suffix_list": self.metric_suffix_list,
+            "array": None,
+        }
         if mode == ObtainMode.IdxImmediate:
             result_idx = d_args["result_idx"] if "result_idx" in d_args else None
             r = self.epoch_rule_instance_list[result_idx].obtain_metric(d_args)
-            return r
+            d["array"] = r
         elif mode == ObtainMode.IdxWait:
             result_idx = d_args["result_idx"] if "result_idx" in d_args else None
             d_args_ = deepcopy(d_args)
             d_args_["result_idx"] = None
             d_args_["mode"] = ObtainMode.AllWait
             r = self.epoch_rule_instance_list[result_idx].obtain_metric(d_args_)
-            return r
         elif mode == ObtainMode.AllWait:
             tmp = self.epoch_rule_instance_list[0]
             shape = (len(self.epoch_rule_instance_list), len(tmp.module_name_list), len(tmp.metric_suffix_list))
@@ -178,9 +177,10 @@ class StatisticsMonitorRuleBase(MonitorRuleBase):
                 # epoch_module_metric_3da[i] = self.single_epoch_module_metric_2da_list[i]
                 epoch_module_metric_3da[i] = self.epoch_rule_instance_list[i].obtain_metric(d_args)
             r = epoch_module_metric_3da
-            return r
         else:
             raise ValueError("unknown mode: {}".format(mode))
+        d["array"] = r
+        return d
 
 
 class StatisticsEpochMonitorRuleBase(ParallelMonitorRule):
@@ -558,6 +558,27 @@ class ModePeriodMonitorRule(PeriodMonitorRuleBase):
         mode = d_args["mode"]
         if mode == self.mode:
             return super().record_metric(d_args[self.key])
+
+    def obtain_metric(self, d_args):
+        return super().obtain_metric(d_args)
+
+
+class CommonInfoMonitorRule(OnceMonitorRuleBase):
+    def __init__(self, d_args):
+        super().__init__(d_args)
+        self.default_module_type_list = [nn.Linear, nn.Conv2d, nn.Conv1d, nn.Conv3d, nn.RNN, nn.LSTM, nn.GRU]
+
+    def record_metric(self, d_args):
+        d = {}
+
+        model = d_args["model"]
+        d_ = get_module_name_nele_dict(model, self.default_module_type_list)
+        d.update({"module_name_list": list(d_.keys()), "module_nele_list": list(d_.values())})
+
+        d.update({"max_nb_batch": d_args["max_nb_batch"]})
+        d.update({"max_nb_epoch": d_args["max_nb_epoch"]})
+
+        return super().record_metric(d)
 
     def obtain_metric(self, d_args):
         return super().obtain_metric(d_args)

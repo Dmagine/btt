@@ -34,12 +34,11 @@ class BttTrialManager:
 
     def record_metric(self, d_args):
         if self.monitor_config is not None:
-            # for rule_name, d_args in d2.items():
-            #     self.monitor.record_metric(rule_name, d_args)
             self.monitor.record_metric(d_args)
+
         mode = d_args["mode"]
         if mode == RecordMode.Begin:
-            pass  # init report?
+            self.report_initial_result()
         elif mode == RecordMode.EpochEnd:
             self.report_intermediate_result()
             if self.monitor.intermediate_expect_idx != 0:  # 表示从未report过
@@ -81,8 +80,12 @@ class BttTrialManager:
 
     def report_intermediate_result(self):
         if self.monitor_config is not None:
-            self.monitor.intermediate_expect_idx += 1
+            self.monitor.report_intermediate_result()
 
     def report_final_result(self):
         if self.monitor_config is not None:
             self.monitor.report_final_result()
+
+    def report_initial_result(self):
+        if self.monitor_config is not None:
+            self.monitor.report_initial_result()
