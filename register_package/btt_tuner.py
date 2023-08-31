@@ -11,8 +11,8 @@ class BttTuner:
     hpo_instance_dict = None
     default_hpo_name = None
 
-    # obtain_trial_parameters()
-    # report_trial_final_result()
+    # generate_params()
+    # receive_final_result()
     # 	default
 
     def __init__(self, hpo_config):
@@ -45,7 +45,7 @@ class BttTuner:
             return 0
 
         for hpo_instance in self.hpo_instance_dict.values():
-            s_time_ratio = hpo_instance.start_time_ratio
+            s_time_ratio = hpo_instance.start_ratio
             e_time_ratio = hpo_instance.end_time_ratio
             if s_time_ratio <= get_experiment_time_ratio() <= e_time_ratio:
                 return hpo_instance.obtain_trial_parameters()

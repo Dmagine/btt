@@ -161,5 +161,14 @@ def if_any_nan_or_inf(x):
     return np.isnan(x).any or np.isinf(x).any
 
 
-def sleep(i):
-    os.system("sleep " + str(i))
+def str2second(str_time):
+    if type(str_time) is int:
+        return str_time
+    if type(str_time) is str:
+        if str_time[-1] == "s":
+            return int(str_time[:-1])
+        elif str_time[-1] == "m":
+            return int(str_time[:-1]) * 60
+        elif str_time[-1] == "h":
+            return int(str_time[:-1]) * 60 * 60
+    raise ValueError("str_time should be int or str with suffix s/m/h")

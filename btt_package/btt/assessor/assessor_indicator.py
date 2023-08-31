@@ -16,19 +16,21 @@ class AssessorIndicatorBase:
     # #                                  'UlcIndicator', 'NmgIndicator']
     # monitor_config: List[MonitorRuleConfig] = None  # shared ctx?
 
-    def __init__(self, d_args):
-        self.indicator_name = d_args["indicator_name"]
-        self.monitor_config = d_args["monitor_config"]
+    def __init__(self, indicator_name):
+        self.indicator_name = indicator_name
+        # self.monitor_config = d_args["monitor_config"]
         self.logger = logging.getLogger(self.indicator_name)
-        self.id_initial_dict_dict = None
-        self.id_intermediate_dict_list_dict = None
-        self.id_parameters_dict = None
+        self.id_initial_dict = None
+        self.id_interm_list_dict = None
+        self.id_params_dict = None
+
+    def update_initial
 
     def before_assess(self, id_initial_dict_dict, id_intermediate_dict_list_dict, id_parameters_dict):
         # 复杂数据传到这
-        self.id_initial_dict_dict = id_initial_dict_dict
-        self.id_intermediate_dict_list_dict = id_intermediate_dict_list_dict
-        self.id_parameters_dict = id_parameters_dict
+        self.id_initial_dict = id_initial_dict_dict
+        self.id_interm_list_dict = id_intermediate_dict_list_dict
+        self.id_params_dict = id_parameters_dict
         # self.initial_dict = id_initial_dict_dict[self.indicator_name]
         # self.intermediate_dict_list = id_intermediate_dict_list_dict[self.indicator_name]
         # self.parameters = id_parameters_dict[self.indicator_name]
@@ -60,7 +62,7 @@ class WindowIndicatorBase(AssessorIndicatorBase):
         raise NotImplementedError
 
 
-class LossIndicator(AssessorIndicatorBase):
+class LossIndicatorBase(AssessorIndicatorBase):
     def __init__(self, d_args):
         super().__init__(d_args)
         self.loss_token_list = ["loss", "mse", "mae", "rmse"] \
@@ -175,7 +177,7 @@ class ErgIndicator(StatisticIndicatorBase):
         return AssessResult.Good
 
 
-class PlcIndicator(LossIndicator):
+class PlcIndicator(LossIndicatorBase):
     def __init__(self, d_args):
         super().__init__(d_args)
         self.T1 = 1 / 10
@@ -196,7 +198,7 @@ class PlcIndicator(LossIndicator):
         return AssessResult.Good
 
 
-class UlcIndicator(WindowIndicatorBase, LossIndicator):
+class UlcIndicator(WindowIndicatorBase, LossIndicatorBase):
     def __init__(self, d_args):
         super().__init__(d_args)
         self.T1 = 1 / 10
@@ -222,7 +224,7 @@ class UlcIndicator(WindowIndicatorBase, LossIndicator):
         return AssessResult.Good
 
 
-class NmgIndicator(WindowIndicatorBase, LossIndicator):
+class NmgIndicator(WindowIndicatorBase, LossIndicatorBase):
     def __init__(self, d_args):
         super().__init__(d_args)
 

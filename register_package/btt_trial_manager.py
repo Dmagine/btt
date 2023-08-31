@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 class BttTrialManager:
     # monitor: resource
-    # tuner: 1 get_trial_parameters 2 report_trial_final_result (资源不相关)
+    # tuner: 1 get_trial_parameters 2 receive_final_result (资源不相关)
     # assessor: 1 get_trial_resource_quota 2 report_intermediate_result (资源强相关)
     advisor_config = None
     monitor_config = None

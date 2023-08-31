@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 class BttTrialManager:
     # monitor: resource
-    # tuner: 1 get_trial_parameters 2 report_trial_final_result (资源不相关)
+    # tuner: 1 get_trial_parameters 2 receive_final_result (资源不相关)
     # assessor: 1 get_trial_resource_quota 2 report_intermediate_result (资源强相关)
     advisor_config = None
     monitor_config = None
@@ -19,7 +19,7 @@ class BttTrialManager:
 
     monitor = None
 
-    def __init__(self, seed=None):
+    def __init__(self, trial_id, exp_id, exp_config, shared_data, seed=529):
         set_seed(seed, "btt_trial_manager", logger)
         self.seed = seed
 

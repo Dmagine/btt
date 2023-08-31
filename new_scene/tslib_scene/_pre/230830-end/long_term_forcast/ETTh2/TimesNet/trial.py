@@ -6,27 +6,32 @@ import nni
 import numpy as np
 import torch
 
-sys.path.append("../TSlib")
-from exp.exp_anomaly_detection import Exp_Anomaly_Detection
-from exp.exp_classification import Exp_Classification
-from exp.exp_imputation import Exp_Imputation
-from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
-from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
+sys.path.append("../../../../TSlib")
 
 seed = 529
+import sys
+
+sys.path.append("../../../../../new_package")
+from atdd_manager import ATDDManager
 
 params = {
-    "e_layers": 2,
-    "d_layers": 1,
     "d_model": 16,
     "n_heads": 8,
+    "e_layers": 2,
+    "d_layers": 1,
     "d_ff": 32,
+    "activation": 0,  # gelu
+    "dropout": 0.1,
     "learning_rate": 0.0001,
-    "batch_size": 32,
-    "dropout": 0.05,
+    "gamma": 0.5,
     "factor": 3,
-    #   --d_model 16 \
-    #   --d_ff 32 \
+    "loss": 0,  # MSE
+    "batch_size": 32,
+    "opt": 3,  # Adam
+    "weight_decay": 0.001,
+    "step_size": 1,
+    "seq_len": 96,
+    "top_k": 3
 }
 
 
@@ -125,71 +130,53 @@ def main():
                         help='hidden layer dimensions of projector (List)')
     parser.add_argument('--p_hidden_layers', type=int, default=2, help='number of hidden layers in projector')
 
+    parser.add_argument('--gamma', type=float, default=0.5, help='gamma')
+    parser.add_argument('--opt', type=int, default=3, help="optimizer")
+    parser.add_argument('--weight_decay', type=float, default=0.001, help='weight decay')
+    parser.add_argument('--step_size', type=int, default=1, help='step size')
+    parser.add_argument('--manager', type=object, default=None, help='manager')
+
     args = parser.parse_args()
-
-    # fixed
-    # python -u run.py \
-    #   --task_name long_term_forecast \
-    #   --is_training 1 \
-    #   --root_path ./dataset/ETTh1-small/ \
-    #   --data_path ETTh1.csv \
-    #   --model_id ETTh1_96_96 \
-    #   --model $model_name \
-    #   --data ETTh1 \
-    #   --features M \
-    #   --seq_len 96 \
-    #   --label_len 48 \
-    #   --pred_len 96 \
-    #   --e_layers 2 \
-    #   --d_layers 1 \
-    #   --factor 3 \
-    #   --enc_in 7 \
-    #   --dec_in 7 \
-    #   --c_out 7 \
-    #   --des 'Exp' \
-    #   --itr 1
-
-    #   --d_model 16 \
-    #   --d_ff 32 \
-    #   --top_k 5
-
+    args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
+    args.num_workers = 2
     args.task_name = "long_term_forecast"
-    args.train_epochs = 20  #######
+    args.train_epochs = 20  ##
     args.patience = args.train_epochs  # no early stop -> 10
     args.is_training = True
     # args.do_predict = False
-    args.root_path = "../../../data/dataset/ETT-small/"
-    args.data_path = "ETTh1.csv"
-    args.model_id = "ETTh1_96_96"  # ETTh1_96_96 ??? 好像也没什么用？
+    args.root_path = "../../../../../../data/dataset/ETT-small/"
+    args.data_path = "ETTh2.csv"
+    # args.model_id = "ETTh1_96_96"  # test
     args.model = "TimesNet"  # ....
-    # TimesNet -》 4,798,550,812 ｜｜｜ [Autoformer, Transformer, TimesNet]
-    # Autoformer -》42,143,772
-    # Transformer -》 42,160,156
-    args.data = "ETTh1"  # ???
+    args.data = "ETTh2"
     args.features = "M"
-    args.seq_len = 96
+    # args.seq_len = 96 ##
     args.label_len = 48
-    args.pred_len = 96
+    args.pred_len = 96  ###
     args.itr = 1
     args.enc_in = 7
     args.dec_in = 7
     args.c_out = 7
-    # factor ？？？ 0.1 1 3 5
-    # args.num_workers=10 ok
-    # args.use_gpu = True
-    # args.devices = "0,1,2,3"
-    # args.use_amp = True
 
-    ###########
-    args.factor = params["factor"]
-    args.e_layers = params["e_layers"]
-    args.d_layers = params["d_layers"]
     args.d_model = params["d_model"]
     args.n_heads = params["n_heads"]
+    args.e_layers = params["e_layers"]
+    args.d_layers = params["d_layers"]
     args.d_ff = params["d_ff"]
-    args.learning_rate = params["learning_rate"]
-    args.batch_size = params["batch_size"]
+    args.activation = params["activation"]
     args.dropout = params["dropout"]
+    args.learning_rate = params["learning_rate"]
+    args.gamma = params["gamma"]  ###
+    args.factor = params["factor"]
+    args.loss = params["loss"]
+    args.batch_size = params["batch_size"]
+    args.opt = params["opt"]  ###
+    args.weight_decay = params["weight_decay"]  ###
+    args.step_size = params["step_size"]  ###
+    args.seq_len = params["seq_len"]
+    args.top_k = params["top_k"]
+
+    args.manager = ATDDManager(seed=seed)
 
     args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
 
@@ -202,18 +189,8 @@ def main():
     print('Args in experiment:')
     print(args)
 
-    if args.task_name == 'long_term_forecast':
-        Exp = Exp_Long_Term_Forecast
-    elif args.task_name == 'short_term_forecast':
-        Exp = Exp_Short_Term_Forecast
-    elif args.task_name == 'imputation':
-        Exp = Exp_Imputation
-    elif args.task_name == 'anomaly_detection':
-        Exp = Exp_Anomaly_Detection
-    elif args.task_name == 'classification':
-        Exp = Exp_Classification
-    else:
-        Exp = Exp_Long_Term_Forecast
+    from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
+    Exp = Exp_Long_Term_Forecast
 
     setting = '{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_fc{}_eb{}_dt{}_{}_{}'.format(
         args.model_id,
@@ -237,8 +214,8 @@ def main():
     print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
     exp.train(setting)
 
-    # print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
-    # exp.test(setting)
+    print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
+    exp.test(setting)
 
     torch.cuda.empty_cache()
 

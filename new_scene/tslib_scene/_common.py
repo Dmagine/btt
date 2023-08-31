@@ -2,17 +2,6 @@ import os
 import time
 
 
-def main():
-    repeat = 5 - 2  ####
-    hour = 6  ####
-    print()
-    lst = ["../tslib_scene/long_term_forcast/ETTh1/TimesNet/raw_random.yaml"] * repeat  #######
-    # 30s/epoch 20epoch 10min/trial 4parallel 2.5m/trial 100trial->250m->4h->6h
-    # 最新：20-90min/trial 1h/trial 4parallel 100trial->25h->20h 扎实但难调整。。。
-    # 不挑了 （6h5次！）（说不定时间约少 工具效果越明显呢）
-    tslib_script_run(lst, hour, log_dir="./_script_log/")
-
-
 def tslib_script_run(lst, hour, log_dir=None):
     for i in range(len(lst)):  # [0,1,2...9]
         exp_file_path = lst[i]
@@ -35,7 +24,3 @@ def tslib_script_run(lst, hour, log_dir=None):
         cmd = "nnictl create --config " + exp_file_path + " --port 8080 > " + log_file_name
         res = os.system(cmd)
         os.system("sleep " + str(hour) + "h")
-
-
-if __name__ == '__main__':
-    main()

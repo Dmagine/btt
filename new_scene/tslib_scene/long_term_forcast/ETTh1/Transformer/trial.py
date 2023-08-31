@@ -129,7 +129,7 @@ def main():
     args.root_path = "../../../../../../data/dataset/ETT-small/"
     args.data_path = "ETTh1.csv"
     # args.model_id = "ETTh1_96_96"  # test whatever
-    args.model = "TimesNet"  # ....
+    args.model = "Transformer"  # ....
     args.data = "ETTh1"  ### dataset processing
     args.features = "M"
     # args.seq_len = 96 ##
@@ -140,46 +140,32 @@ def main():
     args.dec_in = 7
     args.c_out = 7
 
-    # args.n_heads = params["n_heads"]
-    # args.e_layers = params["e_layers"]
-    # args.d_layers = params["d_layers"]
-    # args.activation = params["activation"]
-    # args.dropout = params["dropout"]
-    # args.factor = params["factor"]
-    # args.loss = params["loss"]
-    # args.batch_size = params["batch_size"]
-    # args.opt = params["opt"]  ###
-    # args.step_size = params["step_size"]  ###
-    # args.top_k = params["top_k"]
 
     # python -u run.py \
-    #   --task_name long_term_forecast \
-    #   --is_training 1 \
-    #   --root_path ./dataset/ETT-small/ \
-    #   --data_path ETTh1.csv \
-    #   --model_id ETTh1_96_96 \
-    #   --model $model_name \
-    #   --data ETTh1 \
-    #   --features M \
-    #   --seq_len 96 \
-    #   --label_len 48 \
-    #   --pred_len 96 \
-    #   --e_layers 2 \
-    #   --d_layers 1 \
-    #   --factor 3 \
-    #   --enc_in 7 \
-    #   --dec_in 7 \
-    #   --c_out 7 \
-    #   --d_model 16 \
-    #   --d_ff 32 \
-    #   --des 'Exp' \
-    #   --itr 1 \
-    #   --top_k 5
+    #  --task_name long_term_forecast \
+    #  --is_training 1 \
+    #  --root_path ./dataset/ETT-small/ \
+    #  --data_path ETTh1.csv \
+    #  --model_id ETTh1_96_96 \
+    #  --model $model_name \
+    #  --data ETTh1 \
+    #  --features M \
+    #  --seq_len 96 \
+    #  --label_len 48 \
+    #  --pred_len 96 \
+    #  --e_layers 2 \
+    #  --d_layers 1 \
+    #  --factor 3 \
+    #  --enc_in 7 \
+    #  --dec_in 7 \
+    #  --c_out 7 \
+    #  --des 'Exp' \
+    #  --itr 1
+
 
     args.e_layers = 2
     args.d_layers = 1
     args.factor = 3
-    args.top_k = 5
 
     args.d_model = params["d_model"]
     args.d_ff = params["d_ff"]

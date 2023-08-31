@@ -14,7 +14,50 @@ import sys
 sys.path.append("../../../../../new_package")
 from atdd_manager import ATDDManager
 
-params = {}
+# fixed
+# python -u run.py \
+#   --task_name long_term_forecast \
+#   --is_training 1 \
+#   --root_path ./dataset/ETTh1-small/ \
+#   --data_path ETTh1.csv \
+#   --model_id ETTh1_96_96 \
+#   --model $model_name \
+#   --data ETTh1 \
+#   --features M \
+#   --seq_len 96 \
+#   --label_len 48 \
+#   --pred_len 96 \
+#   --e_layers 2 \
+#   --d_layers 1 \
+#   --enc_in 7 \
+#   --dec_in 7 \
+#   --c_out 7 \
+#   --des 'Exp' \
+#   --itr 1
+
+#   --factor 3 \
+#   --d_model 16 \
+#   --d_ff 32 \
+#   --top_k 5
+params = {
+    "d_model": 16,
+    "n_heads": 8,
+    "e_layers": 2,
+    "d_layers": 1,
+    "d_ff": 32,
+    "activation": 0,  # gelu
+    "dropout": 0.1,
+    "learning_rate": 0.0001,
+    "gamma": 0.5,
+    "factor": 3,
+    "loss": 0,  # MSE
+    "batch_size": 32,
+    "opt": 3,  # Adam
+    "weight_decay": 0.001,
+    "step_size": 1,
+    "seq_len": 96,
+    "top_k": 3
+}
 
 
 def set_seed():
@@ -113,80 +156,50 @@ def main():
     parser.add_argument('--p_hidden_layers', type=int, default=2, help='number of hidden layers in projector')
 
     parser.add_argument('--gamma', type=float, default=0.5, help='gamma')
-    parser.add_argument('--opt', type=int, default=3, help="optimizer")  # adam
+    parser.add_argument('--opt', type=int, default=3, help="optimizer")
     parser.add_argument('--weight_decay', type=float, default=0.001, help='weight decay')
-    parser.add_argument('--step_size', type=int, default=1, help='step size')  # 1
+    parser.add_argument('--step_size', type=int, default=1, help='step size')
     parser.add_argument('--manager', type=object, default=None, help='manager')
 
     args = parser.parse_args()
     args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
     args.num_workers = 2
     args.task_name = "long_term_forecast"
-    args.train_epochs = 20  ###
-    args.patience = args.train_epochs  # no early stop
+    args.train_epochs = 20  ##
+    args.patience = args.train_epochs  # no early stop -> 10
     args.is_training = True
     # args.do_predict = False
     args.root_path = "../../../../../../data/dataset/ETT-small/"
     args.data_path = "ETTh1.csv"
-    # args.model_id = "ETTh1_96_96"  # test whatever
+    # args.model_id = "ETTh1_96_96"  # test
     args.model = "TimesNet"  # ....
-    args.data = "ETTh1"  ### dataset processing
+    args.data = "ETTh1"  # ???
     args.features = "M"
     # args.seq_len = 96 ##
     args.label_len = 48
-    args.pred_len = 96  ### settings的一部分
+    args.pred_len = 720   ######## settings的一部分
     args.itr = 1
     args.enc_in = 7
     args.dec_in = 7
     args.c_out = 7
 
-    # args.n_heads = params["n_heads"]
-    # args.e_layers = params["e_layers"]
-    # args.d_layers = params["d_layers"]
-    # args.activation = params["activation"]
-    # args.dropout = params["dropout"]
-    # args.factor = params["factor"]
-    # args.loss = params["loss"]
-    # args.batch_size = params["batch_size"]
-    # args.opt = params["opt"]  ###
-    # args.step_size = params["step_size"]  ###
-    # args.top_k = params["top_k"]
-
-    # python -u run.py \
-    #   --task_name long_term_forecast \
-    #   --is_training 1 \
-    #   --root_path ./dataset/ETT-small/ \
-    #   --data_path ETTh1.csv \
-    #   --model_id ETTh1_96_96 \
-    #   --model $model_name \
-    #   --data ETTh1 \
-    #   --features M \
-    #   --seq_len 96 \
-    #   --label_len 48 \
-    #   --pred_len 96 \
-    #   --e_layers 2 \
-    #   --d_layers 1 \
-    #   --factor 3 \
-    #   --enc_in 7 \
-    #   --dec_in 7 \
-    #   --c_out 7 \
-    #   --d_model 16 \
-    #   --d_ff 32 \
-    #   --des 'Exp' \
-    #   --itr 1 \
-    #   --top_k 5
-
-    args.e_layers = 2
-    args.d_layers = 1
-    args.factor = 3
-    args.top_k = 5
-
     args.d_model = params["d_model"]
+    args.n_heads = params["n_heads"]
+    args.e_layers = params["e_layers"]
+    args.d_layers = params["d_layers"]
     args.d_ff = params["d_ff"]
+    args.activation = params["activation"]
+    args.dropout = params["dropout"]
     args.learning_rate = params["learning_rate"]
-    args.gamma = params["gamma"]
-    args.weight_decay = params["weight_decay"]
+    args.gamma = params["gamma"]  ###
+    args.factor = params["factor"]
+    args.loss = params["loss"]
+    args.batch_size = params["batch_size"]
+    args.opt = params["opt"]  ###
+    args.weight_decay = params["weight_decay"]  ###
+    args.step_size = params["step_size"]  ###
     args.seq_len = params["seq_len"]
+    args.top_k = params["top_k"]
 
     args.manager = ATDDManager(seed=seed)
 

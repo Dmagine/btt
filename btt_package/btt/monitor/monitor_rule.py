@@ -31,7 +31,7 @@ class MonitorRuleBase:
         raise NotImplementedError
 
 
-class ParallelMonitorRule(MonitorRuleBase):
+class ParallelRule(MonitorRuleBase):
     def __init__(self, d_args):
         super().__init__(d_args)
         self.task_queue = queue.Queue()
@@ -125,7 +125,7 @@ class ParallelMonitorRule(MonitorRuleBase):
         # raise NotImplementedError
 
 
-class StatisticsMonitorRuleBase(MonitorRuleBase):
+class StatisticsRuleBase(MonitorRuleBase):
 
     def __init__(self, d_args):
         super().__init__(d_args)
@@ -183,7 +183,7 @@ class StatisticsMonitorRuleBase(MonitorRuleBase):
         return d
 
 
-class StatisticsEpochMonitorRuleBase(ParallelMonitorRule):
+class StatisticsEpochRuleBase(ParallelRule):
     def __init__(self, d_args):
         super().__init__(d_args)
         self.module_name_list = d_args["module_name_list"]
@@ -237,7 +237,7 @@ class StatisticsEpochMonitorRuleBase(ParallelMonitorRule):
             raise ValueError("unknown mode: {}".format(mode))
 
 
-class WeightStatisticsEpochMonitorRule(StatisticsEpochMonitorRuleBase):
+class WeightStatisticsEpochRule(StatisticsEpochRuleBase):
     # 收集一个epoch的所有batch的weight的统计信息
     def __init__(self, d_args):
         super().__init__(d_args)
@@ -292,7 +292,7 @@ class WeightStatisticsEpochMonitorRule(StatisticsEpochMonitorRuleBase):
         return super().after_obtain_metric(d_args)
 
 
-class WeightStatisticsMonitorRule(StatisticsMonitorRuleBase):
+class WeightStatisticsRule(StatisticsRuleBase):
     def __init__(self, d_args):
         super().__init__(d_args)
 
@@ -306,7 +306,7 @@ class WeightStatisticsMonitorRule(StatisticsMonitorRuleBase):
                 "module_type_list": self.module_type_list,
                 "max_nb_calc_batch": self.max_nb_calc_batch,
             }
-            self.epoch_rule_instance_list.append(WeightStatisticsEpochMonitorRule(init_args))
+            self.epoch_rule_instance_list.append(WeightStatisticsEpochRule(init_args))
 
         mode = d_args["mode"]
         self.logger.debug("record_metric: {}".format(mode))
@@ -328,7 +328,7 @@ class WeightStatisticsMonitorRule(StatisticsMonitorRuleBase):
         return super().obtain_metric(d_args)
 
 
-class FeatureStatisticsEpochMonitorRule(StatisticsEpochMonitorRuleBase):
+class FeatureStatisticsEpochRule(StatisticsEpochRuleBase):
     def __init__(self, d_args):
         super().__init__(d_args)
         self.hook_handle_list = None
@@ -345,12 +345,12 @@ class FeatureStatisticsEpochMonitorRule(StatisticsEpochMonitorRuleBase):
                 # array = feature_value_in[0].detach().cpu().numpy().flatten()  # time ...
                 # tensor = feature_value_in[0].detach().cpu() # 因为并行计算所以cpu 但是.cpu耗时间？？？
                 # time ...
-                if self.metric_prefix == "feature_val_in":
+                if "feature_val_in" in self.metric_prefix:
                     tensor = feature_value_in[0].detach().flatten()
-                elif self.metric_prefix == "feature_val_out":
+                elif "feature_val_out" in self.metric_prefix:
                     tensor = feature_value_out[0].detach().flatten()
                 else:
-                    raise ValueError("metric_prefix should be in ['feature_val_in', 'feature_val_out']")
+                    raise ValueError("unknown metric_prefix: {}".format(self.metric_prefix))
                 tensor = torch.abs(tensor) if "_abs" in self.metric_prefix else tensor
                 self.logger.debug("forward_hook: module_idx: {}, tensor.shape: {}".format(module_idx, tensor.shape))
                 self.tensor_list[module_idx] = tensor
@@ -363,12 +363,12 @@ class FeatureStatisticsEpochMonitorRule(StatisticsEpochMonitorRuleBase):
                 module_idx = self.module_name_list.index(self.module_id_name_dict[module_id])
                 # tensor = feature_grad_out[0].detach().flatten()  # time ...
                 # tensor = torch.abs(tensor) if "_abs" in self.metric_prefix else tensor
-                if self.metric_prefix == "feature_grad_out":
+                if "feature_grad_out" in self.metric_prefix:
                     tensor = feature_grad_out[0].detach().flatten()
-                elif self.metric_prefix == "feature_grad_in":
+                elif "feature_grad_in" in self.metric_prefix:
                     tensor = feature_grad_in[0].detach().flatten()
                 else:
-                    raise ValueError("metric_prefix should be in ['feature_val_in', 'feature_val_out']")
+                    raise ValueError("unknown metric_prefix: {}".format(self.metric_prefix))
                 tensor = torch.abs(tensor) if "_abs" in self.metric_prefix else tensor
                 self.logger.debug("backward_hook: module_idx: {}, tensor.shape: {}".format(module_idx, tensor.shape))
                 self.tensor_list[module_idx] = tensor
@@ -427,7 +427,7 @@ class FeatureStatisticsEpochMonitorRule(StatisticsEpochMonitorRuleBase):
         return super().after_obtain_metric(d_args)
 
 
-class FeatureStatisticsMonitorRule(StatisticsMonitorRuleBase):
+class FeatureStatisticsRule(StatisticsRuleBase):
     def __init__(self, d_args):
         super().__init__(d_args)
         self.module_name_list = None
@@ -457,7 +457,7 @@ class FeatureStatisticsMonitorRule(StatisticsMonitorRuleBase):
                 "max_nb_calc_batch": self.max_nb_calc_batch,
                 "module_id_name_dict": self.module_id_name_dict,
             }
-            self.epoch_rule_instance_list.append(FeatureStatisticsEpochMonitorRule(init_args4epoch))
+            self.epoch_rule_instance_list.append(FeatureStatisticsEpochRule(init_args4epoch))
 
         mode = d_args["mode"]
         self.logger.debug("record_metric: {}".format(mode))
@@ -485,7 +485,7 @@ class FeatureStatisticsMonitorRule(StatisticsMonitorRuleBase):
         return super().obtain_metric(d_args)
 
 
-class NotImplementMonitorRule(MonitorRuleBase):
+class NotImplementRule(MonitorRuleBase):
 
     def record_metric(self, d_args):
         return
@@ -494,7 +494,7 @@ class NotImplementMonitorRule(MonitorRuleBase):
         return "nothing"
 
 
-class OnceMonitorRuleBase(MonitorRuleBase):
+class OnceRuleBase(MonitorRuleBase):
     def __init__(self, d_args):
         super().__init__(d_args)
         self.once_flag = False
@@ -510,7 +510,7 @@ class OnceMonitorRuleBase(MonitorRuleBase):
         return self.result
 
 
-class PeriodMonitorRuleBase(MonitorRuleBase):
+class PeriodRuleBase(MonitorRuleBase):
     def __init__(self, d_args):
         super().__init__(d_args)
         self.result_list = []
@@ -531,7 +531,7 @@ class PeriodMonitorRuleBase(MonitorRuleBase):
             raise ValueError("unknown mode: {}".format(mode))
 
 
-class ModeOnceMonitorRule(OnceMonitorRuleBase):
+class ModeOnceRule(OnceRuleBase):
     # test acc
     def __init__(self, d_args):
         super().__init__(d_args)
@@ -547,7 +547,7 @@ class ModeOnceMonitorRule(OnceMonitorRuleBase):
         return super().obtain_metric(d_args)
 
 
-class ModePeriodMonitorRule(PeriodMonitorRuleBase):
+class ModePeriodRule(PeriodRuleBase):
     # train acc / val loss
     def __init__(self, d_args):
         super().__init__(d_args)
@@ -563,7 +563,7 @@ class ModePeriodMonitorRule(PeriodMonitorRuleBase):
         return super().obtain_metric(d_args)
 
 
-class CommonInfoMonitorRule(OnceMonitorRuleBase):
+class CommonInfoRule(OnceRuleBase):
     def __init__(self, d_args):
         super().__init__(d_args)
         self.default_module_type_list = [nn.Linear, nn.Conv2d, nn.Conv1d, nn.Conv3d, nn.RNN, nn.LSTM, nn.GRU]
