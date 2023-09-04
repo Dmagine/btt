@@ -5,8 +5,8 @@ def main():
     repeat = 3  ####
     hour = 6  ####
     print()
-    lst = ["./long_term_forcast/ETTh1/TimesNet/random.yaml"] * repeat  #######
-    lst += ["./long_term_forcast/ETTh1/TimesNet/smac.yaml"] * repeat
+    lst = ["./long_term_forcast/Traffic/Transformer/smac.yaml"] * repeat
+    lst += ["./long_term_forcast/ETTh1/Transformer/smac.yaml"] * repeat
     tslib_script_run(lst, hour, log_dir="_script_log/")
 
 

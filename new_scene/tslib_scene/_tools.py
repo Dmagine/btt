@@ -8,6 +8,7 @@ import yaml
 def get_sqlite_path_list(model_name, dataset_name, hpo_name):
     # /Users/admin/Desktop/TSlib-exp/$model/$dataset/$hpo
     exp_dir = "/Users/admin/Desktop/TSlib-exp/{}/{}/{}/".format(model_name, dataset_name, hpo_name)
+    # print("exp_dir:", exp_dir)
     sqlite_path_list = []
     for trial_id in os.listdir(exp_dir):
         sqlite_path = os.path.join(exp_dir, trial_id, "db", "nni.sqlite")
@@ -44,7 +45,7 @@ def calc_top(model_name, dataset_name, hpo_name, top_n, return_mode):
     elif return_mode == "best":
         r = np.min(multi_trial_metric_list).round(3)
     elif return_mode == "avg":
-        r = np.min(multi_trial_metric_list).round(3)
+        r = np.mean(multi_trial_metric_list).round(3)
     else:
         raise ValueError("return_mode should be raw, best or avg")
     print("calc_top:", r)
@@ -87,6 +88,7 @@ def calc_trial_num(model_name, dataset_name, hpo_name):
     for sqlite_path in sqlite_path_list:
         lst = get_specific_final_metric_list(sqlite_path)
         trial_num_list.append(len(lst))
+    print(trial_num_list) # ???
     r = int(np.mean(trial_num_list))
     print("calc_trial_num:", r)
 
@@ -97,8 +99,8 @@ if __name__ == '__main__':
     # hpo_name_list = ["Random", "SMAC", "Random_BTT", "SMAC_BTT"]
 
     model_name_list = ["TimesNet"]
-    dataset_name_list = ["ETTh1"]
-    hpo_name_list = ["Random"]
+    dataset_name_list = ["Traffic"]
+    hpo_name_list = ["SMAC"]
 
     for model_name in model_name_list:
         for dataset_name in dataset_name_list:
@@ -108,7 +110,7 @@ if __name__ == '__main__':
                 calc_top(model_name, dataset_name, hpo_name, 1, "avg")
                 calc_top(model_name, dataset_name, hpo_name, 10, "avg")
                 calc_trial_num(model_name, dataset_name, hpo_name)
-                if "_BTT" in hpo_name:
+                if "-BTT" in hpo_name:
                     calc_tophitrate(model_name, dataset_name, hpo_name, 10)
                     calc_tsba()
                 print()

@@ -1,4 +1,4 @@
-experiment_name: "longterm_etth1_timesnet+random"
+experiment_name: "longterm_traffic_timesnet+smac"
 
 trial_command: python3 trial.py
 trial_code_directory: .
@@ -11,7 +11,7 @@ training_service:
 trialGpuNumber: 1
 
 tuner:
-  name: random
+  name: smac
   class_args:
     optimize_mode: minimize
 
@@ -21,7 +21,7 @@ search_space:
     _value: [ 8,16 ]
   d_ff:
     _type: choice
-    _value: [ 16,32 ]
+    _value: [ 8,16 ]
   learning_rate:
     _type: choice
     _value: [ 0.00001,0.00003,0.0001,0.0003,0.001,0.003,0.01,0.03,0.1 ]
