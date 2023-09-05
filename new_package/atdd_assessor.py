@@ -15,9 +15,12 @@ class ATDDAssessor(Assessor):
         self.etr = MyAssessor(shared, basic, compare, diagnose, seed)
 
     def assess_trial(self, trial_id, result_dict_list):
+        # 上次Bad，这次刚好还在传递 ######
+        pre_info = ATDDMessenger(trial_id).read_assessor_info()
+        if pre_info is not None and pre_info["early_stop"] is True:
+            return AssessResult.Good  # 不用再assess了..
         early_stop = self.etr.assess_trial(trial_id, result_dict_list)
         ATDDMessenger(trial_id).write_assessor_info(self.etr.info_dict)
-        # return AssessResult.Bad if early_stop else AssessResult.Good
         return AssessResult.Good  # 用户侧自己听
 
 
@@ -48,7 +51,8 @@ class MyAssessor:
         self.epoch_vg_metric_list_dict = {idx: [] for idx in range(self.max_epoch)}
         self.epoch_dr_metric_list_dict = {idx: [] for idx in range(self.max_epoch)}
         self.protect_id_set = set()
-        self.half1_cmp_step_list = np.arange(self.max_epoch // 4, self.max_epoch // 2)  # del 0 ???????????self.max_epoch // 4
+        self.half1_cmp_step_list = np.arange(self.max_epoch // 4,
+                                             self.max_epoch // 2)  # del 0 ???????????self.max_epoch // 4
 
         self.trial_id = None
         self.result_dict_list = None
@@ -192,7 +196,7 @@ class MyAssessor:
 
         _train_loss_list = self.epoch_train_loss_list_dict[self.epoch_idx]  ####
         if len(_train_loss_list) < self.min_cmp_num:
-            return True ####???/yuan true
+            return True  ####???/yuan true
         # print("global_loss_list:", global_loss_list)
         train_loss_t = np.percentile(_train_loss_list, self.cmp_percent)  # idx越大val越大
         # print("train_loss_t:", train_loss_t, "train_loss:", train_loss)
@@ -232,11 +236,9 @@ class MyAssessor:
         # eg_rule1: max(grad_abs_ave) > p_eg1 ||| (p_eg1:10)
         # eg_rule2: max(adjacent_quotient) > p_eg2 ||| (p_eg2:1000)
         # eg_rule3: train_loss >= cmp_median_train_loss * p_eg3 ||| (p_eg3:10)
-        self.info_dict["EG"] = []
-        self.eg_rule0()
-        if self.has_nan_inf:
-            pass
-        else:
+        self.info_dict["EG"] = [] if self.info_dict["EG"] is None else self.info_dict["EG"]  # rule 0
+        # self.eg_rule0()
+        if not self.has_nan_inf:
             self.eg_rule1()
             self.eg_rule2()
             self.eg_rule3()
@@ -251,7 +253,8 @@ class MyAssessor:
         if self.enable_dict["model"] and type(self.weight_grad_abs_avg_1da[0]) is not np.float64:
             symptom_flag = True
         self.has_nan_inf = symptom_flag
-        return symptom_flag
+        if symptom_flag:
+            self.info_dict["EG"] = ["eg_rule0"]  ###
 
     def eg_rule1(self):
         if not self.if_in_stage("half1"):
@@ -409,6 +412,7 @@ class MyAssessor:
             # self.sc_rule1()
             self.sc_rule2()
             # self.sc_rule3()  ####### !!!!!!!!!!!!!!!!!!!!!!!!!
+        self.sc_rule_0904()
         self.info_dict["SC"] = self.info_dict["SC"] if len(self.info_dict["SC"]) != 0 else None
 
     def sc_rule1(self):
@@ -433,7 +437,7 @@ class MyAssessor:
             self.info_dict["SC"].append("sc_rule2")
 
     def sc_rule3(self):
-        if not self.if_in_stage("all"):         ########
+        if not self.if_in_stage("all"):  ########
             return
         if self.epoch_idx not in [15]:
             return
@@ -445,8 +449,24 @@ class MyAssessor:
         window_size = 5
         train_loss = np.min(self.result_dict["train_loss_list"][-window_size:])
         if train_loss > np.percentile(_train_loss_list, self.dp.p_sc3 * 100):
-            print(train_loss,np.percentile(_train_loss_list, self.dp.p_sc3 * 100))
+            print(train_loss, np.percentile(_train_loss_list, self.dp.p_sc3 * 100))
             self.info_dict["SC"].append("sc_rule3")
+
+    def sc_rule_0904(self):
+        def rule_judge():
+            if len(loss_list) < 2:
+                return False
+            if loss_list[-1] - loss_list[0] > 0:
+                return True
+            return False
+
+        if not self.if_in_stage("half1"):
+            return
+        for key in ["train_loss_list", "val_loss_list"]:
+            loss_list = np.array(self.result_dict[key])
+            if rule_judge():
+                self.info_dict["SC"].append("sc_rule_0904")
+                return
 
     def diagnose_ho(self):
         # HO(heavy oscillation): (step:half2) (wd:0.25) 。。。。斜率配合MAE
@@ -455,6 +475,7 @@ class MyAssessor:
         self.info_dict["HO"] = []
         # self.ho_rule1()
         self.ho_rule2()
+        self.ho_rule_0904()
         self.info_dict["HO"] = self.info_dict["HO"] if len(self.info_dict["HO"]) != 0 else None
 
     def ho_rule1(self):
@@ -485,6 +506,25 @@ class MyAssessor:
         if mae > np.mean(sub_list) * self.dp.p_ho2:
             self.info_dict["HO"].append("ho_rule2")
 
+    def ho_rule_0904(self):
+        def rule_judge():
+            # 单次（最后一次）向上摆动超1/4
+            max_gap = (np.max(loss_list) - np.min(loss_list)) * p_ho3
+            if loss_list[-1] - loss_list[-2] > max_gap:
+                return True
+            return False
+
+        if self.enable_dict["loss"] is False:
+            return
+        if not self.if_in_stage("half2"):
+            return
+        p_ho3 = 0.25
+        for key in ["train_loss_list", "val_loss_list"]:
+            loss_list = np.array(self.result_dict[key])
+            if rule_judge():
+                self.info_dict["HO"].append("ho_rule_0904")
+                return
+
     def diagnose_nmg(self):
         # NG(no gain): (step:half2) (wd:0.25)
         # protect_top_loss: True
@@ -494,6 +534,7 @@ class MyAssessor:
         if self.if_train_loss_not_top(self.get_metric("train_loss")):  ######
             # self.nmg_rule1()
             self.nmg_rule2()
+        self.nmg_rule_0904()
         self.info_dict["NMG"] = self.info_dict["NMG"] if len(self.info_dict["NMG"]) != 0 else None
 
     def nmg_rule1(self):
@@ -515,8 +556,27 @@ class MyAssessor:
         if not self.if_in_stage("half2"):
             return
         train_loss_list = np.array(self.result_dict["train_loss_list"])
-        window_size = int(round(self.dp.wd_nmg * self.max_epoch)) +1 ###
+        window_size = int(round(self.dp.wd_nmg * self.max_epoch)) + 1  ###
         min_train_loss = np.min(train_loss_list)
         min_wd_train_loss = np.min(train_loss_list[-window_size:])
         if min_wd_train_loss - min_train_loss > min_train_loss * self.dp.p_nmg2:
             self.info_dict["NMG"].append("nmg_rule2")
+
+    def nmg_rule_0904(self):
+        def rule_judge():
+            sub_list = loss_list[-window_size:]
+            if sub_list[-1] > sub_list[0] or sub_list[-1] > loss_list[0]:
+                return True
+            return False
+
+        if self.enable_dict["loss"] is False:
+            return
+        if not self.if_in_stage("half2"):
+            return
+        thresh = 0.5
+        window_size = int(round(self.max_epoch * thresh)) + 1  ###
+        for key in ["train_loss_list", "val_loss_list"]:
+            loss_list = np.array(self.result_dict[key])
+            if rule_judge():
+                self.info_dict["NMG"].append("nmg_rule_0904")
+                return

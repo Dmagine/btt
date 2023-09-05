@@ -8,7 +8,7 @@ import torch.nn as nn
 from data_provider.data_factory import data_provider
 from exp.exp_basic import Exp_Basic
 from utils.metrics import metric
-from utils.tools import EarlyStopping, adjust_learning_rate
+from utils.tools import adjust_learning_rate
 
 warnings.filterwarnings('ignore')
 
@@ -105,7 +105,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         time_now = time.time()
 
         train_steps = len(train_loader)
-        early_stopping = EarlyStopping(patience=self.args.patience, verbose=True)
+        # early_stopping = EarlyStopping(patience=self.args.patience, verbose=True)
 
         model_optim = self._select_optimizer()
         criterion = self._select_criterion()
@@ -196,7 +196,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
             adjust_learning_rate(model_optim, epoch + 1, self.args)
 
-            self.manager.collect_after_training(None, {"train_data_train_loss": train_loss})
+            self.manager.collect_after_training(None, {"train_loss": train_loss, "train_data_train_loss": train_loss})
             self.manager.calculate_after_training()
             self.manager.collect_after_validating(None, {"val_data_train_loss": vali_loss})
             self.manager.report_intermediate_result()

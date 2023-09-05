@@ -506,13 +506,12 @@ class BttMonitor:
             self.rule_result_dict[rule_name] = rule_result
             return rule_result
 
-
-def collect_after_testing(self, acc=None, loss=None):
-    if if_enable(["test"]):
-        if if_enable(["acc"]) and acc is not None:
-            self.test_acc = acc
-        if if_enable(["loss"]) and loss is not None:
-            self.test_loss = loss
+    def collect_after_testing(self, acc=None, loss=None):
+        if if_enable(["test"]):
+            if if_enable(["acc"]) and acc is not None:
+                self.test_acc = acc
+            if if_enable(["loss"]) and loss is not None:
+                self.test_loss = loss
 
 
 if __name__ == '__main__':

@@ -98,7 +98,7 @@ if __name__ == '__main__':
     # dataset_name_list = ["ETTh1", "Traffic"]
     # hpo_name_list = ["Random", "SMAC", "Random_BTT", "SMAC_BTT"]
 
-    model_name_list = ["TimesNet"]
+    model_name_list = ["Transformer"]
     dataset_name_list = ["Traffic"]
     hpo_name_list = ["SMAC"]
 

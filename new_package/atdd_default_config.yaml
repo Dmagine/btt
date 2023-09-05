@@ -11,7 +11,7 @@ monitor:
   classArgs:
     report:
       intermediate_default: val_acc
-      final_default: val_acc
+      final_default: test_acc ## 超参数工具算"人" task结果都看final的default
 assessor:
   classArgs:
     basic:
@@ -34,7 +34,7 @@ assessor:
       p_dr2: -1
       p_dr3: -1 ### 相对
       p_sc1: -1
-      p_sc2: 0.01 ###0.1
+      p_sc2: 0.01 ###0.1 ->
       p_sc3: 0.9 ### 相对 ...
       p_ho1: -1
       p_ho2: 0.01 #

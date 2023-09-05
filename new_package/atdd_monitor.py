@@ -107,12 +107,12 @@ class ATDDMonitor:
                 return self.train_loss_list[-1]
 
     def get_final_default_metric_value(self):
-        if if_enable(["test"]) and "test" in self.intermediate_default:
-            if if_enable(["acc"]) and "acc" in self.intermediate_default:
+        if if_enable(["test"]) and "test" in self.final_default:
+            if if_enable(["acc"]) and "acc" in self.final_default:
                 return self.test_acc
-            if if_enable(["loss"]) and "loss" in self.intermediate_default:
+            if if_enable(["loss"]) and "loss" in self.final_default:
                 return self.test_loss
-            # not fit for self.intermediate_default
+            # not fit for self.final_default
             if if_enable(["acc"]):
                 return self.test_acc
             if if_enable(["loss"]):
@@ -397,11 +397,26 @@ class ATDDMonitor:
                 break  # only calculate the first weight
         self.batch_idx += 1
 
+    def get_loss_value_from_dict(self, loss):
+        if type(loss) == dict:
+            loss_dict = loss
+            key_list = ["default", "loss"]
+            key_list += ["test_loss", "test_data_mse", "test_data_train_loss"]
+            key_list += ["val_loss", "val_data_mse", "val_data_train_loss"]
+            key_list += ["train_loss", "train_data_mse", "train_data_train_loss"]
+            for key in key_list:
+                if key in loss_dict:
+                    return loss_dict[key]
+            return loss_dict[list(loss_dict.keys())[0]]
+        else:
+            return loss
+
     def collect_after_training(self, acc=None, loss=None):
         if if_enable(["acc"]) and acc is not None:
             self.train_acc_list = [] if self.train_acc_list is None else self.train_acc_list
             self.train_acc_list.append(acc)
         if if_enable(["loss"]) and loss is not None:
+            loss = self.get_loss_value_from_dict(loss)
             self.train_loss_list = [] if self.train_loss_list is None else self.train_loss_list
             self.train_loss_list.append(loss)
 
@@ -423,6 +438,7 @@ class ATDDMonitor:
                 self.val_acc_list = [] if self.val_acc_list is None else self.val_acc_list
                 self.val_acc_list.append(acc)
             if if_enable(["loss"]) and loss is not None:
+                loss = self.get_loss_value_from_dict(loss)
                 self.val_loss_list = [] if self.val_loss_list is None else self.val_loss_list
                 self.val_loss_list.append(loss)
 
@@ -431,6 +447,7 @@ class ATDDMonitor:
             if if_enable(["acc"]) and acc is not None:
                 self.test_acc = acc
             if if_enable(["loss"]) and loss is not None:
+                loss = self.get_loss_value_from_dict(loss)
                 self.test_loss = loss
 
 
