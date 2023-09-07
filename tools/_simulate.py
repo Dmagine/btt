@@ -66,7 +66,7 @@ def get_default_metric_list(sqlite_path, data_limit):
 
 overview_pie_name_list = ["healthy", "NMG", "ill"]
 symptom_pie_name_list = ["EG", "VG", "DR", "SC", "HO", "NMG"]  # "NMG" is "symptom" not "ill"
-rule_pie_name_list = ["eg_rule1", "eg_rule2", "eg_rule3",
+rule_pie_name_list = ["eg_rule1", "eg_rule2", "eg_rule3_0905",
                       "vg_rule1", "vg_rule2", "vg_rule3", "vg_rule4",
                       "dr_rule1", "dr_rule2", "dr_rule3",
                       "sc_rule1", "sc_rule2", "sc_rule3",

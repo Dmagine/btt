@@ -1,4 +1,5 @@
 import os
+import pickle
 import sqlite3
 
 import numpy as np
@@ -18,27 +19,96 @@ def get_sqlite_path_list(model_name, dataset_name, hpo_name):
     return sqlite_path_list
 
 
-def get_specific_final_metric_list(sqlite_path, metric_name="test_data_mse", ):
-    conn = sqlite3.connect(sqlite_path)
-    cur = conn.cursor()
-    sql = "SELECT * FROM MetricData WHERE type='FINAL' "
-    cur.execute(sql)
-    values = cur.fetchall()
-    id_mse_dict = {}
-    for i in range(len(values)):
-        trial_id = values[i][1]
-        d = yaml.load(eval(values[i][5]), Loader=yaml.FullLoader)
-        val = float(d["test_data_mse"])
-        id_mse_dict[trial_id] = val
-    metric_list = list(id_mse_dict.values())
-    return metric_list
+def get_val(d, k):
+    if k == "test_loss":
+        for k in ["test_data_mse", "test_loss", "default"]:
+            if k in d:
+                return float(d[k])
+        raise ValueError("no test_loss")
+    elif k == "val_loss":
+        for k in ["val_data_train_loss", "val_loss"]:
+            if k in d:
+                return float(d[k])
+        raise ValueError("no val_loss")
+    elif k == "train_loss":
+        for k in ["train_data_train_loss", "train_loss", "default"]:
+            if k in d:
+                return float(d[k])
+        raise ValueError("no train_loss")
+    else:
+        raise ValueError("k should be test_loss, val_loss or train_loss")
+
+
+def get_periodical_dict(sqlite_path):
+    # 1 get values from pickle or 2 load from sqlite and save values to pickle
+    pkl_path = sqlite_path.replace("nni.sqlite", "periodical_dict.pkl")
+    if os.path.exists(pkl_path):
+        with open(pkl_path, "rb") as f:
+            d = pickle.load(f)
+            return d
+    else:
+        conn = sqlite3.connect(sqlite_path)
+        cur = conn.cursor()
+        sql = "SELECT * FROM MetricData WHERE type='PERIODICAL' "
+        cur.execute(sql)
+        values = cur.fetchall()
+        for i in range(len(values)):
+            values[i] = list(values[i])
+            values[i][5] = yaml.load(eval(values[i][5]), Loader=yaml.FullLoader)
+        with open(pkl_path, "wb") as f:
+            pickle.dump(values, f)
+        return values
+
+
+def get_final_dict(sqlite_path):
+    pkl_path = sqlite_path.replace("nni.sqlite", "final_dict.pkl")
+    if os.path.exists(pkl_path):
+        with open(pkl_path, "rb") as f:
+            d = pickle.load(f)
+            return d
+    else:
+        conn = sqlite3.connect(sqlite_path)
+        cur = conn.cursor()
+        sql = "SELECT * FROM MetricData WHERE type='FINAL' "
+        cur.execute(sql)
+        values = list(cur.fetchall())
+        for i in range(len(values)):
+            values[i] = list(values[i])
+            values[i][5] = yaml.load(eval(values[i][5]), Loader=yaml.FullLoader)
+        with open(pkl_path, "wb") as f:
+            pickle.dump(values, f)
+        return values
+
+
+def get_specific_last_period_metric_dict(sqlite_path, key="test_loss"):
+    max_nb_epoch = 20
+    d = get_periodical_dict(sqlite_path)
+    id_epoch_dict = {}  # last epoch idx 19
+    rd = {}
+    for i in range(len(d)):
+        trial_id = d[i][1]
+        if trial_id not in id_epoch_dict:
+            id_epoch_dict[trial_id] = 0
+        id_epoch_dict[trial_id] += 1
+        if id_epoch_dict[trial_id] == max_nb_epoch - 1:
+            rd[trial_id] = get_val(d[i][5], key)
+    return rd
+
+
+def get_specific_final_metric_dict(sqlite_path, key="test_loss"):
+    d = get_final_dict(sqlite_path)
+    rd = {}
+    for i in range(len(d)):
+        trial_id = d[i][1]
+        rd[trial_id] = get_val(d[i][5], key)
+    return rd
 
 
 def calc_top(model_name, dataset_name, hpo_name, top_n, return_mode):
     sqlite_path_list = get_sqlite_path_list(model_name, dataset_name, hpo_name)
     multi_trial_metric_list = []
     for sqlite_path in sqlite_path_list:
-        single_trial_metric_list = get_specific_final_metric_list(sqlite_path)
+        single_trial_metric_list = list(get_specific_final_metric_dict(sqlite_path).values())
         multi_trial_metric_list.append(np.mean(sorted(single_trial_metric_list)[:top_n]))
     if return_mode == "raw":
         r = multi_trial_metric_list
@@ -53,26 +123,29 @@ def calc_top(model_name, dataset_name, hpo_name, top_n, return_mode):
 
 
 def calc_tophitrate(model_name, dataset_name, hpo_name, top_n):
-    hpo_name1, hpo_name2 = hpo_name.replace("_BTT", ""), hpo_name
+    hpo_name1, hpo_name2 = hpo_name.replace("-BTT", ""), hpo_name
     sqlite_path_list1 = get_sqlite_path_list(model_name, dataset_name, hpo_name1)
     sqlite_path_list2 = get_sqlite_path_list(model_name, dataset_name, hpo_name2)
 
     path_list_dict = {}
     for sqlite_path in sqlite_path_list1 + sqlite_path_list2:
-        path_list_dict[sqlite_path] = get_specific_final_metric_list(sqlite_path)  ## no top_n
+        path_list_dict[sqlite_path] = get_specific_final_metric_dict(sqlite_path)  ## no top_n
 
+    r_list = []
     for sqlite_path1 in sqlite_path_list1:
         for sqlite_path2 in sqlite_path_list2:
             single_trial_metric_list1 = path_list_dict[sqlite_path1]
             single_trial_metric_list2 = path_list_dict[sqlite_path2]
-            metric_list = (single_trial_metric_list1 + single_trial_metric_list2)[:top_n]
+            metric_list = sorted(single_trial_metric_list1 + single_trial_metric_list2)[:top_n]
             count = 0
             for metric in metric_list:
-                if metric in single_trial_metric_list1:
+                if metric in single_trial_metric_list2:
                     count += 1
             r = count / top_n
-            print("calc_tophitrate:", r)
-            return r
+            r_list.append(r)
+    r = np.mean(r_list).round(3)
+    print("calc_tophitrate:", r)
+    return r
 
 
 def calc_tsba(model_name, dataset_name, hpo_name):
@@ -86,17 +159,48 @@ def calc_trial_num(model_name, dataset_name, hpo_name):
     sqlite_path_list = get_sqlite_path_list(model_name, dataset_name, hpo_name)
     trial_num_list = []
     for sqlite_path in sqlite_path_list:
-        lst = get_specific_final_metric_list(sqlite_path)
+        lst = get_specific_final_metric_dict(sqlite_path)
         trial_num_list.append(len(lst))
-    print(trial_num_list) # ???
+    print(trial_num_list)  # ???
     r = int(np.mean(trial_num_list))
-    print("calc_trial_num:", r)
+    std = int(np.std(trial_num_list))
+    s = "+-".join([str(r), str(std)])
+    print("calc_trial_num:", s)
+
+
+def calc_relation(model_name, dataset_name, hpo_name, top_n=None):
+    max_nb_epoch = 20
+    sqlite_path_list = get_sqlite_path_list(model_name, dataset_name, hpo_name)
+    # correlation ratio
+    test_train_e_list = []
+    test_val_e_list = []
+    for sqlite_path in sqlite_path_list:
+        train_loss_dict = get_specific_last_period_metric_dict(sqlite_path, key="train_loss")
+        val_loss_dict = get_specific_last_period_metric_dict(sqlite_path, key="val_loss")
+        test_loss_dict = get_specific_final_metric_dict(sqlite_path)
+        # top_n test_loss !!!
+        if top_n is not None:
+            test_loss_dict = dict(sorted(test_loss_dict.items(), key=lambda x: x[1])[:top_n])
+        id_list = list(set(test_loss_dict.keys()))
+        # change order in one line
+        train_loss_list = [train_loss_dict[id] for id in id_list]
+        val_loss_list = [val_loss_dict[id] for id in id_list]
+        test_loss_list = [test_loss_dict[id] for id in id_list]
+
+        test_train_e_list.append(np.corrcoef(test_loss_list, train_loss_list)[0][1])
+        test_val_e_list.append(np.corrcoef(test_loss_list, val_loss_list)[0][1])
+    test_train_e = np.mean(test_train_e_list).round(3)
+    test_val_e = np.mean(test_val_e_list).round(3)
+    print("calc_relation:", test_train_e, test_val_e)
 
 
 if __name__ == '__main__':
     # model_name_list = ["TimesNet", "Transformer"]
     # dataset_name_list = ["ETTh1", "Traffic"]
-    # hpo_name_list = ["Random", "SMAC", "Random_BTT", "SMAC_BTT"]
+    # hpo_name_list = ["Random", "SMAC", "Random-BTT", "SMAC-BTT"]
+    # Transformer	ETTh1	SMAC
+
+    # Transformer	ETTh1	Random-BTT
 
     model_name_list = ["Transformer"]
     dataset_name_list = ["Traffic"]
@@ -109,8 +213,11 @@ if __name__ == '__main__':
                 calc_top(model_name, dataset_name, hpo_name, 1, "best")
                 calc_top(model_name, dataset_name, hpo_name, 1, "avg")
                 calc_top(model_name, dataset_name, hpo_name, 10, "avg")
-                calc_trial_num(model_name, dataset_name, hpo_name)
                 if "-BTT" in hpo_name:
                     calc_tophitrate(model_name, dataset_name, hpo_name, 10)
-                    calc_tsba()
+                    # calc_tsba()
+                else:
+                    calc_relation(model_name, dataset_name, hpo_name, None)
+                    calc_relation(model_name, dataset_name, hpo_name, 10)
+                calc_trial_num(model_name, dataset_name, hpo_name)
                 print()

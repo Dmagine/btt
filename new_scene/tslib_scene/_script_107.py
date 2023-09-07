@@ -6,6 +6,9 @@ def main():
     hour = 6  ####
     print()
     lst = ["./long_term_forcast/ETTh1/TimesNet/random_btt.yaml"] * repeat
+    lst += ["./long_term_forcast/Traffic/TimesNet/random_btt.yaml"] * repeat
+    lst += ["./long_term_forcast/ETTh1/Transformer/random_btt.yaml"] * repeat
+    lst += ["./long_term_forcast/Traffic/Transformer/random_btt.yaml"] * repeat
     tslib_script_run(lst, hour, log_dir="_script_log/")
 
 

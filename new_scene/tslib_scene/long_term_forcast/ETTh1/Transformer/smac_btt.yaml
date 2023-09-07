@@ -1,4 +1,4 @@
-experiment_name: "longterm_traffic_transformer+smac"
+experiment_name: "longterm_etth1_transformer+smac_btt"
 
 trial_command: python3 trial.py
 trial_code_directory: .
@@ -10,10 +10,24 @@ training_service:
   useActiveGpu: false
 trialGpuNumber: 1
 
-tuner:
-  name: smac
-  class_args:
-    optimize_mode: minimize
+advisor:
+  codeDirectory: ../../../../../new_package ###
+  className: atdd_advisor.ATDDAdvisor
+  classArgs:
+    shared:
+      max_epoch: 20
+      enable_dict:
+        acc: false
+    monitor:
+      classArgs:
+        report:
+          intermediate_default: val_loss
+          final_default: test_loss
+    tuner:
+      name: smac
+      class_args:
+        optimize_mode: minimize
+    assessor: default
 
 search_space:
   d_model:

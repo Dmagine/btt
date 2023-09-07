@@ -48,6 +48,8 @@ class MyAssessor:
         # finish -> first ????????????????????
         # idx -> epoch_idx
         self.epoch_train_loss_list_dict = {idx: [] for idx in range(self.max_epoch)}
+        self.epoch_val_loss_list_dict = {idx: [] for idx in range(self.max_epoch)}
+        self.epoch_test_loss_list_dict = {idx: [] for idx in range(self.max_epoch)}
         self.epoch_vg_metric_list_dict = {idx: [] for idx in range(self.max_epoch)}
         self.epoch_dr_metric_list_dict = {idx: [] for idx in range(self.max_epoch)}
         self.protect_id_set = set()
@@ -128,8 +130,10 @@ class MyAssessor:
         pass
 
     def get_metric(self, metric_name):
-        if metric_name == "train_loss":
-            return self.result_dict["train_loss"] if type(self.result_dict["train_loss"]) is float else None
+        # if metric_name == "train_loss":
+        #     return self.result_dict["train_loss"] if type(self.result_dict["train_loss"]) is float else None
+        if metric_name == "val_loss":
+            return self.result_dict["val_loss"] if type(self.result_dict["val_loss"]) is float else None
         if metric_name == "median_grad_abs_avg":
             lst = self.weight_grad_abs_avg_1da
             return np.median(lst) if type(lst[0]) is np.float64 else None
@@ -143,6 +147,15 @@ class MyAssessor:
         train_loss = self.get_metric("train_loss")
         if train_loss is not None:
             self.epoch_train_loss_list_dict[self.epoch_idx].append(train_loss)
+        # val_loss
+        val_loss = self.get_metric("val_loss")
+        if val_loss is not None:
+            self.epoch_val_loss_list_dict[self.epoch_idx].append(val_loss)
+        # test_loss
+        test_loss = self.get_metric("test_loss")
+        if test_loss is not None:
+            self.epoch_test_loss_list_dict[self.epoch_idx].append(test_loss)
+
         # median_grad_abs_avg
         median_grad_abs_avg = self.get_metric("median_grad_abs_avg")
         if median_grad_abs_avg is not None:
@@ -189,23 +202,35 @@ class MyAssessor:
         #       len(self.module_nele_list), len(self.module_name_list))
         # print(self.trial_id, self.module_name_list)
 
-    def if_train_loss_not_top(self, train_loss):
+    def if_all_loss_not_top(self):  # not_top全True即满足条件，后续trial会被筛选
+        def if_loss_top(key):
+            loss = self.get_metric(key)
+            if loss is None:
+                return False
+            epoch_loss_list_dict = None
+            if key == "train_loss":
+                epoch_loss_list_dict = self.epoch_train_loss_list_dict
+            elif key == "val_loss":
+                epoch_loss_list_dict = self.epoch_val_loss_list_dict
+            elif key == "test_loss":
+                epoch_loss_list_dict = self.epoch_test_loss_list_dict
+            global_loss_list = epoch_loss_list_dict[self.epoch_idx]
+            if len(global_loss_list) < self.min_cmp_num:
+                return False  # 少也是top? 但是为了快速启动 认为不top
+            loss_t = np.percentile(global_loss_list, self.cmp_percent)  # idx越大loss越大
+            return loss < loss_t
+
         ##### 保护???????
         if self.trial_id in self.protect_id_set:
             return False
 
-        _train_loss_list = self.epoch_train_loss_list_dict[self.epoch_idx]  ####
-        if len(_train_loss_list) < self.min_cmp_num:
-            return True  ####???/yuan true
-        # print("global_loss_list:", global_loss_list)
-        train_loss_t = np.percentile(_train_loss_list, self.cmp_percent)  # idx越大val越大
-        # print("train_loss_t:", train_loss_t, "train_loss:", train_loss)
-
-        if train_loss > train_loss_t:
-            return True
-        else:  # loss 比较小 保护
+        top_flag_list = []
+        for key in ["train_loss", "val_loss", "test_loss"]:
+            top_flag_list.append(if_loss_top(key))
+        if True in top_flag_list:
             self.protect_id_set.add(self.trial_id)
             return False
+        return True
 
     def if_in_stage(self, stage_name):
         if stage_name == "half1":
@@ -235,13 +260,13 @@ class MyAssessor:
         # eg_rule0: any(has_nan or has_inf)
         # eg_rule1: max(grad_abs_ave) > p_eg1 ||| (p_eg1:10)
         # eg_rule2: max(adjacent_quotient) > p_eg2 ||| (p_eg2:1000)
-        # eg_rule3: train_loss >= cmp_median_train_loss * p_eg3 ||| (p_eg3:10)
+        # eg_rule3_0905: train_loss >= cmp_median_train_loss * p_eg3 ||| (p_eg3:10)
         self.info_dict["EG"] = [] if self.info_dict["EG"] is None else self.info_dict["EG"]  # rule 0
         # self.eg_rule0()
         if not self.has_nan_inf:
             self.eg_rule1()
             self.eg_rule2()
-            self.eg_rule3()
+            self.eg_rule3_0905()
         self.info_dict["EG"] = self.info_dict["EG"] if len(self.info_dict["EG"]) != 0 else None
 
     def eg_rule0(self):
@@ -279,19 +304,21 @@ class MyAssessor:
         if symptom_flag:
             self.info_dict["EG"].append("eg_rule2")
 
-    def eg_rule3(self):
+    def eg_rule3_0905(self):
         if not self.if_in_stage("half1"):
             return
         symptom_flag = False
-        last_train_loss = self.result_dict["train_loss"]
-        _train_loss_list = self.epoch_train_loss_list_dict[self.epoch_idx]
-        if len(_train_loss_list) < self.min_cmp_num:
+        _val_loss_list = self.epoch_val_loss_list_dict[self.epoch_idx]
+        if len(_val_loss_list) < self.min_cmp_num:
             return
-        median_global_train_loss = np.median(_train_loss_list)
-        if last_train_loss > median_global_train_loss * self.dp.p_eg3:
-            symptom_flag = True
+        median_global_val_loss = np.median(_val_loss_list)
+        for key in ["train_loss", "val_loss"]:
+            if type(self.result_dict[key]) is not float:
+                symptom_flag = True
+            elif self.result_dict[key] > median_global_val_loss * self.dp.p_eg3:
+                symptom_flag = True
         if symptom_flag:
-            self.info_dict["EG"].append("eg_rule3")
+            self.info_dict["EG"].append("eg_rule3_0905")
 
     def diagnose_vg(self):
         # VG: (step:half1)
@@ -301,7 +328,7 @@ class MyAssessor:
         # vg_rule3: mean(abs_delta_train_loss) < train_loss[0] * p_vg3 ||| (p_vg3:0.001) 逻辑已修改！！！！！！!!!!!!!!!!!
         # vg_rule4: enough(cmp_num) && percent(global_vg_metric_list) < p_vg4 ||| (p_vg4:0.1) 新加入！！！！！
         self.info_dict["VG"] = []
-        if self.if_train_loss_not_top(self.get_metric("train_loss")):
+        if self.if_all_loss_not_top():
             # self.vg_rule1()
             self.vg_rule2()
             self.vg_rule3()
@@ -364,7 +391,7 @@ class MyAssessor:
         # dr_rule2: weighted_mean(rate0) > p_dr2 ||| (p_dr2:0.5) 。。。同质，考虑取消
         # dr_rule3: enough(cmp_num) && percent(global_median_rate0) > p_dr3 ||| (p_dr3:0.9) 新加入！！！！！
         self.info_dict["DR"] = []
-        if self.if_train_loss_not_top(self.get_metric("train_loss")):
+        if self.if_all_loss_not_top():
             self.dr_rule1()
             # self.dr_rule2()
             # self.dr_rule3()  # 影响 traffic
@@ -408,11 +435,11 @@ class MyAssessor:
         # sc_rule2: (loss[-1]-loss[0]) / loss[0] > p_sc2 ||| (p_sc2:0) 已经改逻辑，只检测比初始还差的
         # sc_rule3: percentile(loss) < p_sc3 * 100 ||| (p_sc3:0.5) ...新增，为了三角
         self.info_dict["SC"] = []
-        if self.if_train_loss_not_top(self.get_metric("train_loss")):  #######
+        if self.if_all_loss_not_top():
             # self.sc_rule1()
             self.sc_rule2()
             # self.sc_rule3()  ####### !!!!!!!!!!!!!!!!!!!!!!!!!
-        self.sc_rule_0904()
+            self.sc_rule_0904()
         self.info_dict["SC"] = self.info_dict["SC"] if len(self.info_dict["SC"]) != 0 else None
 
     def sc_rule1(self):
@@ -443,7 +470,7 @@ class MyAssessor:
             return
         # if self.epoch_idx not in self.half1_cmp_step_list:
         #     return
-        _train_loss_list = self.epoch_train_loss_list_dict[self.epoch_idx]
+        _train_loss_list = self.epoch_val_loss_list_dict[self.epoch_idx]
         if len(_train_loss_list) < self.min_cmp_num:
             return
         window_size = 5
@@ -474,8 +501,9 @@ class MyAssessor:
         # ho_rule2: MAE(loss[-wd:] - line(loss[-wd:])) > mean(loss[-wd:]) * p_ho2  ||| (p_ho2:0.1) 已经改逻辑，有待验证
         self.info_dict["HO"] = []
         # self.ho_rule1()
-        self.ho_rule2()
-        self.ho_rule_0904()
+        if self.if_all_loss_not_top():
+            self.ho_rule2()
+            self.ho_rule_0904()
         self.info_dict["HO"] = self.info_dict["HO"] if len(self.info_dict["HO"]) != 0 else None
 
     def ho_rule1(self):
@@ -531,10 +559,10 @@ class MyAssessor:
         # nmg_rule1: max(acc[-wd:]) != max(acc) 。。。同质acc混，考虑取消
         # nmg_rule2: min(loss[-wd:]) - min(loss) > min(loss) * p_ng2 ||| (p_ng2:0.1) 已经改逻辑，有待验证，魔法数
         self.info_dict["NMG"] = []
-        if self.if_train_loss_not_top(self.get_metric("train_loss")):  ######
+        if self.if_all_loss_not_top():
             # self.nmg_rule1()
             self.nmg_rule2()
-        self.nmg_rule_0904()
+            self.nmg_rule_0904()
         self.info_dict["NMG"] = self.info_dict["NMG"] if len(self.info_dict["NMG"]) != 0 else None
 
     def nmg_rule1(self):
