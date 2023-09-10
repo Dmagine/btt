@@ -15,8 +15,8 @@ monitor:
 assessor:
   classArgs:
     basic:
-      start_step_float: 0.0
-      end_step_float: 0.5
+      start_step_float: 0.25 ###
+      end_step_float: 0.9 ###
       symptom_name_list: [ "VG","EG","DR","SC","HO","NMG" ]
     compare:
       cmp_mode: minimize

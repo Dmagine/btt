@@ -1,0 +1,41 @@
+experiment_name: "longterm_etth1_transformer+smac_lce"
+
+trial_command: python3 trial.py
+trial_code_directory: .
+
+trial_concurrency: 4
+maxExperimentDuration: 6h ####
+training_service:
+  platform: local
+  useActiveGpu: false
+trialGpuNumber: 1
+
+tuner:
+  name: smac
+  class_args:
+    optimize_mode: minimize
+assessor:
+  name: curvefitting
+  class_args:
+    epoch_num: 20
+    start_step: 5
+
+search_space:
+  d_model:
+    _type: choice
+    _value: [ 256,512 ]
+  d_ff:
+    _type: choice
+    _value: [ 1024,2048 ]
+  learning_rate:
+    _type: choice
+    _value: [ 0.00001,0.00003,0.0001,0.0003,0.001,0.003,0.01,0.03,0.1 ]
+  gamma: # ExponentialLR gamma
+    _type: choice
+    _value: [ 0.1,0.5,0.9 ]
+  weight_decay:
+    _type: choice
+    _value: [ 0,0.01,0.001 ]
+  seq_len:
+    _type: choice
+    _value: [ 96,192,336,720 ]

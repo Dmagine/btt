@@ -86,7 +86,9 @@ class MyAssessor:
         self.info_dict = self.get_default_info_dict()
         self.receive_monitor_result()
 
-        self.diagnose_symptom()
+        step = len(self.result_dict_list)
+        if self.start_step_float * self.max_epoch <= step < self.end_step_float * self.max_epoch:
+            self.diagnose_symptom()
         return self.assess_trial_end()
 
     def get_default_info_dict(self):

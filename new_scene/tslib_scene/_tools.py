@@ -81,7 +81,6 @@ def get_final_dict(sqlite_path):
 
 
 def get_specific_last_period_metric_dict(sqlite_path, key="test_loss"):
-    max_nb_epoch = 20
     d = get_periodical_dict(sqlite_path)
     id_epoch_dict = {}  # last epoch idx 19
     rd = {}
@@ -90,8 +89,7 @@ def get_specific_last_period_metric_dict(sqlite_path, key="test_loss"):
         if trial_id not in id_epoch_dict:
             id_epoch_dict[trial_id] = 0
         id_epoch_dict[trial_id] += 1
-        if id_epoch_dict[trial_id] == max_nb_epoch - 1:
-            rd[trial_id] = get_val(d[i][5], key)
+        rd[trial_id] = get_val(d[i][5], key)  # 覆盖
     return rd
 
 
@@ -123,13 +121,15 @@ def calc_top(model_name, dataset_name, hpo_name, top_n, return_mode):
 
 
 def calc_tophitrate(model_name, dataset_name, hpo_name, top_n):
+    if is_baseline(hpo_name):
+        return ""
     hpo_name1, hpo_name2 = hpo_name.replace("-BTT", ""), hpo_name
     sqlite_path_list1 = get_sqlite_path_list(model_name, dataset_name, hpo_name1)
     sqlite_path_list2 = get_sqlite_path_list(model_name, dataset_name, hpo_name2)
 
     path_list_dict = {}
     for sqlite_path in sqlite_path_list1 + sqlite_path_list2:
-        path_list_dict[sqlite_path] = get_specific_final_metric_dict(sqlite_path)  ## no top_n
+        path_list_dict[sqlite_path] = list(get_specific_final_metric_dict(sqlite_path).values())  ## no top_n
 
     r_list = []
     for sqlite_path1 in sqlite_path_list1:
@@ -149,10 +149,12 @@ def calc_tophitrate(model_name, dataset_name, hpo_name, top_n):
 
 
 def calc_tsba(model_name, dataset_name, hpo_name):
-    hpo_name1, hpo_name2 = hpo_name.replace("_BTT", ""), hpo_name
+    if is_baseline(hpo_name):
+        return ""
+    hpo_name1, hpo_name2 = hpo_name.replace("-BTT", ""), hpo_name
     sqlite_path_list1 = get_sqlite_path_list(model_name, dataset_name, hpo_name1)
     sqlite_path_list2 = get_sqlite_path_list(model_name, dataset_name, hpo_name2)
-    pass
+    return ""
 
 
 def calc_trial_num(model_name, dataset_name, hpo_name):
@@ -166,32 +168,29 @@ def calc_trial_num(model_name, dataset_name, hpo_name):
     std = int(np.std(trial_num_list))
     s = "+-".join([str(r), str(std)])
     print("calc_trial_num:", s)
+    return s
 
 
-def calc_relation(model_name, dataset_name, hpo_name, top_n=None):
-    max_nb_epoch = 20
+def calc_relation(model_name, dataset_name, hpo_name, loss="train_loss", top_n=None):
     sqlite_path_list = get_sqlite_path_list(model_name, dataset_name, hpo_name)
-    # correlation ratio
-    test_train_e_list = []
-    test_val_e_list = []
+    e_list = []
     for sqlite_path in sqlite_path_list:
-        train_loss_dict = get_specific_last_period_metric_dict(sqlite_path, key="train_loss")
-        val_loss_dict = get_specific_last_period_metric_dict(sqlite_path, key="val_loss")
         test_loss_dict = get_specific_final_metric_dict(sqlite_path)
-        # top_n test_loss !!!
         if top_n is not None:
             test_loss_dict = dict(sorted(test_loss_dict.items(), key=lambda x: x[1])[:top_n])
         id_list = list(set(test_loss_dict.keys()))
-        # change order in one line
-        train_loss_list = [train_loss_dict[id] for id in id_list]
-        val_loss_list = [val_loss_dict[id] for id in id_list]
         test_loss_list = [test_loss_dict[id] for id in id_list]
 
-        test_train_e_list.append(np.corrcoef(test_loss_list, train_loss_list)[0][1])
-        test_val_e_list.append(np.corrcoef(test_loss_list, val_loss_list)[0][1])
-    test_train_e = np.mean(test_train_e_list).round(3)
-    test_val_e = np.mean(test_val_e_list).round(3)
-    print("calc_relation:", test_train_e, test_val_e)
+        _loss_dict = get_specific_last_period_metric_dict(sqlite_path, key=loss)
+        _loss_list = [_loss_dict[id] for id in id_list]
+        e_list.append(np.corrcoef(test_loss_list, _loss_list)[0][1])
+    e = np.mean(e_list).round(1)
+    print("calc_relation:", e)
+    return e
+
+
+def is_baseline(hpo_name):
+    return hpo_name in ["Random", "SMAC"]
 
 
 if __name__ == '__main__':
@@ -203,21 +202,27 @@ if __name__ == '__main__':
     # Transformer	ETTh1	Random-BTT
 
     model_name_list = ["Transformer"]
-    dataset_name_list = ["Traffic"]
-    hpo_name_list = ["SMAC"]
+    dataset_name_list = ["ETTh1"]
+    hpo_name_list = ["Random-BTT", "SMAC-BTT"]
 
     for model_name in model_name_list:
         for dataset_name in dataset_name_list:
             for hpo_name in hpo_name_list:
                 print(model_name, dataset_name, hpo_name)
-                calc_top(model_name, dataset_name, hpo_name, 1, "best")
-                calc_top(model_name, dataset_name, hpo_name, 1, "avg")
-                calc_top(model_name, dataset_name, hpo_name, 10, "avg")
-                if "-BTT" in hpo_name:
-                    calc_tophitrate(model_name, dataset_name, hpo_name, 10)
-                    # calc_tsba()
-                else:
-                    calc_relation(model_name, dataset_name, hpo_name, None)
-                    calc_relation(model_name, dataset_name, hpo_name, 10)
-                calc_trial_num(model_name, dataset_name, hpo_name)
+                r = list()
+                r.append(calc_top(model_name, dataset_name, hpo_name, 1, "best"))
+                r.append(calc_top(model_name, dataset_name, hpo_name, 1, "avg"))
+                r.append(calc_top(model_name, dataset_name, hpo_name, 10, "avg"))
+
+                r.append(calc_tophitrate(model_name, dataset_name, hpo_name, 10))
+                r.append(calc_tsba(model_name, dataset_name, hpo_name))
+
+                r.append(calc_trial_num(model_name, dataset_name, hpo_name))
+
+                r.append(calc_relation(model_name, dataset_name, hpo_name, "train_loss", None))
+                r.append(calc_relation(model_name, dataset_name, hpo_name, "val_loss", None))
+                r.append(calc_relation(model_name, dataset_name, hpo_name, "train_loss", 10))
+                r.append(calc_relation(model_name, dataset_name, hpo_name, "val_loss", 10))
+                s = "\t".join([str(i) for i in r])
+                print(s)
                 print()
