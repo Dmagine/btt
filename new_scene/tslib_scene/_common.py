@@ -13,7 +13,7 @@ def tslib_script_run(lst, hour, log_dir=None):
 
         res = os.system("ps -ef | grep cenzhiy+ | " +
                         "grep python3 | grep trial.py | " +  # 条件 trial_command
-                        "grep " + str(__file__.split("/")[-1]) + " | " +  # 反过滤 _script_tslib.py
+                        "grep -v _script | " +  # 反过滤 _script
                         "grep -v grep | grep -v _script | grep -v view | " +  # trial_command
                         "awk '{print $2}' | xargs kill -9")
         if i != 0:

@@ -82,14 +82,10 @@ def get_final_dict(sqlite_path):
 
 def get_specific_last_period_metric_dict(sqlite_path, key="test_loss"):
     d = get_periodical_dict(sqlite_path)
-    id_epoch_dict = {}  # last epoch idx 19
     rd = {}
     for i in range(len(d)):
         trial_id = d[i][1]
-        if trial_id not in id_epoch_dict:
-            id_epoch_dict[trial_id] = 0
-        id_epoch_dict[trial_id] += 1
-        rd[trial_id] = get_val(d[i][5], key)  # 覆盖
+        rd[trial_id] = get_val(d[i][5], key) if key != "trial_id" else trial_id  # 覆盖
     return rd
 
 
@@ -123,7 +119,7 @@ def calc_top(model_name, dataset_name, hpo_name, top_n, return_mode):
 def calc_tophitrate(model_name, dataset_name, hpo_name, top_n):
     if is_baseline(hpo_name):
         return ""
-    hpo_name1, hpo_name2 = hpo_name.replace("-BTT", ""), hpo_name
+    hpo_name1, hpo_name2 = hpo_name.split("-")[0], hpo_name
     sqlite_path_list1 = get_sqlite_path_list(model_name, dataset_name, hpo_name1)
     sqlite_path_list2 = get_sqlite_path_list(model_name, dataset_name, hpo_name2)
 
@@ -161,7 +157,7 @@ def calc_trial_num(model_name, dataset_name, hpo_name):
     sqlite_path_list = get_sqlite_path_list(model_name, dataset_name, hpo_name)
     trial_num_list = []
     for sqlite_path in sqlite_path_list:
-        lst = get_specific_final_metric_dict(sqlite_path)
+        lst = get_specific_last_period_metric_dict(sqlite_path, key="trial_id")
         trial_num_list.append(len(lst))
     print(trial_num_list)  # ???
     r = int(np.mean(trial_num_list))
@@ -196,14 +192,14 @@ def is_baseline(hpo_name):
 if __name__ == '__main__':
     # model_name_list = ["TimesNet", "Transformer"]
     # dataset_name_list = ["ETTh1", "Traffic"]
-    # hpo_name_list = ["Random", "SMAC", "Random-BTT", "SMAC-BTT"]
+    # hpo_name_list = ["Random", "SMAC", "Random-BTT", "SMAC-BTT", "Random-MSR", "SMAC-MSR", "Random-LCE", "SMAC-LCE"]
     # Transformer	ETTh1	SMAC
 
     # Transformer	ETTh1	Random-BTT
 
-    model_name_list = ["Transformer"]
-    dataset_name_list = ["ETTh1"]
-    hpo_name_list = ["Random-BTT", "SMAC-BTT"]
+    model_name_list = ["TimesNet"]
+    dataset_name_list = ["Traffic"]
+    hpo_name_list = ["Random-LCE", "SMAC-LCE"]
 
     for model_name in model_name_list:
         for dataset_name in dataset_name_list:
