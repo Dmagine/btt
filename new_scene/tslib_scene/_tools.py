@@ -7,8 +7,7 @@ import yaml
 
 
 def get_sqlite_path_list(model_name, dataset_name, hpo_name):
-    # /Users/admin/Desktop/TSlib-exp/$model/$dataset/$hpo
-    exp_dir = "/Users/admin/Desktop/TSlib-exp/{}/{}/{}/".format(model_name, dataset_name, hpo_name)
+    exp_dir = "/Users/cenzhiyao/Desktop/TSlib-exp/{}/{}/{}/".format(model_name, dataset_name, hpo_name)
     # print("exp_dir:", exp_dir)
     sqlite_path_list = []
     for trial_id in os.listdir(exp_dir):
@@ -197,9 +196,9 @@ if __name__ == '__main__':
 
     # Transformer	ETTh1	Random-BTT
 
-    model_name_list = ["TimesNet"]
-    dataset_name_list = ["Traffic"]
-    hpo_name_list = ["Random-LCE", "SMAC-LCE"]
+    model_name_list = ["Transformer"]
+    dataset_name_list = ["ETTh1", "Traffic"]
+    hpo_name_list = ["Random-MSR", "SMAC-MSR", "Random-LCE", "SMAC-LCE"]
 
     for model_name in model_name_list:
         for dataset_name in dataset_name_list:
